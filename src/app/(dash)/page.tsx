@@ -1,0 +1,144 @@
+import Link from "next/link";
+import { requireUser } from "@/lib/auth";
+import { listLeads, metrics } from "@/lib/queries";
+import { LEAD_STATUSES } from "@/lib/types";
+import StatusPill from "./pill";
+
+export default async function Overview() {
+  const me = await requireUser();
+  const scope = me.role === "admin" ? null : me.id;
+
+  const [m, recent] = await Promise.all([
+    metrics(scope),
+    listLeads({ ownerId: scope, perPage: 8 }),
+  ]);
+  const load = me.role === "admin" ? m.load : [];
+
+  return (
+    <>
+      <div className="head">
+        <h1>Dashboard</h1>
+        <div className="spacer" />
+        <Link href="/leads" className="btn ghost">
+          View all leads
+        </Link>
+      </div>
+
+      <div className="stats">
+        <div className="stat">
+          <span>Total leads</span>
+          <b>{m.total}</b>
+        </div>
+        <div className="stat accent">
+          <span>New today</span>
+          <b>{m.today}</b>
+        </div>
+        <div className="stat">
+          <span>Open</span>
+          <b>
+            {(m.byStatus.new ?? 0) +
+              (m.byStatus.assigned ?? 0) +
+              (m.byStatus.contacted ?? 0) +
+              (m.byStatus.qualified ?? 0)}
+          </b>
+        </div>
+        <div className="stat">
+          <span>Overdue follow-up</span>
+          <b style={{ color: m.overdue ? "var(--err)" : undefined }}>{m.overdue}</b>
+        </div>
+        <div className="stat">
+          <span>Conversion</span>
+          <b>{m.conversion}%</b>
+        </div>
+      </div>
+
+      <div className="grid2">
+        <div className="card">
+          <h2>Recent leads</h2>
+          {recent.rows.length === 0 ? (
+            <p className="empty">No leads yet. They appear here the moment the website form is submitted.</p>
+          ) : (
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Contact</th>
+                  <th>Stage</th>
+                  <th>Owner</th>
+                  <th>Received</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.rows.map((l) => (
+                  <tr key={l.id}>
+                    <td data-l="Name">
+                      <Link href={`/leads/${l.id}`} className="name">
+                        {l.name || "(no name)"}
+                      </Link>
+                    </td>
+                    <td data-l="Contact">{l.email || l.phone || "—"}</td>
+                    <td data-l="Stage">
+                      <StatusPill status={l.status} />
+                    </td>
+                    <td data-l="Owner">{l.owner ?? "Unassigned"}</td>
+                    <td data-l="Received">{fmt(l.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div style={{ display: "grid", gap: 20 }}>
+          <div className="card">
+            <h2>Pipeline</h2>
+            <table className="kv">
+              <tbody>
+                {LEAD_STATUSES.map((s) => (
+                  <tr key={s.key}>
+                    <th>{s.label}</th>
+                    <td style={{ textAlign: "right", fontWeight: 600, color: "var(--ink)" }}>
+                      {m.byStatus[s.key] ?? 0}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {me.role === "admin" && (
+            <div className="card">
+              <h2>Team load</h2>
+              {load.length === 0 ? (
+                <p className="empty" style={{ padding: "18px 0" }}>
+                  No active sub-admins yet.
+                </p>
+              ) : (
+                <table className="kv">
+                  <tbody>
+                    {load.map((u) => (
+                      <tr key={u.id}>
+                        <th>{u.name}</th>
+                        <td style={{ textAlign: "right" }}>
+                          <strong style={{ color: "var(--ink)" }}>{Number(u.open_leads) || 0}</strong> open
+                          <span style={{ color: "var(--muted)" }}> · {Number(u.won) || 0} won</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function fmt(d: string) {
+  const dt = new Date(d.replace(" ", "T"));
+  return isNaN(dt.getTime())
+    ? d
+    : dt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
