@@ -100,6 +100,21 @@ export async function setUserStatus(id: number, status: "active" | "disabled") {
   await api.patch(`/users/${id}`, { status });
 }
 
+export async function updateSubadmin(
+  id: number,
+  patch: { name?: string; email?: string; capacity?: number }
+) {
+  await api.patch(`/users/${id}`, patch);
+}
+
+/** Deletes the account and spreads their leads across whoever is left. */
+export async function deleteSubadmin(id: number, actor: DashUser) {
+  return api.del<{ ok: boolean; reassigned: number; heirs: number; name: string }>(
+    `/users/${id}`,
+    { actor_id: actor.id, actor_name: actor.name }
+  );
+}
+
 /* ---------------- metrics ---------------- */
 
 export interface Metrics {

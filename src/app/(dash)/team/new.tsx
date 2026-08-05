@@ -27,6 +27,10 @@ export default function NewSubadmin() {
       <label className="f">
         <span>Capacity</span>
         <input type="number" name="capacity" min={0} defaultValue={0} />
+        <small style={{ color: "var(--muted)", fontSize: 12, display: "block", marginTop: 5 }}>
+          Most open leads they can hold at once. New leads skip them while they&rsquo;re at
+          this number. <strong>0 means no limit.</strong>
+        </small>
       </label>
 
       <button className="btn" disabled={pending} style={{ width: "100%", justifyContent: "center" }}>

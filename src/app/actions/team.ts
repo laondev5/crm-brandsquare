@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
-import { createSubadmin, setUserStatus } from "@/lib/queries";
+import { createSubadmin, setUserStatus, updateSubadmin, deleteSubadmin } from "@/lib/queries";
 import { sendInvite } from "@/lib/mailer";
 import { ApiError } from "@/lib/api";
 import type { FormState } from "./auth";
@@ -53,4 +53,54 @@ export async function setStatusAction(form: FormData) {
   // lockout is immediate rather than waiting for a token to lapse.
   await setUserStatus(id, status);
   revalidatePath("/team");
+}
+
+export async function updateSubadminAction(_prev: FormState, form: FormData): Promise<FormState> {
+  await requireRole("admin");
+  const id = Number(form.get("id"));
+  const name = String(form.get("name") ?? "").trim();
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
+  const capacity = Number(form.get("capacity") ?? 0) || 0;
+
+  if (!name) return { error: "Enter a name." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { error: "Enter a valid email address." };
+
+  try {
+    await updateSubadmin(id, { name, email, capacity });
+  } catch (e) {
+    if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
+    throw e;
+  }
+
+  revalidatePath("/team");
+  return { ok: `${name} updated.` };
+}
+
+export async function deleteSubadminAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const admin = await requireRole("admin");
+  const id = Number(form.get("id"));
+
+  if (id === admin.id) return { error: "You cannot delete your own account." };
+
+  let res;
+  try {
+    res = await deleteSubadmin(id, admin);
+  } catch (e) {
+    if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
+    throw e;
+  }
+
+  revalidatePath("/team");
+  revalidatePath("/leads");
+  revalidatePath("/");
+
+  const where = res.heirs
+    ? `shared evenly across the remaining ${res.heirs} sub-admin${res.heirs === 1 ? "" : "s"}`
+    : "moved to Unassigned — nobody else is active";
+
+  return {
+    ok: res.reassigned
+      ? `${res.name} removed. ${res.reassigned} lead${res.reassigned === 1 ? "" : "s"} ${where}.`
+      : `${res.name} removed. They had no leads.`,
+  };
 }

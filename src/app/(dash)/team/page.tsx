@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { listTeam } from "@/lib/queries";
-import { setStatusAction } from "../../actions/team";
 import NewSubadmin from "./new";
+import TeamRow from "./row";
 
 export default async function TeamPage() {
   const me = await currentUser();
@@ -27,38 +27,13 @@ export default async function TeamPage() {
                 <th style={{ width: 90 }}>Role</th>
                 <th style={{ width: 90 }}>Status</th>
                 <th style={{ width: 80 }}>Open</th>
-                <th style={{ width: 110 }}>Last login</th>
-                <th style={{ width: 100 }} />
+                <th style={{ width: 100 }}>Last login</th>
+                <th style={{ width: 240 }} />
               </tr>
             </thead>
             <tbody>
               {team.map((u) => (
-                <tr key={u.id}>
-                  <td data-l="Name" style={{ color: "var(--ink)", fontWeight: 600 }}>{u.name || "—"}</td>
-                  <td data-l="Email">{u.email}</td>
-                  <td data-l="Role">{u.role === "admin" ? "Admin" : "Sub-admin"}</td>
-                  <td data-l="Status">
-                    <span className={`pill s-${u.status}`}>{cap(u.status)}</span>
-                  </td>
-                  <td data-l="Open">{Number(u.open_leads) || 0}</td>
-                  <td data-l="Last login">{u.last_login_at ? fmt(u.last_login_at) : "Never"}</td>
-                  <td data-l="">
-                    {u.id !== me.id && u.role !== "admin" && (
-                      <form action={setStatusAction}>
-                        <input type="hidden" name="id" value={u.id} />
-                        <input
-                          type="hidden"
-                          name="status"
-                          value={u.status === "disabled" ? "active" : "disabled"}
-                        />
-                        <button className={`btn ${u.status === "disabled" ? "ghost" : "danger"}`}
-                                style={{ padding: "6px 12px", fontSize: 12 }}>
-                          {u.status === "disabled" ? "Enable" : "Disable"}
-                        </button>
-                      </form>
-                    )}
-                  </td>
-                </tr>
+                <TeamRow key={u.id} u={u} meId={me.id} />
               ))}
             </tbody>
           </table>
@@ -67,19 +42,13 @@ export default async function TeamPage() {
         <NewSubadmin />
       </div>
 
-      <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 16 }}>
-        Disabling someone ends every one of their sessions immediately and stops new leads being
-        assigned to them. Their existing leads stay put — reassign them from the lead page.
+      <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 16, maxWidth: 720 }}>
+        <strong>Disable</strong> ends every one of their sessions immediately and stops new
+        leads routing to them, but leaves their leads where they are — use it when someone is
+        away. <strong>Delete</strong> removes the account and shares their leads evenly across
+        the remaining active sub-admins, keeping each lead&rsquo;s status, notes and history
+        intact. If nobody else is active, the leads go to Unassigned rather than disappearing.
       </p>
     </>
   );
-}
-
-function cap(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function fmt(d: string) {
-  const dt = new Date(d.replace(" ", "T"));
-  return isNaN(dt.getTime()) ? d : dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }

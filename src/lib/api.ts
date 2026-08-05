@@ -82,6 +82,8 @@ export const api = {
     request<T>(path, { method: "POST", body: JSON.stringify(data ?? {}), params }),
   patch: <T>(path: string, data?: unknown, params?: Params) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(data ?? {}), params }),
+  del: <T>(path: string, data?: unknown, params?: Params) =>
+    request<T>(path, { method: "DELETE", body: JSON.stringify(data ?? {}), params }),
 };
 
 export async function ping() {
