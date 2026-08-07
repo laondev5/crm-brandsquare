@@ -1,6 +1,21 @@
 import "server-only";
 import { api } from "./api";
-import type { Activity, DashUser, LeadRow, Note, LeadStatus } from "./types";
+import type {
+  Activity,
+  AudiencePreview,
+  BulkImportResult,
+  BulkLeadRow,
+  Campaign,
+  CampaignDetail,
+  DashUser,
+  EmailBlocks,
+  EmailCampaignDetail,
+  EmailCampaignRow,
+  EmailSettings,
+  LeadRow,
+  Note,
+  LeadStatus,
+} from "./types";
 
 /**
  * Every read and write goes through the plugin's REST API. This file is the
@@ -15,6 +30,8 @@ export interface LeadFilter {
   /** A sub-admin's own id. Sent to the server, which puts it in the WHERE
    *  clause — scope is never a UI concern. */
   ownerId?: number | null;
+  /** Narrow to one campaign form. */
+  formId?: number | null;
   page?: number;
   perPage?: number;
 }
@@ -24,9 +41,27 @@ export async function listLeads(f: LeadFilter) {
     status: f.status,
     s: f.search,
     owner: f.ownerId ?? undefined,
+    form: f.formId ?? undefined,
     page: f.page ?? 1,
     per: f.perPage ?? 20,
   });
+}
+
+/* ---------------- campaigns ---------------- */
+
+export async function listCampaigns(page = 1, per = 20) {
+  return api.get<{ rows: Campaign[]; total: number; pages: number; page: number }>("/forms", {
+    page,
+    per,
+  });
+}
+
+export async function getCampaign(id: number) {
+  try {
+    return await api.get<CampaignDetail>(`/forms/${id}`);
+  } catch {
+    return null;
+  }
 }
 
 export async function getLeadFull(id: number, ownerId?: number | null) {
@@ -113,6 +148,97 @@ export async function deleteSubadmin(id: number, actor: DashUser) {
     `/users/${id}`,
     { actor_id: actor.id, actor_name: actor.name }
   );
+}
+
+/* ---------------- email marketing ---------------- */
+
+export async function getEmailSettings() {
+  return api.get<EmailSettings>("/email/settings");
+}
+
+export async function saveEmailSettings(patch: Partial<EmailSettings>) {
+  await api.patch("/email/settings", patch);
+}
+
+/**
+ * Reachable count, not raw lead count — the server excludes anyone
+ * unsubscribed or without an address, and de-duplicates repeat enquirers.
+ */
+export async function audiencePreview(opts: {
+  type: "all" | "form" | "selected";
+  formId?: number | null;
+  ids?: number[];
+  ownerId?: number | null;
+}) {
+  return api.get<AudiencePreview>("/email/audience", {
+    type: opts.type,
+    form: opts.formId ?? undefined,
+    ids: opts.ids?.length ? opts.ids.join(",") : undefined,
+    owner: opts.ownerId ?? undefined,
+  });
+}
+
+export async function listEmailCampaigns(page = 1, ownerId?: number | null) {
+  return api.get<{ rows: EmailCampaignRow[]; total: number; pages: number; page: number }>(
+    "/email/campaigns",
+    { page, per: 20, owner: ownerId ?? undefined }
+  );
+}
+
+export async function getEmailCampaign(id: number) {
+  try {
+    return await api.get<EmailCampaignDetail>(`/email/campaigns/${id}`);
+  } catch {
+    return null;
+  }
+}
+
+export async function createEmailCampaign(input: {
+  subject: string;
+  blocks: EmailBlocks;
+  audienceType: "all" | "form" | "selected";
+  formId?: number | null;
+  ids?: number[];
+  ownerId?: number | null;
+  send: boolean;
+  actor: DashUser;
+}) {
+  return api.post<{ id: number; audience: number; queued: number }>("/email/campaigns", {
+    subject: input.subject,
+    blocks: input.blocks,
+    audience_type: input.audienceType,
+    audience_form_id: input.formId ?? 0,
+    audience_ids: input.ids ?? [],
+    owner: input.ownerId ?? 0,
+    send: input.send,
+    actor_id: input.actor.id,
+    actor_name: input.actor.name,
+  });
+}
+
+/* ---------------- manual add / import ---------------- */
+
+/**
+ * Shared by a single manual add (one-row array) and a CSV/Excel import
+ * (many). ownerId set means "force every row to this sub-admin" — the only
+ * form self-assignment takes, since a sub-admin cannot hand a lead to anyone
+ * else.
+ */
+export async function bulkCreateLeads(input: {
+  rows: BulkLeadRow[];
+  formId?: number | null;
+  formName?: string;
+  selfAssignTo?: number | null;
+  actor: DashUser;
+}) {
+  return api.post<BulkImportResult>("/leads/bulk", {
+    rows: input.rows,
+    form_id: input.formId ?? 0,
+    form_name: input.formName ?? "",
+    self_assign_to: input.selfAssignTo ?? 0,
+    actor_id: input.actor.id,
+    actor_name: input.actor.name,
+  });
 }
 
 /* ---------------- metrics ---------------- */

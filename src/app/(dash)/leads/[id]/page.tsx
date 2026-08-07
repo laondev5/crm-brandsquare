@@ -51,6 +51,25 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
                   </tr>
                 ))}
                 <tr>
+                  <th>Campaign</th>
+                  <td>
+                    {lead.form_name ? (
+                      me.role === "admin" && lead.form_id ? (
+                        <Link
+                          href={`/campaigns/${lead.form_id}`}
+                          style={{ color: "var(--p)", fontWeight: 600 }}
+                        >
+                          {lead.form_name}
+                        </Link>
+                      ) : (
+                        lead.form_name
+                      )
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+                <tr>
                   <th>Source page</th>
                   <td>
                     {lead.source_url ? (

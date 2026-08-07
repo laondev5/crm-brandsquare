@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { listLeads, metrics } from "@/lib/queries";
+import { listCampaigns, listLeads, metrics } from "@/lib/queries";
 import { LEAD_STATUSES } from "@/lib/types";
 import StatusPill from "./pill";
 
@@ -8,11 +8,15 @@ export default async function Overview() {
   const me = await requireUser();
   const scope = me.role === "admin" ? null : me.id;
 
-  const [m, recent] = await Promise.all([
+  const [m, recent, campaigns] = await Promise.all([
     metrics(scope),
     listLeads({ ownerId: scope, perPage: 8 }),
+    me.role === "admin"
+      ? listCampaigns(1, 100).then((r) => r.rows).catch(() => [])
+      : Promise.resolve([]),
   ]);
   const load = me.role === "admin" ? m.load : [];
+  const topCampaigns = [...campaigns].sort((a, b) => b.leads - a.leads).slice(0, 5);
 
   return (
     <>
@@ -63,6 +67,7 @@ export default async function Overview() {
                 <tr>
                   <th>Name</th>
                   <th>Contact</th>
+                  <th>Campaign</th>
                   <th>Stage</th>
                   <th>Owner</th>
                   <th>Received</th>
@@ -77,6 +82,9 @@ export default async function Overview() {
                       </Link>
                     </td>
                     <td data-l="Contact">{l.email || l.phone || "—"}</td>
+                    <td data-l="Campaign">
+                      {l.form_name ?? <span style={{ color: "var(--muted)" }}>—</span>}
+                    </td>
                     <td data-l="Stage">
                       <StatusPill status={l.status} />
                     </td>
@@ -105,6 +113,37 @@ export default async function Overview() {
               </tbody>
             </table>
           </div>
+
+          {me.role === "admin" && (
+            <div className="card">
+              <h2>Top campaigns</h2>
+              {topCampaigns.length === 0 ? (
+                <p className="empty" style={{ padding: "18px 0" }}>
+                  No campaign forms yet.
+                </p>
+              ) : (
+                <table className="kv">
+                  <tbody>
+                    {topCampaigns.map((c) => (
+                      <tr key={c.id}>
+                        <th>
+                          <Link href={`/campaigns/${c.id}`} style={{ color: "var(--ink)" }}>
+                            {c.name}
+                          </Link>
+                        </th>
+                        <td style={{ textAlign: "right" }}>
+                          <strong style={{ color: "var(--ink)" }}>{c.leads}</strong> leads
+                          {c.leads > 0 && (
+                            <span style={{ color: "var(--muted)" }}> · {c.conversion}%</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
 
           {me.role === "admin" && (
             <div className="card">

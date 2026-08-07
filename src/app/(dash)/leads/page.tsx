@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { listLeads } from "@/lib/queries";
+import { listCampaigns, listLeads } from "@/lib/queries";
 import { LEAD_STATUSES } from "@/lib/types";
 import StatusPill from "../pill";
 
@@ -15,22 +15,29 @@ const TABS = [
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; s?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; s?: string; form?: string; page?: string }>;
 }) {
   const sp = await searchParams;
   const me = await requireUser();
   const scope = me.role === "admin" ? null : me.id;
+  const formId = Number(sp.form) || null;
 
-  const { rows, total, pages, page } = await listLeads({
-    status: sp.status,
-    search: sp.s,
-    ownerId: scope,
-    page: Number(sp.page) || 1,
-  });
+  const [{ rows, total, pages, page }, campaigns] = await Promise.all([
+    listLeads({
+      status: sp.status,
+      search: sp.s,
+      ownerId: scope,
+      formId,
+      page: Number(sp.page) || 1,
+    }),
+    // Sub-admins get the picker too — it only names campaigns, and their
+    // results stay scoped to their own leads by the server.
+    listCampaigns(1, 100).then((r) => r.rows).catch(() => []),
+  ]);
 
   const qs = (over: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    const merged = { status: sp.status, s: sp.s, ...over };
+    const merged = { status: sp.status, s: sp.s, form: sp.form, ...over };
     Object.entries(merged).forEach(([k, v]) => {
       if (v) p.set(k, v);
     });
@@ -38,19 +45,35 @@ export default async function LeadsPage({
     return str ? `/leads?${str}` : "/leads";
   };
 
+  const active = campaigns.find((c) => c.id === formId);
+
   return (
     <>
       <div className="head">
         <h1>{me.role === "admin" ? "Leads" : "My leads"}</h1>
         <div className="spacer" />
-        <form className="row" action="/leads">
+        <Link href="/leads/import" className="btn ghost">
+          Import
+        </Link>
+        <Link href="/leads/new" className="btn">
+          Add lead
+        </Link>
+        <form className="row" action="/leads" style={{ width: "100%" }}>
           {sp.status && <input type="hidden" name="status" value={sp.status} />}
+          <select name="form" defaultValue={sp.form ?? ""} style={{ width: 190 }}>
+            <option value="">All campaigns</option>
+            {campaigns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
           <input
             type="search"
             name="s"
             defaultValue={sp.s ?? ""}
             placeholder="Search name, email, phone, answers…"
-            style={{ width: 280 }}
+            style={{ width: 260 }}
           />
           <button className="btn ghost">Search</button>
         </form>
@@ -58,12 +81,26 @@ export default async function LeadsPage({
 
       <div className="tabs">
         {TABS.map((tb) => (
-          <Link key={tb.key || "all"} href={qs({ status: tb.key || undefined, page: undefined })}
-                className={(sp.status ?? "") === tb.key ? "on" : ""}>
+          <Link
+            key={tb.key || "all"}
+            href={qs({ status: tb.key || undefined, page: undefined })}
+            className={(sp.status ?? "") === tb.key ? "on" : ""}
+          >
             {tb.label}
           </Link>
         ))}
       </div>
+
+      {active && (
+        <div className="msg ok" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span>
+            Showing leads from <strong>{active.name}</strong>
+          </span>
+          <Link href={qs({ form: undefined, page: undefined })} style={{ fontWeight: 600 }}>
+            Clear
+          </Link>
+        </div>
+      )}
 
       <div className="card" style={{ padding: "6px 8px" }}>
         {rows.length === 0 ? (
@@ -72,13 +109,14 @@ export default async function LeadsPage({
           <table className="tbl">
             <thead>
               <tr>
-                <th style={{ width: 64 }}>ID</th>
+                <th style={{ width: 60 }}>ID</th>
                 <th>Name</th>
                 <th>Email</th>
-                <th>Phone</th>
-                <th style={{ width: 110 }}>Stage</th>
-                <th style={{ width: 140 }}>Owner</th>
-                <th style={{ width: 130 }}>Received</th>
+                <th style={{ width: 130 }}>Phone</th>
+                <th style={{ width: 160 }}>Campaign</th>
+                <th style={{ width: 105 }}>Stage</th>
+                <th style={{ width: 130 }}>Owner</th>
+                <th style={{ width: 120 }}>Received</th>
               </tr>
             </thead>
             <tbody>
@@ -92,6 +130,19 @@ export default async function LeadsPage({
                   </td>
                   <td data-l="Email">{l.email || "—"}</td>
                   <td data-l="Phone">{l.phone || "—"}</td>
+                  <td data-l="Campaign">
+                    {l.form_name ? (
+                      me.role === "admin" && l.form_id ? (
+                        <Link href={`/campaigns/${l.form_id}`} style={{ color: "var(--p)", fontWeight: 600 }}>
+                          {l.form_name}
+                        </Link>
+                      ) : (
+                        l.form_name
+                      )
+                    ) : (
+                      <span style={{ color: "var(--muted)" }}>—</span>
+                    )}
+                  </td>
                   <td data-l="Stage">
                     <StatusPill status={l.status} />
                   </td>

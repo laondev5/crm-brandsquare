@@ -2,8 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
-import { addNote, getLeadFull, updateLead, type LeadUpdate } from "@/lib/queries";
-import { LEAD_STATUSES, type LeadStatus } from "@/lib/types";
+import {
+  addNote,
+  bulkCreateLeads,
+  getLeadFull,
+  updateLead,
+  type LeadUpdate,
+} from "@/lib/queries";
+import { ApiError } from "@/lib/api";
+import { LEAD_STATUSES, type LeadStatus, type BulkLeadRow, type BulkImportResult } from "@/lib/types";
+import type { FormState } from "./auth";
 
 export async function updateLeadAction(form: FormData) {
   const me = await requireUser();
@@ -45,4 +53,130 @@ export async function updateLeadAction(form: FormData) {
   revalidatePath(`/leads/${id}`);
   revalidatePath("/leads");
   revalidatePath("/");
+}
+
+export type AddLeadState = FormState & { leadCreated?: boolean };
+
+export async function addLeadAction(_prev: AddLeadState, form: FormData): Promise<AddLeadState> {
+  const me = await requireUser();
+
+  const name = String(form.get("name") ?? "").trim();
+  const email = String(form.get("email") ?? "").trim();
+  const phone = String(form.get("phone") ?? "").trim();
+  if (!name && !email && !phone) {
+    return { error: "Enter at least a name, email or phone number." };
+  }
+
+  const labels = form.getAll("field_label") as string[];
+  const values = form.getAll("field_value") as string[];
+  const answers = labels
+    .map((label, i) => ({ label: label.trim(), value: (values[i] ?? "").trim() }))
+    .filter((a) => a.label && a.value);
+
+  const status = String(form.get("status") ?? "new") as LeadStatus;
+  const formName = String(form.get("campaign_name") ?? "").trim();
+  const formIdRaw = form.get("campaign_id");
+  const assignedRaw = form.get("assigned_to");
+
+  const row: BulkLeadRow = {
+    name,
+    email,
+    phone,
+    answers,
+    status: LEAD_STATUSES.some((s) => s.key === status) ? status : "new",
+    note: String(form.get("note") ?? "").trim() || undefined,
+  };
+
+  // Admins choose who gets it (or leave it unassigned); a sub-admin only ever
+  // adds to their own list — enforced here by which field the form even sent.
+  let selfAssignTo: number | null = null;
+  if (me.role === "admin") {
+    if (assignedRaw === "unassigned") row.unassigned = true;
+    else if (assignedRaw) row.assigned_to = Number(assignedRaw) || undefined;
+  } else {
+    selfAssignTo = me.id;
+  }
+
+  try {
+    const res = await bulkCreateLeads({
+      rows: [row],
+      formId: formIdRaw ? Number(formIdRaw) : null,
+      formName,
+      selfAssignTo,
+      actor: me,
+    });
+
+    if (!res.created) {
+      return { error: res.skipped[0]?.reason ?? "That row could not be saved." };
+    }
+
+    revalidatePath("/leads");
+    revalidatePath("/");
+    if (res.campaign_id) revalidatePath(`/campaigns/${res.campaign_id}`);
+    return { ok: "Lead added.", leadCreated: true };
+  } catch (e) {
+    if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
+    throw e;
+  }
+}
+
+/**
+ * Called directly from the import UI (not bound to a <form>), so it can take
+ * a large parsed array as a plain argument. Chunks the rows because a single
+ * request holding hundreds of rows both risks the plugin's 200-row cap and a
+ * platform function timeout.
+ */
+export async function importLeadsAction(input: {
+  rows: BulkLeadRow[];
+  formId: number | null;
+  formName: string;
+  selfAssign: boolean;
+  /** Admin chose "leave unassigned" — skips auto-assign for every row. */
+  unassigned?: boolean;
+}): Promise<{ error?: string; result?: BulkImportResult }> {
+  const me = await requireUser();
+
+  if (!input.rows.length) return { error: "No rows to import." };
+  if (input.rows.length > 5000) {
+    return { error: "That file has more than 5,000 rows — split it and import in parts." };
+  }
+
+  const rows = input.unassigned && !input.selfAssign
+    ? input.rows.map((r) => ({ ...r, unassigned: true }))
+    : input.rows;
+
+  const CHUNK = 50;
+  const total: BulkImportResult = { created: 0, skipped: [], campaign_id: null, campaign_name: null };
+
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    try {
+      const res = await bulkCreateLeads({
+        rows: chunk,
+        // Every chunk after the first reuses the campaign the first one
+        // created, so a 500-row file lands in one campaign, not ten.
+        formId: total.campaign_id ?? input.formId,
+        formName: total.campaign_id ? "" : input.formName,
+        selfAssignTo: input.selfAssign ? me.id : null,
+        actor: me,
+      });
+      total.created += res.created;
+      total.skipped.push(
+        ...res.skipped.map((s) => ({ ...s, row: s.row + i }))
+      );
+      if (!total.campaign_id) {
+        total.campaign_id = res.campaign_id;
+        total.campaign_name = res.campaign_name;
+      }
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Could not reach the server.";
+      return { error: `Stopped after ${total.created} lead(s): ${msg}` };
+    }
+  }
+
+  revalidatePath("/leads");
+  revalidatePath("/");
+  if (total.campaign_id) revalidatePath(`/campaigns/${total.campaign_id}`);
+
+  return { result: total };
 }
