@@ -5,14 +5,20 @@ import { requireRole } from "@/lib/auth";
 import { createSubadmin, setUserStatus, updateSubadmin, deleteSubadmin } from "@/lib/queries";
 import { sendInvite } from "@/lib/mailer";
 import { ApiError } from "@/lib/api";
+import { PERMISSIONS, type Permission } from "@/lib/types";
 import type { FormState } from "./auth";
+
+function readPermissions(form: FormData): Permission[] {
+  const sent = new Set(form.getAll("permissions").map(String));
+  return PERMISSIONS.map((p) => p.key).filter((k) => sent.has(k));
+}
 
 export async function createSubadminAction(_prev: FormState, form: FormData): Promise<FormState> {
   const admin = await requireRole("admin");
 
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const name = String(form.get("name") ?? "").trim();
-  const capacity = Number(form.get("capacity") ?? 0) || 0;
+  const permissions = readPermissions(form);
 
   if (!name) return { error: "Enter a name." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { error: "Enter a valid email address." };
@@ -21,7 +27,7 @@ export async function createSubadminAction(_prev: FormState, form: FormData): Pr
   try {
     // The plugin creates the account, the temporary password and the invite
     // token in one call, so a half-made user can't be left behind.
-    created = await createSubadmin({ email, name, capacity, createdBy: admin.id });
+    created = await createSubadmin({ email, name, capacity: 0, createdBy: admin.id, permissions });
   } catch (e) {
     if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
     throw e;
@@ -60,13 +66,13 @@ export async function updateSubadminAction(_prev: FormState, form: FormData): Pr
   const id = Number(form.get("id"));
   const name = String(form.get("name") ?? "").trim();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
-  const capacity = Number(form.get("capacity") ?? 0) || 0;
+  const permissions = readPermissions(form);
 
   if (!name) return { error: "Enter a name." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { error: "Enter a valid email address." };
 
   try {
-    await updateSubadmin(id, { name, email, capacity });
+    await updateSubadmin(id, { name, email, permissions });
   } catch (e) {
     if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
     throw e;

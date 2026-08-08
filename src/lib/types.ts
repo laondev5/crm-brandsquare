@@ -20,6 +20,19 @@ export const LEAD_STATUSES: { key: LeadStatus; label: string }[] = [
 
 export const OPEN_STATUSES: LeadStatus[] = ["new", "assigned", "contacted", "qualified"];
 
+/**
+ * What a sub-admin can individually be granted. An admin has every one of
+ * these implicitly — the plugin never restricts an admin row by this list.
+ */
+export type Permission = "send_email" | "send_whatsapp" | "add_leads" | "import_leads";
+
+export const PERMISSIONS: { key: Permission; label: string; hint: string }[] = [
+  { key: "send_email", label: "Send email to leads", hint: "Compose and send from a lead's page or in bulk" },
+  { key: "send_whatsapp", label: "Message leads on WhatsApp", hint: "Open the shared WhatsApp conversation" },
+  { key: "add_leads", label: "Add leads manually", hint: "Enter a lead by hand" },
+  { key: "import_leads", label: "Import leads from a file", hint: "Upload a CSV or Excel sheet" },
+];
+
 export interface DashUser {
   id: number;
   email: string;
@@ -27,8 +40,16 @@ export interface DashUser {
   role: Role;
   status: UserStatus;
   capacity: number;
+  /** Accounts created before this existed carry every permission, not none. */
+  permissions: Permission[];
   created_at: string;
   last_login_at: string | null;
+}
+
+export function hasPermission(user: DashUser | null, key: Permission): boolean {
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  return user.permissions.includes(key);
 }
 
 export interface Lead {
@@ -51,6 +72,17 @@ export interface LeadRow extends Lead {
   /** Null when the campaign form has since been deleted — the lead survives it. */
   form_id: number | null;
   form_name: string | null;
+  unsubscribed: boolean;
+}
+
+export interface LeadEmail {
+  id: number;
+  campaign_id: number;
+  subject: string;
+  status: "pending" | "sent" | "failed";
+  error: string;
+  sent_at: string | null;
+  sent_by: string;
 }
 
 export type FormMode = "modal" | "inline" | "manual";

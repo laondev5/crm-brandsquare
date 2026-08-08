@@ -12,9 +12,11 @@ import type {
   EmailCampaignDetail,
   EmailCampaignRow,
   EmailSettings,
+  LeadEmail,
   LeadRow,
   Note,
   LeadStatus,
+  Permission,
 } from "./types";
 
 /**
@@ -121,6 +123,7 @@ export async function createSubadmin(input: {
   name: string;
   capacity: number;
   createdBy: number;
+  permissions: Permission[];
 }) {
   return api.post<{ id: number; invite_token: string; temp_password: string }>("/users", {
     email: input.email,
@@ -128,6 +131,7 @@ export async function createSubadmin(input: {
     role: "subadmin",
     capacity: input.capacity,
     created_by: input.createdBy,
+    permissions: input.permissions,
   });
 }
 
@@ -137,7 +141,7 @@ export async function setUserStatus(id: number, status: "active" | "disabled") {
 
 export async function updateSubadmin(
   id: number,
-  patch: { name?: string; email?: string; capacity?: number }
+  patch: { name?: string; email?: string; capacity?: number; permissions?: Permission[] }
 ) {
   await api.patch(`/users/${id}`, patch);
 }
@@ -230,12 +234,59 @@ export async function bulkCreateLeads(input: {
   formName?: string;
   selfAssignTo?: number | null;
   actor: DashUser;
+  /** Which permission the plugin checks for a sub-admin actor. */
+  context: "manual" | "import";
 }) {
   return api.post<BulkImportResult>("/leads/bulk", {
     rows: input.rows,
     form_id: input.formId ?? 0,
     form_name: input.formName ?? "",
     self_assign_to: input.selfAssignTo ?? 0,
+    actor_id: input.actor.id,
+    actor_name: input.actor.name,
+    context: input.context,
+  });
+}
+
+/* ---------------- WhatsApp ---------------- */
+
+/** Records that someone opened the shared WhatsApp thread for this lead —
+ *  the CRM never sees the message itself, only that contact happened. */
+export async function logWhatsAppOpen(leadId: number, actor: DashUser, ownerId?: number | null) {
+  return api.post<{ ok: boolean }>(`/leads/${leadId}/whatsapp-open`, {
+    actor_id: actor.id,
+    actor_name: actor.name,
+    owner: ownerId ?? undefined,
+  });
+}
+
+/* ---------------- per-lead email ---------------- */
+
+export async function getLeadEmails(leadId: number, ownerId?: number | null) {
+  try {
+    const res = await api.get<{ emails: LeadEmail[] }>(`/leads/${leadId}/emails`, {
+      owner: ownerId ?? undefined,
+    });
+    return res.emails;
+  } catch {
+    return [];
+  }
+}
+
+export async function sendLeadEmail(input: {
+  leadId: number;
+  subject: string;
+  blocks: EmailBlocks;
+  actor: DashUser;
+  ownerId?: number | null;
+}) {
+  return api.post<{ id: number; audience: number; queued: number }>("/email/campaigns", {
+    subject: input.subject,
+    blocks: input.blocks,
+    audience_type: "selected",
+    audience_ids: [input.leadId],
+    owner: input.ownerId ?? 0,
+    send: true,
     actor_id: input.actor.id,
     actor_name: input.actor.name,
   });

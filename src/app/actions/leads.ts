@@ -6,11 +6,20 @@ import {
   addNote,
   bulkCreateLeads,
   getLeadFull,
+  logWhatsAppOpen,
+  sendLeadEmail,
   updateLead,
   type LeadUpdate,
 } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
-import { LEAD_STATUSES, type LeadStatus, type BulkLeadRow, type BulkImportResult } from "@/lib/types";
+import {
+  LEAD_STATUSES,
+  hasPermission,
+  type LeadStatus,
+  type BulkLeadRow,
+  type BulkImportResult,
+  type EmailBlocks,
+} from "@/lib/types";
 import type { FormState } from "./auth";
 
 export async function updateLeadAction(form: FormData) {
@@ -104,6 +113,7 @@ export async function addLeadAction(_prev: AddLeadState, form: FormData): Promis
       formName,
       selfAssignTo,
       actor: me,
+      context: "manual",
     });
 
     if (!res.created) {
@@ -159,6 +169,7 @@ export async function importLeadsAction(input: {
         formName: total.campaign_id ? "" : input.formName,
         selfAssignTo: input.selfAssign ? me.id : null,
         actor: me,
+        context: "import",
       });
       total.created += res.created;
       total.skipped.push(
@@ -179,4 +190,66 @@ export async function importLeadsAction(input: {
   if (total.campaign_id) revalidatePath(`/campaigns/${total.campaign_id}`);
 
   return { result: total };
+}
+
+/**
+ * Fired alongside the WhatsApp button's own native navigation, not instead
+ * of it — the <a href="wa.me/..."> opens the chat itself with zero JS
+ * dependency; this just leaves a trace in the lead's timeline. A failure
+ * here is deliberately silent to the user: a missing log entry shouldn't
+ * block someone from actually messaging the lead.
+ */
+export async function logWhatsAppOpenAction(leadId: number) {
+  const me = await requireUser();
+  if (!hasPermission(me, "send_whatsapp")) return;
+
+  const scope = me.role === "admin" ? null : me.id;
+  try {
+    await logWhatsAppOpen(leadId, me, scope);
+    revalidatePath(`/leads/${leadId}`);
+  } catch {
+    // best-effort — see comment above
+  }
+}
+
+export type LeadEmailState = FormState;
+
+export async function sendLeadEmailAction(_prev: LeadEmailState, form: FormData): Promise<LeadEmailState> {
+  const me = await requireUser();
+  if (!hasPermission(me, "send_email")) {
+    return { error: "You do not have permission to send email." };
+  }
+
+  const leadId = Number(form.get("lead_id"));
+  const subject = String(form.get("subject") ?? "").trim();
+  const body = String(form.get("body_html") ?? "").trim();
+  if (!subject) return { error: "Enter a subject line." };
+  if (!body) return { error: "Write something in the body." };
+
+  const blocks: EmailBlocks = {
+    header_text: String(form.get("header_text") ?? ""),
+    header_bg: String(form.get("header_bg") ?? "#07003A"),
+    header_color: String(form.get("header_color") ?? "#FFFFFF"),
+    body_html: body,
+    body_bg: String(form.get("body_bg") ?? "#FFFFFF"),
+    body_color: String(form.get("body_color") ?? "#2C2C33"),
+    accent: String(form.get("accent") ?? "#F86E06"),
+    cta_label: "",
+    cta_url: "",
+    footer_text: String(form.get("footer_text") ?? ""),
+    footer_bg: String(form.get("footer_bg") ?? "#F6F6F9"),
+    footer_color: String(form.get("footer_color") ?? "#7A7A7A"),
+  };
+
+  const scope = me.role === "admin" ? null : me.id;
+
+  try {
+    await sendLeadEmail({ leadId, subject, blocks, actor: me, ownerId: scope });
+  } catch (e) {
+    if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
+    throw e;
+  }
+
+  revalidatePath(`/leads/${leadId}`);
+  return { ok: "Email sent." };
 }

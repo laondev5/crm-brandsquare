@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { createSubadminAction } from "../../actions/team";
 import type { FormState } from "../../actions/auth";
+import { PERMISSIONS } from "@/lib/types";
+import PermissionCheckboxes from "./permissions";
 
 export default function NewSubadmin() {
   const [state, action, pending] = useActionState<FormState, FormData>(createSubadminAction, {});
@@ -24,14 +26,10 @@ export default function NewSubadmin() {
         <input type="email" name="email" required placeholder="chinedu@brandsquare.shop" />
       </label>
 
-      <label className="f">
-        <span>Capacity</span>
-        <input type="number" name="capacity" min={0} defaultValue={0} />
-        <small style={{ color: "var(--muted)", fontSize: 12, display: "block", marginTop: 5 }}>
-          Most open leads they can hold at once. New leads skip them while they&rsquo;re at
-          this number. <strong>0 means no limit.</strong>
-        </small>
-      </label>
+      <div className="f">
+        <span>What can they do?</span>
+        <PermissionCheckboxes defaultChecked={PERMISSIONS.map((p) => p.key)} />
+      </div>
 
       <button className="btn" disabled={pending} style={{ width: "100%", justifyContent: "center" }}>
         {pending ? "Creating…" : "Create and send invite"}

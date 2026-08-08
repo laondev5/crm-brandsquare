@@ -8,6 +8,7 @@ import {
 } from "../../actions/team";
 import type { FormState } from "../../actions/auth";
 import type { TeamMember } from "@/lib/queries";
+import PermissionCheckboxes from "./permissions";
 
 export default function TeamRow({ u, meId }: { u: TeamMember; meId: number }) {
   const [editing, setEditing] = useState(false);
@@ -40,10 +41,10 @@ export default function TeamRow({ u, meId }: { u: TeamMember; meId: number }) {
                 <span>Email</span>
                 <input type="email" name="email" defaultValue={u.email} required />
               </label>
-              <label className="f">
-                <span>Capacity</span>
-                <input type="number" name="capacity" min={0} defaultValue={u.capacity} />
-              </label>
+            </div>
+            <div className="f">
+              <span>What can they do?</span>
+              <PermissionCheckboxes defaultChecked={u.permissions} />
             </div>
             <div className="row">
               <button className="btn" disabled={editPending}>
@@ -70,10 +71,7 @@ export default function TeamRow({ u, meId }: { u: TeamMember; meId: number }) {
       <td data-l="Status">
         <span className={`pill s-${u.status}`}>{cap(u.status)}</span>
       </td>
-      <td data-l="Open">
-        {Number(u.open_leads) || 0}
-        {u.capacity > 0 && <span style={{ color: "var(--muted)" }}> / {u.capacity}</span>}
-      </td>
+      <td data-l="Open">{Number(u.open_leads) || 0}</td>
       <td data-l="Last login">{u.last_login_at ? fmt(u.last_login_at) : "Never"}</td>
       <td data-l="">
         {delState.error && <div className="msg err">{delState.error}</div>}

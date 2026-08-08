@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { getLeadFull, allSubadmins } from "@/lib/queries";
-import { LEAD_STATUSES, parsePayload } from "@/lib/types";
+import { allSubadmins, getEmailSettings, getLeadEmails, getLeadFull } from "@/lib/queries";
+import { LEAD_STATUSES, hasPermission, parsePayload } from "@/lib/types";
 import { updateLeadAction } from "../../../actions/leads";
 import StatusPill from "../../pill";
+import WhatsAppButton from "./whatsapp-button";
+import EmailPanel from "./email-panel";
 
 export default async function LeadDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id: raw } = await params;
@@ -16,7 +18,11 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   if (!full) notFound();
 
   const { lead, notes, activity } = full;
-  const subs = me.role === "admin" ? await allSubadmins() : [];
+  const [subs, emailHistory, emailSettings] = await Promise.all([
+    me.role === "admin" ? allSubadmins() : Promise.resolve([]),
+    getLeadEmails(id, scope),
+    getEmailSettings().catch(() => null),
+  ]);
 
   const answers = parsePayload(lead.payload);
   const overdue =
@@ -31,6 +37,9 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
           Lead #{lead.id} <StatusPill status={lead.status} />
         </h1>
         <div className="spacer" />
+        {hasPermission(me, "send_whatsapp") && lead.phone && (
+          <WhatsAppButton leadId={lead.id} phone={lead.phone} />
+        )}
         <Link href="/leads" className="btn ghost">
           Back to leads
         </Link>
@@ -101,6 +110,18 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
               </div>
             ))}
           </div>
+
+          {emailSettings && (
+            <EmailPanel
+              leadId={lead.id}
+              leadEmail={lead.email}
+              unsubscribed={lead.unsubscribed}
+              history={emailHistory}
+              defaults={emailSettings.blocks_default}
+              fromLabel={`${emailSettings.from_name} <${emailSettings.from_email}>`}
+              canSend={hasPermission(me, "send_email")}
+            />
+          )}
 
           <div className="card">
             <h2>Activity</h2>
