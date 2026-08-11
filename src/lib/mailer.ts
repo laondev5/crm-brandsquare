@@ -38,8 +38,21 @@ export async function sendInvite(opts: {
     `If you weren't expecting this, you can ignore it.`,
   ].join("\n");
 
-  const html = `
-  <div style="font-family:Arial,Helvetica,sans-serif;color:#2c2c33;max-width:520px">
+  // A full document (not a bare fragment) plus an explicit target/rel on the
+  // button avoids two real-world failure modes seen in stricter/custom email
+  // viewers: quirks-mode parsing of unwrapped HTML, and viewers that render
+  // messages in a sandboxed iframe and only allow navigation from links that
+  // declare target="_blank". A plain visible URL is included as a fallback
+  // in case a viewer still swallows the styled button's click.
+  const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#F7F7F9">
+  <div style="font-family:Arial,Helvetica,sans-serif;color:#2c2c33;max-width:520px;margin:0 auto;padding:24px 20px">
     <p>Hi ${escapeHtml(opts.name)},</p>
     <p>An account has been created for you on the Brandsquare CRM.</p>
     <table cellpadding="0" cellspacing="0" style="background:#F7F7F9;border-radius:8px;padding:16px;margin:18px 0">
@@ -47,13 +60,20 @@ export async function sendInvite(opts: {
       <tr><td style="padding:4px 0"><strong>Temporary password</strong></td><td style="padding:4px 0 4px 16px"><code>${escapeHtml(opts.tempPassword)}</code></td></tr>
     </table>
     <p>
-      <a href="${opts.link}" style="display:inline-block;background:#F86E06;color:#fff;text-decoration:none;
+      <a href="${opts.link}" target="_blank" rel="noopener noreferrer"
+         style="display:inline-block;background:#F86E06;color:#fff;text-decoration:none;
          font-weight:bold;padding:13px 26px;border-radius:8px">Set your password</a>
+    </p>
+    <p style="color:#7A7A7A;font-size:13px">
+      If the button above doesn't respond, use this link instead:<br>
+      <a href="${opts.link}" target="_blank" rel="noopener noreferrer" style="color:#F86E06;word-break:break-all">${escapeHtml(opts.link)}</a>
     </p>
     <p style="color:#7A7A7A;font-size:13px">
       The link works once and expires in 48 hours. If you weren't expecting this, ignore this email.
     </p>
-  </div>`;
+  </div>
+  </body>
+</html>`;
 
   const t = transport();
   if (!t) {
