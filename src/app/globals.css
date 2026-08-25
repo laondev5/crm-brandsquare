@@ -304,6 +304,7 @@ kbd {
 }
 .palette-trigger:hover { border-color: var(--p); background: #fff; color: var(--ink); }
 .palette-trigger span { flex: 1; }
+.palette-trigger__short { display: none; }
 
 .palette-back {
   position: fixed; inset: 0; z-index: 90; background: rgba(3, 0, 26, .42);
@@ -416,4 +417,12 @@ kbd {
   .board { grid-auto-flow: row; grid-auto-columns: auto; }
   .board-card { cursor: default; }
   .palette-back { padding-top: 8vh; }
+
+  /* The sidebar is a horizontal strip here, so the trigger shrinks to a
+     compact label instead of wrapping and squeezing out the nav links. */
+  .palette-trigger { width: auto; flex: none; white-space: nowrap; padding: 8px 12px; }
+  .palette-trigger span { flex: none; }
+  .palette-trigger__full { display: none; }
+  .palette-trigger__short { display: inline; }
+  .palette-trigger kbd { display: none; }
 }
