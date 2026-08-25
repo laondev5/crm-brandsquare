@@ -5,10 +5,12 @@ import { requireUser } from "@/lib/auth";
 import {
   addNote,
   bulkCreateLeads,
+  deleteNote,
   getLeadFull,
   logWhatsAppOpen,
   sendLeadEmail,
   updateLead,
+  updateNote,
   type LeadUpdate,
 } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
@@ -62,6 +64,50 @@ export async function updateLeadAction(form: FormData) {
   revalidatePath(`/leads/${id}`);
   revalidatePath("/leads");
   revalidatePath("/");
+}
+
+/**
+ * Note edits and deletions. The plugin is the authority on both rules — you
+ * must be the author, and within 24 hours — so these actions pass the attempt
+ * through and surface whatever it says rather than re-deciding here. Hiding
+ * the buttons in the UI is a convenience, not the check.
+ */
+export async function editNoteAction(
+  leadId: number,
+  noteId: number,
+  body: string
+): Promise<{ ok: true } | { error: string }> {
+  const me = await requireUser();
+
+  const text = body.trim();
+  if (!text) return { error: "A note cannot be empty." };
+
+  try {
+    await updateNote(leadId, noteId, text.slice(0, 5000), me);
+  } catch (e) {
+    if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
+    return { error: "Could not save that note. Please try again." };
+  }
+
+  revalidatePath(`/leads/${leadId}`);
+  return { ok: true };
+}
+
+export async function deleteNoteAction(
+  leadId: number,
+  noteId: number
+): Promise<{ ok: true } | { error: string }> {
+  const me = await requireUser();
+
+  try {
+    await deleteNote(leadId, noteId, me);
+  } catch (e) {
+    if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
+    return { error: "Could not delete that note. Please try again." };
+  }
+
+  revalidatePath(`/leads/${leadId}`);
+  return { ok: true };
 }
 
 export type AddLeadState = FormState & { leadCreated?: boolean };

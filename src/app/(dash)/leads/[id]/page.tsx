@@ -7,6 +7,7 @@ import { updateLeadAction } from "../../../actions/leads";
 import StatusPill from "../../pill";
 import WhatsAppButton from "./whatsapp-button";
 import EmailPanel from "./email-panel";
+import Notes from "./notes";
 
 export default async function LeadDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id: raw } = await params;
@@ -100,15 +101,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
 
           <div className="card">
             <h2>Notes</h2>
-            {notes.length === 0 && <p className="empty" style={{ padding: "18px 0" }}>No notes yet.</p>}
-            {notes.map((n) => (
-              <div className="note" key={n.id}>
-                <p>{n.body}</p>
-                <small>
-                  {n.author_name} · {fmtDT(n.created_at)}
-                </small>
-              </div>
-            ))}
+            <Notes leadId={lead.id} notes={notes} meId={me.id} serverNow={full.now} />
           </div>
 
           {emailSettings && (

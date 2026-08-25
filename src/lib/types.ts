@@ -124,6 +124,28 @@ export interface Note {
   author_name: string;
   body: string;
   created_at: string;
+  /** Set once the author has changed it, so the card can say so. */
+  updated_at: string | null;
+  /** Unix seconds. Compare against the `now` on the same response, not the
+   *  browser clock, which can be well out. The server re-checks on write. */
+  editable_until: number;
+}
+
+/**
+ * Sticky-note colours, assigned per author rather than at random so the same
+ * person's notes always look the same and you can tell at a glance who wrote
+ * what on a busy lead.
+ */
+export const NOTE_COLORS = ["butter", "mint", "sky", "rose", "lilac", "peach"] as const;
+
+export function noteColor(note: Note): string {
+  // Falls back to the name when a note predates author ids. A plain character
+  // sum ignores order and collides readily on short names, so this mixes
+  // position in — "peace" and "brandsquare" should not land on one colour.
+  const seed =
+    note.author_id ??
+    Array.from(note.author_name).reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7);
+  return NOTE_COLORS[Math.abs(seed) % NOTE_COLORS.length];
 }
 
 export interface Activity {

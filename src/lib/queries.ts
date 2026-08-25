@@ -38,6 +38,8 @@ export interface LeadFilter {
   formId?: number | null;
   page?: number;
   perPage?: number;
+  /** "next" orders by follow-up date, soonest first. Default is newest-first. */
+  sort?: "next";
 }
 
 export async function listLeads(f: LeadFilter) {
@@ -46,6 +48,7 @@ export async function listLeads(f: LeadFilter) {
     s: f.search,
     owner: f.ownerId ?? undefined,
     form: f.formId ?? undefined,
+    sort: f.sort,
     page: f.page ?? 1,
     per: f.perPage ?? 20,
   });
@@ -70,12 +73,31 @@ export async function getCampaign(id: number) {
 
 export async function getLeadFull(id: number, ownerId?: number | null) {
   try {
-    return await api.get<{ lead: LeadRow; notes: Note[]; activity: Activity[] }>(`/leads/${id}`, {
-      owner: ownerId ?? undefined,
-    });
+    return await api.get<{
+      lead: LeadRow;
+      notes: Note[];
+      activity: Activity[];
+      /** Server clock in unix seconds, for the note edit window. */
+      now: number;
+    }>(`/leads/${id}`, { owner: ownerId ?? undefined });
   } catch {
     return null;
   }
+}
+
+export async function updateNote(leadId: number, noteId: number, body: string, actor: DashUser) {
+  await api.patch(`/leads/${leadId}/notes/${noteId}`, {
+    body,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteNote(leadId: number, noteId: number, actor: DashUser) {
+  await api.del(`/leads/${leadId}/notes/${noteId}`, {
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
 }
 
 export interface LeadUpdate {
