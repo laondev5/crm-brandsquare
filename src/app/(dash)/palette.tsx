@@ -135,12 +135,7 @@ export default function Palette({ isAdmin }: { isAdmin: boolean }) {
         onClick={() => setOpen(true)}
         aria-label="Search or jump to a page"
       >
-        {/* The sidebar turns into a horizontal strip below 900px, where the
-            full label wraps to three lines and crowds out the nav links. */}
-        <span className="palette-trigger__full">Search or jump to…</span>
-        <span className="palette-trigger__short" aria-hidden="true">
-          Search
-        </span>
+        <span>Search or jump to…</span>
         <kbd>Ctrl K</kbd>
       </button>
     );
