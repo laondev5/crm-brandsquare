@@ -187,8 +187,13 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   );
 }
 
+/**
+ * Activity types are stored as machine keys, some of them multi-word
+ * ("note_edited"). Underscores would otherwise show up in the timeline.
+ */
 function cap(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  const words = s.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function fmtDT(d: string) {
