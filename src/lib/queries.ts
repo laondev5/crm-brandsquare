@@ -17,6 +17,8 @@ import type {
   Note,
   LeadStatus,
   Permission,
+  TrackerCounts,
+  TrackerRecord,
 } from "./types";
 
 /**
@@ -290,6 +292,72 @@ export async function sendLeadEmail(input: {
     actor_id: input.actor.id,
     actor_name: input.actor.name,
   });
+}
+
+/* ---------------- productivity trackers ---------------- */
+
+export interface TrackerFilter {
+  tracker: string;
+  /** A real status, or the synthetic "open" / "overdue" the plugin understands. */
+  status?: string;
+  search?: string;
+  ownerId?: number | null;
+  page?: number;
+  perPage?: number;
+}
+
+export async function listTrackerRecords(f: TrackerFilter) {
+  return api.get<{ rows: TrackerRecord[]; total: number; pages: number; page: number }>("/tracker", {
+    tracker: f.tracker,
+    status: f.status || undefined,
+    s: f.search || undefined,
+    owner: f.ownerId ?? undefined,
+    page: f.page ?? 1,
+    per: f.perPage ?? 50,
+  });
+}
+
+/** Counts for all eight trackers in one request, for the nav and dashboard. */
+export async function trackerSummary(ownerId?: number | null) {
+  const res = await api.get<{ summary: Record<string, TrackerCounts> }>("/tracker/summary", {
+    owner: ownerId ?? undefined,
+  });
+  return res.summary ?? {};
+}
+
+export interface TrackerInput {
+  tracker: string;
+  title: string;
+  status?: string;
+  priority?: string;
+  owner_id?: number | null;
+  owner_name?: string;
+  entry_date?: string | null;
+  due_date?: string | null;
+  data?: Record<string, string>;
+}
+
+export async function createTrackerRecord(input: TrackerInput, actor: DashUser) {
+  return api.post<{ id: number }>("/tracker", {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function updateTrackerRecord(
+  id: number,
+  patch: Partial<TrackerInput>,
+  ownerId?: number | null
+) {
+  return api.patch<TrackerRecord>(`/tracker/${id}`, {
+    ...patch,
+    owner: ownerId ?? undefined,
+  });
+}
+
+export async function deleteTrackerRecord(id: number, ownerId?: number | null) {
+  await api.del(`/tracker/${id}`, { owner: ownerId ?? undefined });
 }
 
 /* ---------------- metrics ---------------- */
