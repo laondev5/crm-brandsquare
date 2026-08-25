@@ -9,6 +9,7 @@ export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
 
   const items = [
     { href: "/", label: "Dashboard" },
+    { href: "/pipeline", label: "Pipeline" },
     { href: "/leads", label: "Leads" },
     { href: "/email", label: "Email" },
     ...(isAdmin ? [{ href: "/campaigns", label: "Campaigns" }] : []),

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { currentUser } from "@/lib/auth";
 import { logoutAction } from "../actions/auth";
 import NavLinks from "./nav";
+import Palette from "./palette";
 
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
   const me = await currentUser();
@@ -15,6 +16,8 @@ export default async function DashLayout({ children }: { children: React.ReactNo
         <Link href="/" className="brand">
           <Image src="/logo-icon.webp" alt="" width={22} height={22} className="brand-mark" priority /> Brandsquare
         </Link>
+
+        <Palette isAdmin={me.role === "admin"} />
 
         <NavLinks isAdmin={me.role === "admin"} />
 
