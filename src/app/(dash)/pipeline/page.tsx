@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { listLeads } from "@/lib/queries";
 import { LEAD_STATUSES, OPEN_STATUSES, type LeadStatus } from "@/lib/types";
@@ -10,7 +11,14 @@ const PER_COLUMN = 40;
 const ROT_WARN = 7;
 const ROT_STALE = 14;
 
-export default async function PipelinePage() {
+export default async function PipelinePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ s?: string }>;
+}) {
+  const sp = await searchParams;
+  const term = (sp.s ?? "").trim();
+
   const me = await requireUser();
   const scope = me.role === "admin" ? null : me.id;
 
@@ -18,9 +26,19 @@ export default async function PipelinePage() {
   // memory would work today and quietly stop working once the pipeline is
   // bigger than one page — this way each column carries its own true total
   // even though only the first PER_COLUMN cards are rendered.
+  //
+  // Search goes to the server for the same reason: filtering the loaded cards
+  // in the browser would only ever search the 40 per column already on screen
+  // and quietly miss matches sitting behind a "+N more".
   const results = await Promise.all(
     LEAD_STATUSES.map((s) =>
-      listLeads({ status: s.key, ownerId: scope, perPage: PER_COLUMN, page: 1 })
+      listLeads({
+        status: s.key,
+        search: term || undefined,
+        ownerId: scope,
+        perPage: PER_COLUMN,
+        page: 1,
+      })
         .then((r) => ({ ok: true as const, ...r }))
         .catch(() => ({ ok: false as const, rows: [], total: 0, pages: 0, page: 1 }))
     )
@@ -68,6 +86,7 @@ export default async function PipelinePage() {
     (n, c) => n + c.cards.filter((card) => card.rot !== "none").length,
     0
   );
+  const matches = columns.reduce((n, c) => n + c.total, 0);
 
   return (
     <>
@@ -83,6 +102,17 @@ export default async function PipelinePage() {
             </>
           )}
         </span>
+        <form className="row" action="/pipeline">
+          <input
+            type="search"
+            name="s"
+            defaultValue={term}
+            placeholder="Search name, email, phone, answers…"
+            style={{ width: 260 }}
+            aria-label="Search the pipeline"
+          />
+          <button className="btn ghost">Search</button>
+        </form>
       </div>
 
       {anyFailed && (
@@ -91,11 +121,31 @@ export default async function PipelinePage() {
         </div>
       )}
 
-      <p className="board-hint">
-        Drag a card to another stage to move the lead. Changes save to the CRM straight away.
-      </p>
+      {term ? (
+        <div className="msg ok" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span>
+            {matches === 0 ? (
+              <>
+                Nothing matches <strong>{term}</strong>.
+              </>
+            ) : (
+              <>
+                Showing {matches} match{matches === 1 ? "" : "es"} for <strong>{term}</strong>,
+                still grouped by stage.
+              </>
+            )}
+          </span>
+          <Link href="/pipeline" style={{ fontWeight: 600 }}>
+            Clear
+          </Link>
+        </div>
+      ) : (
+        <p className="board-hint">
+          Drag a card to another stage to move the lead. Changes save to the CRM straight away.
+        </p>
+      )}
 
-      <Board columns={columns} canReassign={me.role === "admin"} />
+      <Board columns={columns} canReassign={me.role === "admin"} searchTerm={term} />
     </>
   );
 }

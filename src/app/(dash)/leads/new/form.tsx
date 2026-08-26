@@ -6,15 +6,36 @@ import { addLeadAction, type AddLeadState } from "../../../actions/leads";
 import { LEAD_STATUSES } from "@/lib/types";
 import type { Campaign, DashUser } from "@/lib/types";
 
-export default function AddLeadForm({
-  campaigns,
-  subs,
-  isAdmin,
-}: {
+interface Props {
   campaigns: Campaign[];
   subs: DashUser[];
   isAdmin: boolean;
-}) {
+}
+
+/**
+ * "Add another" used to be a link back to /leads/new. Navigating to the route
+ * you are already on does not unmount anything, so the action state kept
+ * leadCreated: true and the success screen simply stayed on screen — the
+ * button looked dead. Bumping this key remounts the form instead, which
+ * resets the action state and every field along with it.
+ */
+export default function AddLeadForm(props: Props) {
+  const [instance, setInstance] = useState(0);
+  return (
+    <AddLeadFormInner
+      key={instance}
+      {...props}
+      onAddAnother={() => setInstance((n) => n + 1)}
+    />
+  );
+}
+
+function AddLeadFormInner({
+  campaigns,
+  subs,
+  isAdmin,
+  onAddAnother,
+}: Props & { onAddAnother: () => void }) {
   const [state, action, pending] = useActionState<AddLeadState, FormData>(addLeadAction, {});
   const [campaignChoice, setCampaignChoice] = useState<"none" | "existing" | "new">("none");
   const [fields, setFields] = useState<{ label: string; value: string }[]>([
@@ -30,9 +51,9 @@ export default function AddLeadForm({
         <div className="card" style={{ maxWidth: 520 }}>
           <div className="msg ok">{state.ok}</div>
           <div className="row">
-            <Link href="/leads/new" className="btn">
+            <button type="button" className="btn" onClick={onAddAnother}>
               Add another
-            </Link>
+            </button>
             <Link href="/leads" className="btn ghost">
               Go to leads
             </Link>

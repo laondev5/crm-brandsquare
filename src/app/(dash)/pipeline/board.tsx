@@ -29,9 +29,12 @@ export interface BoardColumn {
 export default function Board({
   columns,
   canReassign,
+  searchTerm = "",
 }: {
   columns: BoardColumn[];
   canReassign: boolean;
+  /** Carried into the "+N more" links so a search survives the jump to Leads. */
+  searchTerm?: string;
 }) {
   const [cols, setCols] = useState(columns);
   const [dragId, setDragId] = useState<number | null>(null);
@@ -186,7 +189,12 @@ export default function Board({
               )}
 
               {col.total > col.cards.length && (
-                <Link href={`/leads?status=${col.key}`} className="board-more">
+                <Link
+                  href={`/leads?status=${col.key}${
+                    searchTerm ? `&s=${encodeURIComponent(searchTerm)}` : ""
+                  }`}
+                  className="board-more"
+                >
                   +{col.total - col.cards.length} more in {col.label}
                 </Link>
               )}
