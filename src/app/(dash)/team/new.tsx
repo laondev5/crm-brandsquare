@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { createSubadminAction } from "../../actions/team";
 import type { FormState } from "../../actions/auth";
-import { PERMISSIONS } from "@/lib/types";
+import { DESTRUCTIVE_PERMISSIONS, PERMISSIONS } from "@/lib/types";
 import PermissionCheckboxes from "./permissions";
 
 export default function NewSubadmin() {
@@ -28,7 +28,11 @@ export default function NewSubadmin() {
 
       <div className="f">
         <span>What can they do?</span>
-        <PermissionCheckboxes defaultChecked={PERMISSIONS.map((p) => p.key)} />
+        <PermissionCheckboxes
+          defaultChecked={PERMISSIONS.map((p) => p.key).filter(
+            (k) => !DESTRUCTIVE_PERMISSIONS.includes(k)
+          )}
+        />
       </div>
 
       <button className="btn" disabled={pending} style={{ width: "100%", justifyContent: "center" }}>

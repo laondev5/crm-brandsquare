@@ -120,6 +120,20 @@ export async function updateLead(
   });
 }
 
+/**
+ * Permanent — the lead, its notes and its activity trail all go. Emails
+ * already sent stay in the campaign record, unlinked. `ownerId` is the
+ * sub-admin scope the rest of the lead calls use: the server puts it in the
+ * WHERE clause, so someone else's lead is simply not found.
+ */
+export async function deleteLead(id: number, actor: DashUser, ownerId?: number | null) {
+  return api.del<{ ok: boolean; id: number; name: string }>(`/leads/${id}`, {
+    actor_id: actor.id,
+    actor_name: actor.name,
+    owner: ownerId ?? undefined,
+  });
+}
+
 export async function addNote(id: number, actor: DashUser, body: string) {
   await api.post(`/leads/${id}/notes`, {
     body,

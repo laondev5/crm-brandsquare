@@ -8,6 +8,7 @@ import StatusPill from "../../pill";
 import WhatsAppButton from "./whatsapp-button";
 import EmailPanel from "./email-panel";
 import Notes from "./notes";
+import DeleteLead from "./delete-lead";
 
 export default async function LeadDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id: raw } = await params;
@@ -134,54 +135,60 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        <form className="card" action={updateLeadAction}>
-          <h2>Manage</h2>
-          <input type="hidden" name="id" value={lead.id} />
+        <div style={{ display: "grid", gap: 20, alignContent: "start" }}>
+          <form className="card" action={updateLeadAction}>
+            <h2>Manage</h2>
+            <input type="hidden" name="id" value={lead.id} />
 
-          <label className="f">
-            <span>Stage</span>
-            <select name="status" defaultValue={lead.status}>
-              {LEAD_STATUSES.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {me.role === "admin" && (
             <label className="f">
-              <span>Assigned to</span>
-              <select name="assigned_to" defaultValue={lead.assigned_to ?? 0}>
-                <option value={0}>Unassigned</option>
-                {subs.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name || s.email}
-                    {s.status !== "active" ? ` (${s.status})` : ""}
+              <span>Stage</span>
+              <select name="status" defaultValue={lead.status}>
+                {LEAD_STATUSES.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
                   </option>
                 ))}
               </select>
             </label>
-          )}
 
-          <label className="f">
-            <span>Next action due</span>
-            <input
-              type="datetime-local"
-              name="next_action_at"
-              defaultValue={lead.next_action_at ? lead.next_action_at.replace(" ", "T").slice(0, 16) : ""}
-            />
-          </label>
+            {me.role === "admin" && (
+              <label className="f">
+                <span>Assigned to</span>
+                <select name="assigned_to" defaultValue={lead.assigned_to ?? 0}>
+                  <option value={0}>Unassigned</option>
+                  {subs.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name || s.email}
+                      {s.status !== "active" ? ` (${s.status})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
 
-          <label className="f">
-            <span>Add a note</span>
-            <textarea name="note" placeholder="What happened on this lead?" />
-          </label>
+            <label className="f">
+              <span>Next action due</span>
+              <input
+                type="datetime-local"
+                name="next_action_at"
+                defaultValue={
+                  lead.next_action_at ? lead.next_action_at.replace(" ", "T").slice(0, 16) : ""
+                }
+              />
+            </label>
 
-          <button className="btn" style={{ width: "100%", justifyContent: "center" }}>
-            Save changes
-          </button>
-        </form>
+            <label className="f">
+              <span>Add a note</span>
+              <textarea name="note" placeholder="What happened on this lead?" />
+            </label>
+
+            <button className="btn" style={{ width: "100%", justifyContent: "center" }}>
+              Save changes
+            </button>
+          </form>
+
+          {hasPermission(me, "delete_leads") && <DeleteLead id={lead.id} name={lead.name} />}
+        </div>
       </div>
     </>
   );

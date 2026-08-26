@@ -24,14 +24,27 @@ export const OPEN_STATUSES: LeadStatus[] = ["new", "assigned", "contacted", "qua
  * What a sub-admin can individually be granted. An admin has every one of
  * these implicitly — the plugin never restricts an admin row by this list.
  */
-export type Permission = "send_email" | "send_whatsapp" | "add_leads" | "import_leads";
+export type Permission =
+  | "send_email"
+  | "send_whatsapp"
+  | "add_leads"
+  | "import_leads"
+  | "delete_leads";
 
 export const PERMISSIONS: { key: Permission; label: string; hint: string }[] = [
   { key: "send_email", label: "Send email to leads", hint: "Compose and send from a lead's page or in bulk" },
   { key: "send_whatsapp", label: "Message leads on WhatsApp", hint: "Open the shared WhatsApp conversation" },
   { key: "add_leads", label: "Add leads manually", hint: "Enter a lead by hand" },
   { key: "import_leads", label: "Import leads from a file", hint: "Upload a CSV or Excel sheet" },
+  { key: "delete_leads", label: "Delete leads", hint: "Permanent, with no way to undo it — leave this off unless they need it" },
 ];
+
+/**
+ * Granted only when someone deliberately ticks it. Everything else is on by
+ * default for a new sub-admin; deleting a lead destroys its notes and history
+ * with no trash to recover from, so it starts off.
+ */
+export const DESTRUCTIVE_PERMISSIONS: Permission[] = ["delete_leads"];
 
 export interface DashUser {
   id: number;

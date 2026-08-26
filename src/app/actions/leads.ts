@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import {
   addNote,
   bulkCreateLeads,
+  deleteLead,
   deleteNote,
   getLeadFull,
   logWhatsAppOpen,
@@ -108,6 +110,38 @@ export async function deleteNoteAction(
 
   revalidatePath(`/leads/${leadId}`);
   return { ok: true };
+}
+
+/**
+ * There is no trash to fish a lead back out of, so this is checked in three
+ * places rather than one: the permission here, the same permission again in
+ * the plugin (which is the authority), and the sub-admin scope that the
+ * plugin puts straight into the WHERE clause. On success the caller has
+ * nothing left to render, so it navigates rather than refreshing.
+ */
+export async function deleteLeadAction(id: number): Promise<{ error: string }> {
+  const me = await requireUser();
+  if (!hasPermission(me, "delete_leads")) {
+    return { error: "You do not have permission to delete leads." };
+  }
+
+  const scope = me.role === "admin" ? null : me.id;
+
+  try {
+    await deleteLead(id, me, scope);
+  } catch (e) {
+    if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
+    return { error: "Could not delete that lead. Please try again." };
+  }
+
+  revalidatePath("/leads");
+  revalidatePath("/pipeline");
+  revalidatePath("/agenda");
+  revalidatePath("/");
+
+  // Throws — anything after it is unreachable, which is why the error paths
+  // above all return first.
+  redirect("/leads");
 }
 
 export type AddLeadState = FormState & { leadCreated?: boolean };
