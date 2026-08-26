@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteTrackerAction,
@@ -10,12 +10,34 @@ import {
 import {
   isDone,
   isOverdue,
+  NO_VALUE,
   PRIORITIES,
   PRIORITY_HINT,
   type TrackerDef,
   type TrackerField,
 } from "@/lib/trackers";
 import type { TrackerRecord } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { DateField, TimeField } from "@/components/date-field";
 
 /** Reads a field off a record, whichever side of the schema it lives on. */
 function valueOf(rec: TrackerRecord, f: TrackerField): string {
@@ -202,6 +224,16 @@ export default function TrackerView({
   );
 }
 
+/**
+ * The tracker editor, built from shadcn primitives.
+ *
+ * Radix's Dialog brings the focus trap, Escape handling and scroll lock that
+ * the hand-rolled modal did by hand, so all of that is gone from here.
+ *
+ * Its Select is not a native <select>; passing `name` makes Radix render a
+ * hidden native one alongside it, which is what keeps the plain FormData
+ * parsing in saveTrackerAction working untouched.
+ */
 function Editor({
   def,
   record,
@@ -214,129 +246,118 @@ function Editor({
   onSaved: () => void;
 }) {
   const [state, action, pending] = useActionState(saveTrackerAction, {});
-  const firstRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
 
   useEffect(() => {
     if (state.ok) onSaved();
   }, [state.ok, onSaved]);
 
-  useEffect(() => {
-    firstRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   const today = new Date().toISOString().slice(0, 10);
 
-  return (
-    <div className="tk-back" onMouseDown={onClose} role="presentation">
-      <div
-        className="tk-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={record ? `Edit entry` : `Add to ${def.label}`}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <header className="tk-modal__head">
-          <h2>{record ? "Edit entry" : `Add to ${def.label}`}</h2>
-          <button className="tk-close" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
-        </header>
+  const inputType = (t: TrackerField["type"]) =>
+    t === "date" ? "date" : t === "time" ? "time" : t === "number" ? "number" : t === "url" ? "url" : "text";
 
-        <form action={action} className="tk-modal__body">
+  const optionsFor = (f: TrackerField): readonly string[] =>
+    f.column === "status"
+      ? def.statuses
+      : f.column === "priority"
+        ? PRIORITIES
+        : f.type === "yesno"
+          ? (["Yes", "No"] as const)
+          : (f.options ?? []);
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{record ? "Edit entry" : `Add to ${def.label}`}</DialogTitle>
+          <DialogDescription>{def.blurb}</DialogDescription>
+        </DialogHeader>
+
+        <form action={action} className="grid gap-5">
           <input type="hidden" name="tracker" value={def.key} />
           {record && <input type="hidden" name="id" value={record.id} />}
 
           {state.error && (
-            <div className="msg err" role="alert">
+            <p
+              role="alert"
+              className="rounded-md border-[1px] border-solid border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
               {state.error}
-            </div>
+            </p>
           )}
 
-          <div className="tk-fields">
-            {def.fields.map((f, i) => {
+          <div className="grid gap-4 sm:grid-cols-2">
+            {def.fields.map((f) => {
               const current = record ? valueOf(record, f) : "";
-              const defaultVal =
-                current || (!record && f.column === "entry_date" ? today : "");
-              const wide = f.type === "textarea";
+              const defaultVal = current || (!record && f.column === "entry_date" ? today : "");
+              const name = `f_${f.key}`;
+              const isChoice = f.type === "select" || f.type === "yesno";
 
               return (
-                <label className={`f${wide ? " tk-wide" : ""}`} key={f.key}>
-                  <span>{f.label}</span>
+                <div
+                  key={f.key}
+                  className={cn("grid gap-1.5", f.type === "textarea" && "sm:col-span-2")}
+                >
+                  <Label htmlFor={name}>{f.label}</Label>
 
                   {f.type === "textarea" ? (
-                    <textarea name={`f_${f.key}`} defaultValue={defaultVal} rows={3} />
-                  ) : f.type === "select" ? (
-                    <select
-                      name={`f_${f.key}`}
-                      defaultValue={defaultVal}
-                      ref={i === 0 ? (el) => void (firstRef.current = el) : undefined}
-                    >
-                      <option value="">—</option>
-                      {(f.column === "status"
-                        ? def.statuses
-                        : f.column === "priority"
-                        ? PRIORITIES
-                        : f.options ?? []
-                      ).map((o) => (
-                        <option key={o} value={o}>
-                          {o}
-                        </option>
-                      ))}
-                    </select>
-                  ) : f.type === "yesno" ? (
-                    <select name={`f_${f.key}`} defaultValue={defaultVal}>
-                      <option value="">—</option>
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
+                    <Textarea id={name} name={name} defaultValue={defaultVal} rows={3} />
+                  ) : f.type === "date" ? (
+                    <DateField id={name} name={name} defaultValue={defaultVal} />
+                  ) : f.type === "time" ? (
+                    <TimeField id={name} name={name} defaultValue={defaultVal} />
+                  ) : isChoice ? (
+                    <Select name={name} defaultValue={defaultVal || undefined}>
+                      <SelectTrigger id={name}>
+                        <SelectValue placeholder="Not set" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NO_VALUE}>Not set</SelectItem>
+                        {optionsFor(f).map((o) => (
+                          <SelectItem key={o} value={o}>
+                            {o}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
-                    <input
-                      type={
-                        f.type === "date"
-                          ? "date"
-                          : f.type === "time"
-                          ? "time"
-                          : f.type === "number"
-                          ? "number"
-                          : f.type === "url"
-                          ? "url"
-                          : "text"
-                      }
-                      name={`f_${f.key}`}
+                    <Input
+                      id={name}
+                      name={name}
+                      type={inputType(f.type)}
                       defaultValue={defaultVal}
                       placeholder={f.placeholder}
-                      ref={i === 0 ? (el) => void (firstRef.current = el) : undefined}
                     />
                   )}
 
                   {f.column === "priority" && (
-                    <small className="tk-help">
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
                       {Object.entries(PRIORITY_HINT)
                         .map(([k, v]) => `${k}: ${v}`)
                         .join(" · ")}
-                    </small>
+                    </p>
                   )}
-                </label>
+                </div>
               );
             })}
           </div>
 
-          <footer className="tk-modal__foot">
-            <button type="button" className="btn ghost" onClick={onClose}>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button className="btn" disabled={pending}>
+            </Button>
+            <Button type="submit" disabled={pending}>
               {pending ? "Saving…" : record ? "Save changes" : "Add entry"}
-            </button>
-          </footer>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

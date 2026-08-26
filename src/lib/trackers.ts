@@ -70,6 +70,13 @@ export const DONE_STATUSES = [
 
 export const PRIORITIES = ["Urgent", "High", "Medium", "Low"] as const;
 
+/**
+ * Radix's Select refuses an empty-string item value, so "no answer" travels as
+ * this sentinel and is turned back into "" server-side. Without it an optional
+ * dropdown could be set but never cleared again.
+ */
+export const NO_VALUE = "__none__";
+
 /** From the tracker's own priority guide, shown as help text on the field. */
 export const PRIORITY_HINT: Record<string, string> = {
   Urgent: "Client, reputation or a critical deadline",

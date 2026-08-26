@@ -9,7 +9,7 @@ import {
   type TrackerInput,
 } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
-import { getTracker, PRIORITIES, type TrackerDef } from "@/lib/trackers";
+import { getTracker, NO_VALUE, PRIORITIES, type TrackerDef } from "@/lib/trackers";
 import type { FormState } from "./auth";
 
 /**
@@ -25,6 +25,9 @@ function readForm(def: TrackerDef, form: FormData): TrackerInput | { error: stri
   for (const field of def.fields) {
     const raw = form.get(`f_${field.key}`);
     let val = raw === null ? "" : String(raw).trim();
+
+    // The dropdowns send a sentinel for "no answer" — see NO_VALUE.
+    if (val === NO_VALUE) val = "";
 
     if (field.type === "select" && val) {
       const allowed =
