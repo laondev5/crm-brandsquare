@@ -104,6 +104,18 @@
     --ok: #1d9e75;
     --warn: #ba7517;
     --err: #e24b4a;
+
+    /* Stage palette. One pair per pipeline stage — a tint for surfaces and a
+       saturated version for text, dots and rails — so the same stage is the
+       same colour on a pill, a board column and a chart. Defined once here
+       because a stage that is blue in one place and grey in another stops
+       being information and becomes decoration. */
+    --st-new: #1665c1;        --st-new-soft: #e6f1fb;
+    --st-assigned: #b06a0d;   --st-assigned-soft: #fdf0dc;
+    --st-contacted: #4b41ad;  --st-contacted-soft: #eeedfe;
+    --st-qualified: #12876a;  --st-qualified-soft: #e1f5ee;
+    --st-won: #3a7a12;        --st-won-soft: #eaf3de;
+    --st-lost: #a83232;       --st-lost-soft: #fcebeb;
     --r: 12px;
     --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   }
@@ -157,6 +169,44 @@
   .stat span { font-size: 12px; color: var(--muted); font-weight: 500; display: block; }
   .stat b { font-size: 26px; color: var(--ink); font-weight: 700; line-height: 1.3; display: block; margin-top: 4px; }
   .stat.accent b { color: var(--p); }
+
+  /* Each tile carries the colour of what it counts, so the row reads as six
+     different things at a glance instead of six identical white boxes. The
+     tint is the surface and the numeral is the saturated version of the same
+     hue — colour doing the labelling, not decorating it. */
+  .stat.t-total    { background: #f3f2f8; border-color: #e2e0ee; }
+  .stat.t-total b  { color: var(--ink); }
+  .stat.t-today    { background: #fff2e7; border-color: #fbd9bd; }
+  .stat.t-today b  { color: var(--pd); }
+  .stat.t-open     { background: var(--st-new-soft); border-color: #c9dff5; }
+  .stat.t-open b   { color: var(--st-new); }
+  .stat.t-overdue  { background: var(--st-lost-soft); border-color: #f3cccc; }
+  .stat.t-overdue b{ color: var(--st-lost); }
+  .stat.t-quiet    { background: var(--st-assigned-soft); border-color: #f0d9ae; }
+  .stat.t-quiet b  { color: var(--st-assigned); }
+  .stat.t-won      { background: var(--st-won-soft); border-color: #cfe2b6; }
+  .stat.t-won b    { color: var(--st-won); }
+  .stat span { letter-spacing: .01em; }
+  .stat.t-today span, .stat.t-open span, .stat.t-overdue span,
+  .stat.t-quiet span, .stat.t-won span { color: var(--ink); opacity: .62; font-weight: 600; }
+
+  /* A tile that links somewhere should say so. */
+  a.stat { text-decoration: none; transition: transform .16s, box-shadow .16s; display: block; }
+  a.stat:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(3, 0, 26, .09); }
+
+  /* The two tiles that mean "someone has to do something" go solid the moment
+     they are above zero, and stay quiet when they are not. A dashboard that
+     shouts all the time teaches you to ignore it; this one only shouts when
+     there is a reason, so the colour still means something in week ten. */
+  .stat.is-alert { border-color: transparent; }
+  .stat.is-alert span { color: rgba(255, 255, 255, .88); opacity: 1; }
+  .stat.is-alert b { color: #fff; }
+  .stat.t-overdue.is-alert { background: #9c2b2b; }
+  /* Deeper than --st-assigned, which is tuned for text on a light tint. At
+     that lighter value a 12px white label lands near 3.4:1 against it, under
+     the 4.5:1 small-text minimum; this carries the label at about 6:1. */
+  .stat.t-quiet.is-alert   { background: #8a5309; }
+  a.stat.is-alert:hover { box-shadow: 0 6px 20px rgba(3, 0, 26, .22); }
   .grid2 { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
   
   /* ---------- table ---------- */
@@ -210,6 +260,7 @@
   .msg { border-radius: 8px; padding: 11px 14px; font-size: 13px; margin-bottom: 16px; }
   .msg.err { background: #fef3f3; border: 1px solid #f5c9c9; color: #a32d2d; }
   .msg.ok { background: #eaf6f1; border: 1px solid #b9e2d3; color: #0f6e56; }
+  .msg.warn { background: #fdf6ea; border: 1px solid #eddcbc; color: #854f0b; }
   
   /* ---------- tabs ---------- */
   .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -229,14 +280,33 @@
   /* ---------- agenda ---------- */
   .agenda { display: flex; flex-direction: column; gap: 16px; }
   .agenda-group { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; }
-  .agenda-group.is-overdue { border-color: #f3cfcf; background: #fffafa; }
+  /* The day gets calmer as it goes: red for what is already late, orange for
+     today, then cooling through blue to grey for what is still weeks away.
+     The gradient is the information — you can see how much of the week is on
+     fire before reading a single row. */
+  .agenda-group.g-overdue  { border-color: #f3cfcf; background: #fffafa; }
+  .agenda-group.g-today    { border-color: #fbd9bd; background: #fffaf5; }
+  .agenda-group.g-tomorrow { border-color: #f0d9ae; background: #fffdf7; }
+  .agenda-group.g-week     { border-color: #c9dff5; background: #fafcff; }
+  .agenda-group.g-later    { border-color: var(--line); background: var(--card); }
+
+  .agenda-group.g-overdue  .agenda-group__head h2 { color: var(--st-lost); }
+  .agenda-group.g-today    .agenda-group__head h2 { color: var(--pd); }
+  .agenda-group.g-tomorrow .agenda-group__head h2 { color: var(--st-assigned); }
+  .agenda-group.g-week     .agenda-group__head h2 { color: var(--st-new); }
+
+  .agenda-group.g-today    .agenda-group__head b { background: #fff2e7; color: var(--pd); }
+  .agenda-group.g-tomorrow .agenda-group__head b { background: var(--st-assigned-soft); color: var(--st-assigned); }
+  .agenda-group.g-week     .agenda-group__head b { background: var(--st-new-soft); color: var(--st-new); }
+  .agenda-group.g-today    .agenda-when { color: var(--pd); }
+  .agenda-group.g-tomorrow .agenda-when { color: var(--st-assigned); }
   .agenda-group__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .agenda-group__head h2 { margin: 0; font-size: 14px; color: var(--ink); font-weight: 700; }
   .agenda-group__head b {
     font-size: 11.5px; font-weight: 700; color: var(--muted);
     background: #f1f1f5; border-radius: 99px; padding: 1px 9px;
   }
-  .agenda-group.is-overdue .agenda-group__head b { background: #fbe3e3; color: #9c2b2b; }
+  .agenda-group.g-overdue .agenda-group__head b { background: #fbe3e3; color: #9c2b2b; }
   .agenda-group__head p { margin: 0; font-size: 12px; color: var(--muted); flex-basis: 100%; }
   
   .agenda-list { list-style: none; margin: 0; padding: 0; }
@@ -249,7 +319,7 @@
     font-variant-numeric: tabular-nums; font-size: 12.5px; font-weight: 700;
     color: var(--ink); min-width: 92px; flex: none;
   }
-  .agenda-group.is-overdue .agenda-when { color: #9c2b2b; }
+  .agenda-group.g-overdue .agenda-when { color: #9c2b2b; }
   .agenda-name { font-weight: 600; color: var(--ink); }
   .agenda-name:hover { color: var(--p); }
   .agenda-meta { margin-left: auto; font-size: 12px; color: var(--muted); }
@@ -443,6 +513,10 @@
   .pill.p-high { background: #faeeda; color: #854f0b; }
   .pill.p-medium { background: #e6f1fb; color: #0c447c; }
   .pill.p-low { background: #f1efe8; color: #5f5e5a; }
+
+  /* A lead that has gone quiet. Amber rather than red: it needs chasing, it
+     is not yet lost, and red is already spoken for by overdue follow-ups. */
+  .pill.p-stale { background: #faeeda; color: #854f0b; margin-left: 8px; vertical-align: middle; }
   
   /* ---------- tracker editor ---------- */
   .tk-back {
@@ -554,19 +628,38 @@
   .board-col__head {
     display: flex; align-items: center; gap: 8px; padding: 12px 14px 10px;
     border-bottom: 1px solid var(--line);
+    border-radius: var(--r) var(--r) 0 0;
   }
-  .board-col__head h2 { font-size: 12.5px; color: var(--ink); margin: 0; font-weight: 700; flex: 1; }
+  .board-col__head h2 { font-size: 12.5px; margin: 0; font-weight: 700; flex: 1; color: var(--ink); }
   .board-col__head b {
     font-size: 12px; color: var(--muted); background: #fff; border: 1px solid var(--line);
     border-radius: 99px; padding: 1px 8px; font-weight: 700;
   }
+
+  /* The board is a left-to-right journey, so each column is tinted with its
+     own stage colour and its count is set in the saturated version. Where a
+     deal sits is then readable from across the room, without reading a word. */
+  .board-col__head.s-new       { background: var(--st-new-soft); }
+  .board-col__head.s-assigned  { background: var(--st-assigned-soft); }
+  .board-col__head.s-contacted { background: var(--st-contacted-soft); }
+  .board-col__head.s-qualified { background: var(--st-qualified-soft); }
+  .board-col__head.s-won       { background: var(--st-won-soft); }
+  .board-col__head.s-lost      { background: var(--st-lost-soft); }
+  .board-col__head.s-new h2,       .board-col__head.s-new b       { color: var(--st-new); }
+  .board-col__head.s-assigned h2,  .board-col__head.s-assigned b  { color: var(--st-assigned); }
+  .board-col__head.s-contacted h2, .board-col__head.s-contacted b { color: var(--st-contacted); }
+  .board-col__head.s-qualified h2, .board-col__head.s-qualified b { color: var(--st-qualified); }
+  .board-col__head.s-won h2,       .board-col__head.s-won b       { color: var(--st-won); }
+  .board-col__head.s-lost h2,      .board-col__head.s-lost b      { color: var(--st-lost); }
+  .board-col__head b { background: rgba(255, 255, 255, .78); border-color: transparent; }
+
   .board-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  .board-dot.s-new { background: #0c447c; }
-  .board-dot.s-assigned { background: #854f0b; }
-  .board-dot.s-contacted { background: #3c3489; }
-  .board-dot.s-qualified { background: #0f6e56; }
-  .board-dot.s-won { background: #27500a; }
-  .board-dot.s-lost { background: #791f1f; }
+  .board-dot.s-new { background: var(--st-new); }
+  .board-dot.s-assigned { background: var(--st-assigned); }
+  .board-dot.s-contacted { background: var(--st-contacted); }
+  .board-dot.s-qualified { background: var(--st-qualified); }
+  .board-dot.s-won { background: var(--st-won); }
+  .board-dot.s-lost { background: var(--st-lost); }
   
   .board-col__body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
   .board-msg { text-align: center; color: var(--muted); font-size: 12.5px; padding: 16px 0; margin: 0; }

@@ -29,15 +29,15 @@ export default async function Overview() {
       </div>
 
       <div className="stats">
-        <div className="stat">
+        <div className="stat t-total">
           <span>Total leads</span>
           <b>{m.total}</b>
         </div>
-        <div className="stat accent">
+        <div className="stat t-today">
           <span>New today</span>
           <b>{m.today}</b>
         </div>
-        <div className="stat">
+        <Link href="/leads?status=open" className="stat t-open">
           <span>Open</span>
           <b>
             {(m.byStatus.new ?? 0) +
@@ -45,12 +45,24 @@ export default async function Overview() {
               (m.byStatus.contacted ?? 0) +
               (m.byStatus.qualified ?? 0)}
           </b>
-        </div>
-        <div className="stat">
+        </Link>
+        <Link
+          href="/leads?status=overdue"
+          className={`stat t-overdue${m.overdue ? " is-alert" : ""}`}
+        >
           <span>Overdue follow-up</span>
-          <b style={{ color: m.overdue ? "var(--err)" : undefined }}>{m.overdue}</b>
-        </div>
-        <div className="stat">
+          <b>{m.overdue}</b>
+        </Link>
+        {m.stale_after_days > 0 && (
+          <Link
+            href="/leads?status=stale"
+            className={`stat t-quiet${m.stale ? " is-alert" : ""}`}
+          >
+            <span>Gone quiet</span>
+            <b>{m.stale}</b>
+          </Link>
+        )}
+        <div className="stat t-won">
           <span>Conversion</span>
           <b>{m.conversion}%</b>
         </div>

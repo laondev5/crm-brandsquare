@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { listCampaigns, listLeads } from "@/lib/queries";
-import { LEAD_STATUSES } from "@/lib/types";
+import { LEAD_STATUSES, daysQuiet, isStale } from "@/lib/types";
 import StatusPill from "../pill";
+import QuietFor from "./quiet-for";
 
 const TABS = [
   { key: "", label: "All" },
   { key: "open", label: "Open" },
   { key: "unassigned", label: "Unassigned" },
   { key: "overdue", label: "Overdue" },
+  { key: "stale", label: "Stale" },
   ...LEAD_STATUSES.map((s) => ({ key: s.key, label: s.label })),
 ];
 
@@ -22,7 +24,7 @@ export default async function LeadsPage({
   const scope = me.role === "admin" ? null : me.id;
   const formId = Number(sp.form) || null;
 
-  const [{ rows, total, pages, page }, campaigns] = await Promise.all([
+  const [{ rows, total, pages, page, stale_after_days, now }, campaigns] = await Promise.all([
     listLeads({
       status: sp.status,
       search: sp.s,
@@ -91,6 +93,23 @@ export default async function LeadsPage({
         ))}
       </div>
 
+      {sp.status === "stale" && (
+        <div className="msg warn">
+          {stale_after_days > 0 ? (
+            <>
+              Open leads with nothing on their timeline for over{" "}
+              <strong>{stale_after_days} days</strong> — no note, email, WhatsApp or stage change.
+              Longest silent first. Won and lost leads are never listed here.
+            </>
+          ) : (
+            <>
+              Stale flagging is switched off. Set a number of days under{" "}
+              <strong>Brandsquare → Settings</strong> in WordPress to turn it on.
+            </>
+          )}
+        </div>
+      )}
+
       {active && (
         <div className="msg ok" style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span>
@@ -116,7 +135,9 @@ export default async function LeadsPage({
                 <th style={{ width: 160 }}>Campaign</th>
                 <th style={{ width: 105 }}>Stage</th>
                 <th style={{ width: 130 }}>Owner</th>
-                <th style={{ width: 120 }}>Received</th>
+                <th style={{ width: 120 }}>
+                  {sp.status === "stale" ? "Last activity" : "Received"}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -127,6 +148,9 @@ export default async function LeadsPage({
                     <Link href={`/leads/${l.id}`} className="name">
                       {l.name || "(no name)"}
                     </Link>
+                    {isStale(l, now, stale_after_days) && (
+                      <QuietFor days={daysQuiet(l.last_activity_at, now)} />
+                    )}
                   </td>
                   <td data-l="Email">{l.email || "—"}</td>
                   <td data-l="Phone">{l.phone || "—"}</td>
@@ -147,7 +171,13 @@ export default async function LeadsPage({
                     <StatusPill status={l.status} />
                   </td>
                   <td data-l="Owner">{l.owner ?? "Unassigned"}</td>
-                  <td data-l="Received">{fmt(l.created_at)}</td>
+                  <td data-l={sp.status === "stale" ? "Last activity" : "Received"}>
+                    {sp.status === "stale"
+                      ? l.last_activity_at
+                        ? fmt(l.last_activity_at)
+                        : "—"
+                      : fmt(l.created_at)}
+                  </td>
                 </tr>
               ))}
             </tbody>

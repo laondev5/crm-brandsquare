@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { allSubadmins, getEmailSettings, getLeadEmails, getLeadFull } from "@/lib/queries";
-import { LEAD_STATUSES, hasPermission, parsePayload } from "@/lib/types";
+import { LEAD_STATUSES, daysQuiet, hasPermission, isStale, parsePayload } from "@/lib/types";
 import { updateLeadAction } from "../../../actions/leads";
 import StatusPill from "../../pill";
 import WhatsAppButton from "./whatsapp-button";
@@ -48,6 +48,14 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
       </div>
 
       {overdue && <div className="msg err">Follow-up was due {fmtDT(lead.next_action_at!)}.</div>}
+
+      {isStale(lead, full.now, full.stale_after_days) && (
+        <div className="msg warn">
+          Nothing has happened on this lead for{" "}
+          <strong>{daysQuiet(lead.last_activity_at, full.now)} days</strong>. Adding a note, sending
+          an email or moving the stage clears the flag.
+        </div>
+      )}
 
       <div className="grid2">
         <div style={{ display: "grid", gap: 20 }}>

@@ -78,6 +78,42 @@ export interface Lead {
   assigned_to: number | null;
   assigned_at: string | null;
   next_action_at: string | null;
+  /**
+   * When anything last happened on this lead — a status change, a note, an
+   * email, a WhatsApp open. Null only for a lead written before the plugin
+   * tracked it, which is why nothing treats null as "silent forever".
+   */
+  last_activity_at: string | null;
+}
+
+/**
+ * How long a lead has been quiet, in whole days, or null when it has never
+ * had activity recorded. Counted against the server's clock rather than the
+ * browser's, so a laptop with the wrong date cannot invent stale leads.
+ */
+export function daysQuiet(
+  lastActivityAt: string | null,
+  /** MySQL datetime from the list endpoint, or unix seconds from the lead endpoint. */
+  serverNow: string | number
+): number | null {
+  if (!lastActivityAt) return null;
+  const then = Date.parse(lastActivityAt.replace(" ", "T"));
+  const now = typeof serverNow === "number" ? serverNow * 1000 : Date.parse(serverNow.replace(" ", "T"));
+  if (isNaN(then) || isNaN(now)) return null;
+  return Math.max(0, Math.floor((now - then) / 86400000));
+}
+
+export function isStale(
+  lead: { last_activity_at: string | null; status: LeadStatus },
+  serverNow: string | number,
+  staleAfterDays: number
+): boolean {
+  // A closed lead going quiet is the desired outcome, not a problem. And a
+  // threshold of zero means the whole feature is switched off.
+  if (staleAfterDays <= 0) return false;
+  if (lead.status === "won" || lead.status === "lost") return false;
+  const quiet = daysQuiet(lead.last_activity_at, serverNow);
+  return quiet !== null && quiet > staleAfterDays;
 }
 
 export interface LeadRow extends Lead {

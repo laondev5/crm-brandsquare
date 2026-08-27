@@ -120,7 +120,7 @@ export default function Board({
               if (id) move(id, col.key);
             }}
           >
-            <header className="board-col__head">
+            <header className={`board-col__head s-${col.key}`}>
               <span className={`board-dot s-${col.key}`} aria-hidden="true" />
               <h2>{col.label}</h2>
               <b>{col.total}</b>

@@ -43,7 +43,16 @@ export interface LeadFilter {
 }
 
 export async function listLeads(f: LeadFilter) {
-  return api.get<{ rows: LeadRow[]; total: number; pages: number; page: number }>("/leads", {
+  return api.get<{
+    rows: LeadRow[];
+    total: number;
+    pages: number;
+    page: number;
+    /** The threshold the server filtered on, so a badge cannot disagree with the tab. */
+    stale_after_days: number;
+    /** Server clock, so "quiet for 20 days" is not computed from the browser's. */
+    now: string;
+  }>("/leads", {
     status: f.status,
     s: f.search,
     owner: f.ownerId ?? undefined,
@@ -79,6 +88,8 @@ export async function getLeadFull(id: number, ownerId?: number | null) {
       activity: Activity[];
       /** Server clock in unix seconds, for the note edit window. */
       now: number;
+      /** Days of silence that count as stale, 0 when the flag is switched off. */
+      stale_after_days: number;
     }>(`/leads/${id}`, { owner: ownerId ?? undefined });
   } catch {
     return null;
@@ -404,6 +415,9 @@ export interface Metrics {
   today: number;
   overdue: number;
   unassigned: number;
+  /** Open leads with no activity for longer than the threshold below. */
+  stale: number;
+  stale_after_days: number;
   conversion: number;
   load: { id: number; name: string; open_leads: number; won: number }[];
 }

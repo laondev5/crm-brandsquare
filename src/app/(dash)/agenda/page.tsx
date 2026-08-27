@@ -85,7 +85,7 @@ export default async function AgendaPage() {
             const list = groups[b.key];
             if (list.length === 0) return null;
             return (
-              <section key={b.key} className={`agenda-group${b.key === "overdue" ? " is-overdue" : ""}`}>
+              <section key={b.key} className={`agenda-group g-${b.key}`}>
                 <header className="agenda-group__head">
                   <h2>{b.label}</h2>
                   <b>{list.length}</b>
