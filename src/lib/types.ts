@@ -33,6 +33,7 @@ export interface Pipeline {
 export const DEFAULT_PIPELINE: Pipeline = {
   stages: [
     { key: "new", label: "New Inquiry / Lead", probability: 5, colour: "#64748b", type: "open" },
+    { key: "contacted", label: "Contacted", probability: 10, colour: "#2f6f8f", type: "open" },
     { key: "qualification", label: "Qualification", probability: 15, colour: "#1665c1", type: "open" },
     { key: "tech_discussion", label: "Technical Discussion / Spec Confirmation", probability: 30, colour: "#0e7490", type: "open" },
     { key: "quotation_sent", label: "Quotation Sent", probability: 45, colour: "#4f46e5", type: "open" },
@@ -48,8 +49,8 @@ export const DEFAULT_PIPELINE: Pipeline = {
   won_key: "won",
   lost_key: "lost",
   open: [
-    "new", "qualification", "tech_discussion", "quotation_sent", "negotiation",
-    "deposit", "production", "shipping", "customs", "delivery",
+    "new", "contacted", "qualification", "tech_discussion", "quotation_sent",
+    "negotiation", "deposit", "production", "shipping", "customs", "delivery",
   ],
 };
 
