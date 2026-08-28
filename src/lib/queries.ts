@@ -1,5 +1,7 @@
 import "server-only";
+import { cache } from "react";
 import { api } from "./api";
+import { DEFAULT_PIPELINE } from "./types";
 import type {
   Activity,
   AudiencePreview,
@@ -17,6 +19,7 @@ import type {
   Note,
   LeadStatus,
   Permission,
+  Pipeline,
   TrackerCounts,
   TrackerRecord,
 } from "./types";
@@ -62,6 +65,26 @@ export async function listLeads(f: LeadFilter) {
     per: f.perPage ?? 20,
   });
 }
+
+/* ---------------- pipeline stages ---------------- */
+
+/**
+ * The stage list is configured in WordPress, so it is fetched rather than
+ * declared here. Cached for the life of one request via React's cache(), which
+ * matters because a single page can ask for it from the layout, the page and
+ * two components — this way that is one HTTP call, not four.
+ *
+ * The fallback is the shipped default rather than an empty list: a pipeline
+ * page with no columns would look like "you have no leads" rather than like a
+ * failed request.
+ */
+export const getPipeline = cache(async (): Promise<Pipeline> => {
+  try {
+    return await api.get<Pipeline>("/stages");
+  } catch {
+    return DEFAULT_PIPELINE;
+  }
+});
 
 /* ---------------- campaigns ---------------- */
 
@@ -115,6 +138,8 @@ export interface LeadUpdate {
   status?: LeadStatus;
   assigned_to?: number | null;
   next_action_at?: string | null;
+  /** Only honoured by the server while the lead is in the Lost stage. */
+  lost_reason?: string;
 }
 
 export async function updateLead(

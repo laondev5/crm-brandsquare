@@ -9,6 +9,7 @@ import {
   deleteLead,
   deleteNote,
   getLeadFull,
+  getPipeline,
   logWhatsAppOpen,
   sendLeadEmail,
   updateLead,
@@ -17,8 +18,8 @@ import {
 } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
 import {
-  LEAD_STATUSES,
   hasPermission,
+  stageLabel,
   type LeadStatus,
   type BulkLeadRow,
   type BulkImportResult,
@@ -26,7 +27,19 @@ import {
 } from "@/lib/types";
 import type { FormState } from "./auth";
 
-export async function updateLeadAction(form: FormData) {
+/**
+ * Saving the Manage panel.
+ *
+ * Returns a result rather than nothing, because every failure here used to be
+ * silent: getLeadFull swallows its errors and returns null, so a dropped
+ * connection made Save do absolutely nothing — no change, no message, no way
+ * to tell it had failed. A save button that can quietly do nothing is worse
+ * than one that errors.
+ */
+export async function updateLeadAction(
+  _prev: FormState,
+  form: FormData
+): Promise<FormState> {
   const me = await requireUser();
   const id = Number(form.get("id"));
 
@@ -35,12 +48,15 @@ export async function updateLeadAction(form: FormData) {
   const scope = me.role === "admin" ? null : me.id;
 
   const current = await getLeadFull(id, scope);
-  if (!current) return;
+  if (!current) {
+    return { error: "Could not load this lead to save it. Check your connection and try again." };
+  }
 
   const patch: LeadUpdate = {};
 
   const status = String(form.get("status") ?? "") as LeadStatus;
-  if (status && status !== current.lead.status && LEAD_STATUSES.some((s) => s.key === status)) {
+  const pipeline = await getPipeline();
+  if (status && status !== current.lead.status && pipeline.stages.some((s) => s.key === status)) {
     patch.status = status;
   }
 
@@ -56,16 +72,38 @@ export async function updateLeadAction(form: FormData) {
   const next = String(form.get("next_action_at") ?? "").trim();
   patch.next_action_at = next || null;
 
-  if (Object.keys(patch).length) {
-    await updateLead(id, me, patch, scope);
-  }
+  // Only present in the form while Lost is the selected stage. Sent whenever
+  // it is, including empty, so clearing the box actually clears the reason
+  // rather than silently keeping the old one.
+  const lostReason = form.get("lost_reason");
+  if (lostReason !== null) patch.lost_reason = String(lostReason).slice(0, 255);
 
   const note = String(form.get("note") ?? "").trim();
-  if (note) await addNote(id, me, note.slice(0, 5000));
+
+  try {
+    if (Object.keys(patch).length) {
+      await updateLead(id, me, patch, scope);
+    }
+    if (note) await addNote(id, me, note.slice(0, 5000));
+  } catch (e) {
+    if (e instanceof ApiError) return { error: e.message };
+    return { error: "Could not save those changes. Please try again." };
+  }
 
   revalidatePath(`/leads/${id}`);
   revalidatePath("/leads");
+  revalidatePath("/pipeline");
+  revalidatePath("/agenda");
   revalidatePath("/");
+
+  // Naming what changed beats a bare "Saved": the commonest way this went
+  // wrong was a save that appeared to work and had not.
+  const changed: string[] = [];
+  if (patch.status) changed.push(`stage set to ${stageLabel(pipeline, patch.status)}`);
+  if (patch.assigned_to !== undefined) changed.push("owner updated");
+  if (note) changed.push("note added");
+
+  return { ok: changed.length ? `Saved — ${changed.join(", ")}.` : "Saved." };
 }
 
 /**
@@ -172,7 +210,7 @@ export async function addLeadAction(_prev: AddLeadState, form: FormData): Promis
     email,
     phone,
     answers,
-    status: LEAD_STATUSES.some((s) => s.key === status) ? status : "new",
+    status: (await getPipeline()).stages.some((s) => s.key === status) ? status : "new",
     note: String(form.get("note") ?? "").trim() || undefined,
   };
 

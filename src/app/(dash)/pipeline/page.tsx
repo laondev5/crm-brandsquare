@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { listLeads } from "@/lib/queries";
-import { LEAD_STATUSES, OPEN_STATUSES, type LeadStatus } from "@/lib/types";
+import { getPipeline, listLeads } from "@/lib/queries";
+import { weightedOpen, type LeadStatus } from "@/lib/types";
 import Board, { type BoardColumn } from "./board";
 
 /** How many cards are rendered per column before it says "+N more". */
@@ -30,8 +30,10 @@ export default async function PipelinePage({
   // Search goes to the server for the same reason: filtering the loaded cards
   // in the browser would only ever search the 40 per column already on screen
   // and quietly miss matches sitting behind a "+N more".
+  const pipeline = await getPipeline();
+
   const results = await Promise.all(
-    LEAD_STATUSES.map((s) =>
+    pipeline.stages.map((s) =>
       listLeads({
         status: s.key,
         search: term || undefined,
@@ -51,12 +53,14 @@ export default async function PipelinePage({
     return Math.max(0, Math.floor((now - t) / 86_400_000));
   };
 
-  const columns: BoardColumn[] = LEAD_STATUSES.map((s, i) => {
+  const columns: BoardColumn[] = pipeline.stages.map((s, i) => {
     const r = results[i];
-    const open = OPEN_STATUSES.includes(s.key);
+    const open = s.type === "open";
     return {
       key: s.key,
       label: s.label,
+      colour: s.colour,
+      probability: s.probability,
       total: r.total,
       failed: !r.ok,
       cards: r.rows.map((l) => {
@@ -79,9 +83,15 @@ export default async function PipelinePage({
   });
 
   const anyFailed = columns.some((c) => c.failed);
-  const totalOpen = columns
-    .filter((c) => OPEN_STATUSES.includes(c.key))
-    .reduce((n, c) => n + c.total, 0);
+  const openKeys = new Set(pipeline.open);
+  const totalOpen = columns.filter((c) => openKeys.has(c.key)).reduce((n, c) => n + c.total, 0);
+
+  // Weighted by each stage's probability: ten leads sitting in Qualification
+  // are not the same prospect as ten at Deposit Received. With no deal values
+  // yet this forecasts how many should close, not what they are worth.
+  const byStage: Record<string, number> = {};
+  for (const c of columns) byStage[c.key] = c.total;
+  const forecast = weightedOpen(pipeline, byStage);
   const rotting = columns.reduce(
     (n, c) => n + c.cards.filter((card) => card.rot !== "none").length,
     0
@@ -95,6 +105,11 @@ export default async function PipelinePage({
         <div className="spacer" />
         <span className="board-legend">
           <b>{totalOpen}</b> open
+          {" · "}
+          <b title="Open leads weighted by each stage's probability of closing">
+            {forecast}
+          </b>{" "}
+          forecast
           {rotting > 0 && (
             <>
               {" · "}
@@ -145,7 +160,7 @@ export default async function PipelinePage({
         </p>
       )}
 
-      <Board columns={columns} canReassign={me.role === "admin"} searchTerm={term} />
+      <Board columns={columns} pipeline={pipeline} canReassign={me.role === "admin"} searchTerm={term} />
     </>
   );
 }

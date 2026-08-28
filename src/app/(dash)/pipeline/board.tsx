@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { LEAD_STATUSES, type LeadStatus } from "@/lib/types";
+import type { LeadStatus, Pipeline } from "@/lib/types";
 import { moveLeadAction } from "@/app/actions/pipeline";
 
 export interface BoardCard {
@@ -21,6 +21,9 @@ export interface BoardCard {
 export interface BoardColumn {
   key: LeadStatus;
   label: string;
+  /** From the stage record, so a stage added in WordPress needs no CSS. */
+  colour: string;
+  probability: number;
   total: number;
   failed: boolean;
   cards: BoardCard[];
@@ -28,10 +31,12 @@ export interface BoardColumn {
 
 export default function Board({
   columns,
+  pipeline,
   canReassign,
   searchTerm = "",
 }: {
   columns: BoardColumn[];
+  pipeline: Pipeline;
   canReassign: boolean;
   /** Carried into the "+N more" links so a search survives the jump to Leads. */
   searchTerm?: string;
@@ -120,10 +125,13 @@ export default function Board({
               if (id) move(id, col.key);
             }}
           >
-            <header className={`board-col__head s-${col.key}`}>
-              <span className={`board-dot s-${col.key}`} aria-hidden="true" />
+            <header
+              className="board-col__head is-stage"
+              style={{ ["--stage" as string]: col.colour }}
+            >
+              <span className="board-dot is-stage" aria-hidden="true" />
               <h2>{col.label}</h2>
-              <b>{col.total}</b>
+              <b title={`${col.probability}% likely to close from here`}>{col.total}</b>
             </header>
 
             <div className="board-col__body">
@@ -177,7 +185,7 @@ export default function Board({
                         value={card.status}
                         onChange={(e) => move(card.id, e.target.value as LeadStatus)}
                       >
-                        {LEAD_STATUSES.map((s) => (
+                        {pipeline.stages.map((s) => (
                           <option key={s.key} value={s.key}>
                             {s.label}
                           </option>

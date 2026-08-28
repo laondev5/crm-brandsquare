@@ -3,13 +3,14 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { addLeadAction, type AddLeadState } from "../../../actions/leads";
-import { LEAD_STATUSES } from "@/lib/types";
-import type { Campaign, DashUser } from "@/lib/types";
+
+import type { Campaign, DashUser, Pipeline } from "@/lib/types";
 
 interface Props {
   campaigns: Campaign[];
   subs: DashUser[];
   isAdmin: boolean;
+  pipeline: Pipeline;
 }
 
 /**
@@ -34,6 +35,7 @@ function AddLeadFormInner({
   campaigns,
   subs,
   isAdmin,
+  pipeline,
   onAddAnother,
 }: Props & { onAddAnother: () => void }) {
   const [state, action, pending] = useActionState<AddLeadState, FormData>(addLeadAction, {});
@@ -201,7 +203,7 @@ function AddLeadFormInner({
             <label className="f">
               <span>Stage</span>
               <select name="status" defaultValue="new">
-                {LEAD_STATUSES.map((s) => (
+                {pipeline.stages.map((s) => (
                   <option key={s.key} value={s.key}>
                     {s.label}
                   </option>

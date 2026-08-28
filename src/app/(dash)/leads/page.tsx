@@ -1,18 +1,9 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { listCampaigns, listLeads } from "@/lib/queries";
-import { LEAD_STATUSES, daysQuiet, isStale } from "@/lib/types";
+import { getPipeline, listCampaigns, listLeads } from "@/lib/queries";
+import { daysQuiet, isStale } from "@/lib/types";
 import StatusPill from "../pill";
 import QuietFor from "./quiet-for";
-
-const TABS = [
-  { key: "", label: "All" },
-  { key: "open", label: "Open" },
-  { key: "unassigned", label: "Unassigned" },
-  { key: "overdue", label: "Overdue" },
-  { key: "stale", label: "Stale" },
-  ...LEAD_STATUSES.map((s) => ({ key: s.key, label: s.label })),
-];
 
 export default async function LeadsPage({
   searchParams,
@@ -24,7 +15,7 @@ export default async function LeadsPage({
   const scope = me.role === "admin" ? null : me.id;
   const formId = Number(sp.form) || null;
 
-  const [{ rows, total, pages, page, stale_after_days, now }, campaigns] = await Promise.all([
+  const [{ rows, total, pages, page, stale_after_days, now }, campaigns, pipeline] = await Promise.all([
     listLeads({
       status: sp.status,
       search: sp.s,
@@ -35,7 +26,19 @@ export default async function LeadsPage({
     // Sub-admins get the picker too — it only names campaigns, and their
     // results stay scoped to their own leads by the server.
     listCampaigns(1, 100).then((r) => r.rows).catch(() => []),
+    getPipeline(),
   ]);
+
+  // The stage tabs come from the configured pipeline, so a stage added in
+  // WordPress shows up here without a deploy.
+  const TABS = [
+    { key: "", label: "All" },
+    { key: "open", label: "Open" },
+    { key: "unassigned", label: "Unassigned" },
+    { key: "overdue", label: "Overdue" },
+    { key: "stale", label: "Stale" },
+    ...pipeline.stages.map((s) => ({ key: s.key, label: s.label })),
+  ];
 
   const qs = (over: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -168,7 +171,7 @@ export default async function LeadsPage({
                     )}
                   </td>
                   <td data-l="Stage">
-                    <StatusPill status={l.status} />
+                    <StatusPill status={l.status} pipeline={pipeline} />
                   </td>
                   <td data-l="Owner">{l.owner ?? "Unassigned"}</td>
                   <td data-l={sp.status === "stale" ? "Last activity" : "Received"}>

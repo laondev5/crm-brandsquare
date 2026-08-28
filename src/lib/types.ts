@@ -1,24 +1,88 @@
 export type Role = "admin" | "subadmin";
 export type UserStatus = "invited" | "active" | "disabled";
 
-export type LeadStatus =
-  | "new"
-  | "assigned"
-  | "contacted"
-  | "qualified"
-  | "won"
-  | "lost";
+/**
+ * A stage key. Deliberately a plain string rather than a union: the pipeline
+ * is configurable in WordPress, so the set of valid values is not knowable at
+ * compile time. Anything that needs to know what a stage *means* asks the
+ * Pipeline object below rather than comparing against a literal.
+ */
+export type LeadStatus = string;
 
-export const LEAD_STATUSES: { key: LeadStatus; label: string }[] = [
-  { key: "new", label: "New" },
-  { key: "assigned", label: "Assigned" },
-  { key: "contacted", label: "Contacted" },
-  { key: "qualified", label: "Qualified" },
-  { key: "won", label: "Won" },
-  { key: "lost", label: "Lost" },
-];
+export interface Stage {
+  key: LeadStatus;
+  label: string;
+  /** Chance of closing from here, 0–100. What makes a forecast weighted. */
+  probability: number;
+  colour: string;
+  type: "open" | "won" | "lost";
+}
 
-export const OPEN_STATUSES: LeadStatus[] = ["new", "assigned", "contacted", "qualified"];
+export interface Pipeline {
+  stages: Stage[];
+  won_key: string;
+  lost_key: string;
+  /** Keys that still count as in play. */
+  open: string[];
+}
+
+/**
+ * Mirrors bsqf_default_stages() in the plugin. Used only when /stages cannot
+ * be reached, so the board still draws columns instead of looking empty.
+ */
+export const DEFAULT_PIPELINE: Pipeline = {
+  stages: [
+    { key: "new", label: "New Inquiry / Lead", probability: 5, colour: "#64748b", type: "open" },
+    { key: "qualification", label: "Qualification", probability: 15, colour: "#1665c1", type: "open" },
+    { key: "tech_discussion", label: "Technical Discussion / Spec Confirmation", probability: 30, colour: "#0e7490", type: "open" },
+    { key: "quotation_sent", label: "Quotation Sent", probability: 45, colour: "#4f46e5", type: "open" },
+    { key: "negotiation", label: "Negotiation", probability: 60, colour: "#7c3aed", type: "open" },
+    { key: "deposit", label: "Deposit / PO Received", probability: 80, colour: "#b45309", type: "open" },
+    { key: "production", label: "Sourcing / Production in China", probability: 90, colour: "#c2410c", type: "open" },
+    { key: "shipping", label: "Shipping", probability: 95, colour: "#9a3412", type: "open" },
+    { key: "customs", label: "Customs Clearance (Nigeria)", probability: 97, colour: "#0f766e", type: "open" },
+    { key: "delivery", label: "Delivery / Installation", probability: 99, colour: "#15803d", type: "open" },
+    { key: "won", label: "Won (After-sales)", probability: 100, colour: "#3a7a12", type: "won" },
+    { key: "lost", label: "Lost", probability: 0, colour: "#a83232", type: "lost" },
+  ],
+  won_key: "won",
+  lost_key: "lost",
+  open: [
+    "new", "qualification", "tech_discussion", "quotation_sent", "negotiation",
+    "deposit", "production", "shipping", "customs", "delivery",
+  ],
+};
+
+/** Convenience wrapper so pages ask questions instead of comparing strings. */
+export function stageOf(pipeline: Pipeline, key: LeadStatus): Stage | undefined {
+  return pipeline.stages.find((s) => s.key === key);
+}
+
+export function stageLabel(pipeline: Pipeline, key: LeadStatus): string {
+  return stageOf(pipeline, key)?.label ?? key;
+}
+
+export function isClosed(pipeline: Pipeline, key: LeadStatus): boolean {
+  const s = stageOf(pipeline, key);
+  return s ? s.type !== "open" : false;
+}
+
+/**
+ * Weighted count: each open lead counts for its stage's probability. With no
+ * deal values yet this forecasts how many of the open leads should close, not
+ * how much they are worth — the money arrives with the Deals object.
+ */
+export function weightedOpen(
+  pipeline: Pipeline,
+  byStatus: Partial<Record<string, number>>
+): number {
+  let total = 0;
+  for (const s of pipeline.stages) {
+    if (s.type !== "open") continue;
+    total += (byStatus[s.key] ?? 0) * (s.probability / 100);
+  }
+  return Math.round(total * 10) / 10;
+}
 
 /**
  * What a sub-admin can individually be granted. An admin has every one of
@@ -84,6 +148,8 @@ export interface Lead {
    * tracked it, which is why nothing treats null as "silent forever".
    */
   last_activity_at: string | null;
+  /** Only ever set while the lead sits in the Lost stage; cleared on reopen. */
+  lost_reason: string;
 }
 
 /**

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { getCampaign, listLeads } from "@/lib/queries";
-import { LEAD_STATUSES } from "@/lib/types";
+import { getCampaign, getPipeline, listLeads } from "@/lib/queries";
+
 import StatusPill from "../../pill";
 
 export default async function CampaignDetail({
@@ -24,7 +24,10 @@ export default async function CampaignDetail({
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
 
-  const { rows, total, pages } = await listLeads({ formId: id, page });
+  const [{ rows, total, pages }, pipeline] = await Promise.all([
+    listLeads({ formId: id, page }),
+    getPipeline(),
+  ]);
 
   return (
     <>
@@ -87,7 +90,7 @@ export default async function CampaignDetail({
                     </td>
                     <td data-l="Email">{l.email || "—"}</td>
                     <td data-l="Stage">
-                      <StatusPill status={l.status} />
+                      <StatusPill status={l.status} pipeline={pipeline} />
                     </td>
                     <td data-l="Owner">{l.owner ?? "Unassigned"}</td>
                     <td data-l="Received">{fmt(l.created_at)}</td>
@@ -117,7 +120,7 @@ export default async function CampaignDetail({
             <h2>Pipeline</h2>
             <table className="kv">
               <tbody>
-                {LEAD_STATUSES.map((s) => (
+                {pipeline.stages.map((s) => (
                   <tr key={s.key}>
                     <th>{s.label}</th>
                     <td style={{ textAlign: "right", fontWeight: 600, color: "var(--ink)" }}>

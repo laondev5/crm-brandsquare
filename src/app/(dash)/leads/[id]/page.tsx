@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { allSubadmins, getEmailSettings, getLeadEmails, getLeadFull } from "@/lib/queries";
-import { LEAD_STATUSES, daysQuiet, hasPermission, isStale, parsePayload } from "@/lib/types";
-import { updateLeadAction } from "../../../actions/leads";
+import {
+  allSubadmins,
+  getEmailSettings,
+  getLeadEmails,
+  getLeadFull,
+  getPipeline,
+} from "@/lib/queries";
+import { daysQuiet, hasPermission, isClosed, isStale, parsePayload } from "@/lib/types";
+
+import Manage from "./manage";
 import StatusPill from "../../pill";
 import WhatsAppButton from "./whatsapp-button";
 import EmailPanel from "./email-panel";
@@ -20,23 +27,24 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   if (!full) notFound();
 
   const { lead, notes, activity } = full;
-  const [subs, emailHistory, emailSettings] = await Promise.all([
+  const [subs, emailHistory, emailSettings, pipeline] = await Promise.all([
     me.role === "admin" ? allSubadmins() : Promise.resolve([]),
     getLeadEmails(id, scope),
     getEmailSettings().catch(() => null),
+    getPipeline(),
   ]);
 
   const answers = parsePayload(lead.payload);
   const overdue =
     lead.next_action_at &&
     new Date(lead.next_action_at.replace(" ", "T")) < new Date() &&
-    !["won", "lost"].includes(lead.status);
+    !isClosed(pipeline, lead.status);
 
   return (
     <>
       <div className="head">
         <h1>
-          Lead #{lead.id} <StatusPill status={lead.status} />
+          Lead #{lead.id} <StatusPill status={lead.status} pipeline={pipeline} />
         </h1>
         <div className="spacer" />
         {hasPermission(me, "send_whatsapp") && lead.phone && (
@@ -144,56 +152,12 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
         </div>
 
         <div style={{ display: "grid", gap: 20, alignContent: "start" }}>
-          <form className="card" action={updateLeadAction}>
-            <h2>Manage</h2>
-            <input type="hidden" name="id" value={lead.id} />
-
-            <label className="f">
-              <span>Stage</span>
-              <select name="status" defaultValue={lead.status}>
-                {LEAD_STATUSES.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {me.role === "admin" && (
-              <label className="f">
-                <span>Assigned to</span>
-                <select name="assigned_to" defaultValue={lead.assigned_to ?? 0}>
-                  <option value={0}>Unassigned</option>
-                  {subs.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name || s.email}
-                      {s.status !== "active" ? ` (${s.status})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-
-            <label className="f">
-              <span>Next action due</span>
-              <input
-                type="datetime-local"
-                name="next_action_at"
-                defaultValue={
-                  lead.next_action_at ? lead.next_action_at.replace(" ", "T").slice(0, 16) : ""
-                }
-              />
-            </label>
-
-            <label className="f">
-              <span>Add a note</span>
-              <textarea name="note" placeholder="What happened on this lead?" />
-            </label>
-
-            <button className="btn" style={{ width: "100%", justifyContent: "center" }}>
-              Save changes
-            </button>
-          </form>
+          <Manage
+            lead={lead}
+            subs={subs}
+            isAdmin={me.role === "admin"}
+            pipeline={pipeline}
+          />
 
           {hasPermission(me, "delete_leads") && <DeleteLead id={lead.id} name={lead.name} />}
         </div>

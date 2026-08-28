@@ -224,6 +224,18 @@
   
   /* ---------- pills ---------- */
   .pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+
+  /* Stage pills take their colour from the stage record, passed in as --stage,
+     so adding a stage in WordPress needs no CSS. The tint is mixed from the
+     same value, which is what stops the text and its background drifting
+     apart the way two hand-picked hex codes eventually do. */
+  .pill.is-stage {
+    background: #f1f1f5;
+    color: var(--stage, var(--ink));
+  }
+  @supports (background: color-mix(in srgb, red 10%, white)) {
+    .pill.is-stage { background: color-mix(in srgb, var(--stage) 13%, #fff); }
+  }
   .s-new { background: #e6f1fb; color: #0c447c; }
   .s-assigned { background: #faeeda; color: #854f0b; }
   .s-contacted { background: #eeedfe; color: #3c3489; }
@@ -638,28 +650,20 @@
 
   /* The board is a left-to-right journey, so each column is tinted with its
      own stage colour and its count is set in the saturated version. Where a
-     deal sits is then readable from across the room, without reading a word. */
-  .board-col__head.s-new       { background: var(--st-new-soft); }
-  .board-col__head.s-assigned  { background: var(--st-assigned-soft); }
-  .board-col__head.s-contacted { background: var(--st-contacted-soft); }
-  .board-col__head.s-qualified { background: var(--st-qualified-soft); }
-  .board-col__head.s-won       { background: var(--st-won-soft); }
-  .board-col__head.s-lost      { background: var(--st-lost-soft); }
-  .board-col__head.s-new h2,       .board-col__head.s-new b       { color: var(--st-new); }
-  .board-col__head.s-assigned h2,  .board-col__head.s-assigned b  { color: var(--st-assigned); }
-  .board-col__head.s-contacted h2, .board-col__head.s-contacted b { color: var(--st-contacted); }
-  .board-col__head.s-qualified h2, .board-col__head.s-qualified b { color: var(--st-qualified); }
-  .board-col__head.s-won h2,       .board-col__head.s-won b       { color: var(--st-won); }
-  .board-col__head.s-lost h2,      .board-col__head.s-lost b      { color: var(--st-lost); }
+     deal sits is then readable from across the room, without reading a word.
+     The colour arrives as --stage from the stage record, so a stage added in
+     WordPress is drawn correctly without a matching CSS rule existing. */
+  .board-col__head.is-stage { background: #f1f1f5; }
+  .board-col__head.is-stage h2,
+  .board-col__head.is-stage b { color: var(--stage, var(--ink)); }
   .board-col__head b { background: rgba(255, 255, 255, .78); border-color: transparent; }
 
+  @supports (background: color-mix(in srgb, red 10%, white)) {
+    .board-col__head.is-stage { background: color-mix(in srgb, var(--stage) 13%, #fff); }
+  }
+
   .board-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  .board-dot.s-new { background: var(--st-new); }
-  .board-dot.s-assigned { background: var(--st-assigned); }
-  .board-dot.s-contacted { background: var(--st-contacted); }
-  .board-dot.s-qualified { background: var(--st-qualified); }
-  .board-dot.s-won { background: var(--st-won); }
-  .board-dot.s-lost { background: var(--st-lost); }
+  .board-dot.is-stage { background: var(--stage, var(--muted)); }
   
   .board-col__body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
   .board-msg { text-align: center; color: var(--muted); font-size: 12.5px; padding: 16px 0; margin: 0; }

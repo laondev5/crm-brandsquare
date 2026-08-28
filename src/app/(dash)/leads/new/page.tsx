@@ -1,14 +1,22 @@
 import { requireUser } from "@/lib/auth";
-import { allSubadmins, listCampaigns } from "@/lib/queries";
+import { allSubadmins, getPipeline, listCampaigns } from "@/lib/queries";
 import AddLeadForm from "./form";
 
 export default async function NewLeadPage() {
   const me = await requireUser();
 
-  const [campaigns, subs] = await Promise.all([
+  const [campaigns, subs, pipeline] = await Promise.all([
     listCampaigns(1, 100).then((r) => r.rows).catch(() => []),
     me.role === "admin" ? allSubadmins() : Promise.resolve([]),
+    getPipeline(),
   ]);
 
-  return <AddLeadForm campaigns={campaigns} subs={subs} isAdmin={me.role === "admin"} />;
+  return (
+    <AddLeadForm
+      campaigns={campaigns}
+      subs={subs}
+      isAdmin={me.role === "admin"}
+      pipeline={pipeline}
+    />
+  );
 }

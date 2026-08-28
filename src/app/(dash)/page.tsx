@@ -1,19 +1,20 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { listCampaigns, listLeads, metrics } from "@/lib/queries";
-import { LEAD_STATUSES } from "@/lib/types";
+import { getPipeline, listCampaigns, listLeads, metrics } from "@/lib/queries";
+import { weightedOpen } from "@/lib/types";
 import StatusPill from "./pill";
 
 export default async function Overview() {
   const me = await requireUser();
   const scope = me.role === "admin" ? null : me.id;
 
-  const [m, recent, campaigns] = await Promise.all([
+  const [m, recent, campaigns, pipeline] = await Promise.all([
     metrics(scope),
     listLeads({ ownerId: scope, perPage: 8 }),
     me.role === "admin"
       ? listCampaigns(1, 100).then((r) => r.rows).catch(() => [])
       : Promise.resolve([]),
+    getPipeline(),
   ]);
   const load = me.role === "admin" ? m.load : [];
   const topCampaigns = [...campaigns].sort((a, b) => b.leads - a.leads).slice(0, 5);
@@ -39,12 +40,10 @@ export default async function Overview() {
         </div>
         <Link href="/leads?status=open" className="stat t-open">
           <span>Open</span>
-          <b>
-            {(m.byStatus.new ?? 0) +
-              (m.byStatus.assigned ?? 0) +
-              (m.byStatus.contacted ?? 0) +
-              (m.byStatus.qualified ?? 0)}
-          </b>
+          {/* Summed from the configured open stages rather than a hard-coded
+              four, so adding a stage in WordPress does not quietly stop it
+              being counted here. */}
+          <b>{pipeline.open.reduce((n, k) => n + (m.byStatus[k] ?? 0), 0)}</b>
         </Link>
         <Link
           href="/leads?status=overdue"
@@ -65,6 +64,10 @@ export default async function Overview() {
         <div className="stat t-won">
           <span>Conversion</span>
           <b>{m.conversion}%</b>
+        </div>
+        <div className="stat t-open" title="Open leads weighted by each stage's probability of closing">
+          <span>Forecast</span>
+          <b>{weightedOpen(pipeline, m.byStatus)}</b>
         </div>
       </div>
 
@@ -98,7 +101,7 @@ export default async function Overview() {
                       {l.form_name ?? <span style={{ color: "var(--muted)" }}>—</span>}
                     </td>
                     <td data-l="Stage">
-                      <StatusPill status={l.status} />
+                      <StatusPill status={l.status} pipeline={pipeline} />
                     </td>
                     <td data-l="Owner">{l.owner ?? "Unassigned"}</td>
                     <td data-l="Received">{fmt(l.created_at)}</td>
@@ -114,7 +117,7 @@ export default async function Overview() {
             <h2>Pipeline</h2>
             <table className="kv">
               <tbody>
-                {LEAD_STATUSES.map((s) => (
+                {pipeline.stages.map((s) => (
                   <tr key={s.key}>
                     <th>{s.label}</th>
                     <td style={{ textAlign: "right", fontWeight: 600, color: "var(--ink)" }}>

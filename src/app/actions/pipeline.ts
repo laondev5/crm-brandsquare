@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
-import { listLeads, updateLead } from "@/lib/queries";
+import { getPipeline, listLeads, updateLead } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
-import { LEAD_STATUSES, type LeadStatus } from "@/lib/types";
+import type { LeadStatus } from "@/lib/types";
 
 /**
  * Drag-and-drop stage change from the pipeline board.
@@ -20,7 +20,8 @@ export async function moveLeadAction(
 ): Promise<{ ok: true } | { error: string }> {
   const me = await requireUser();
 
-  if (!LEAD_STATUSES.some((s) => s.key === status)) {
+  const pipeline = await getPipeline();
+  if (!pipeline.stages.some((s) => s.key === status)) {
     return { error: "Unknown stage." };
   }
 
