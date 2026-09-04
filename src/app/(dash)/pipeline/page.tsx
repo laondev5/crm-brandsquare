@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { getPipeline, listLeads } from "@/lib/queries";
 import { weightedOpen, type LeadStatus, isAdminRole } from "@/lib/types";
 import Board, { type BoardColumn } from "./board";
+import PipelineList from "./list";
 
 /** How many cards are rendered per column before it says "+N more". */
 const PER_COLUMN = 40;
@@ -14,10 +15,11 @@ const ROT_STALE = 14;
 export default async function PipelinePage({
   searchParams,
 }: {
-  searchParams: Promise<{ s?: string }>;
+  searchParams: Promise<{ s?: string; view?: string }>;
 }) {
   const sp = await searchParams;
   const term = (sp.s ?? "").trim();
+  const asList = sp.view === "list";
 
   const me = await requireUser();
   const scope = isAdminRole(me.role) ? null : me.id;
@@ -98,6 +100,16 @@ export default async function PipelinePage({
   );
   const matches = columns.reduce((n, c) => n + c.total, 0);
 
+  const qs = (over: Record<string, string | undefined>) => {
+    const p = new URLSearchParams();
+    const merged: Record<string, string | undefined> = { s: term || undefined, view: sp.view, ...over };
+    Object.entries(merged).forEach(([k, v]) => {
+      if (v) p.set(k, v);
+    });
+    const str = p.toString();
+    return str ? `/pipeline?${str}` : "/pipeline";
+  };
+
   return (
     <>
       <div className="head">
@@ -117,7 +129,17 @@ export default async function PipelinePage({
             </>
           )}
         </span>
+        <div className="tabs" style={{ marginBottom: 0 }}>
+          <Link href={qs({ view: undefined })} className={asList ? "" : "on"}>
+            Board
+          </Link>
+          <Link href={qs({ view: "list" })} className={asList ? "on" : ""}>
+            List
+          </Link>
+        </div>
+
         <form className="row" action="/pipeline">
+          {asList && <input type="hidden" name="view" value="list" />}
           <input
             type="search"
             name="s"
@@ -156,11 +178,17 @@ export default async function PipelinePage({
         </div>
       ) : (
         <p className="board-hint">
-          Drag a card to another stage to move the lead. Changes save to the CRM straight away.
+          {asList
+            ? "Sort by any column, and change a stage straight from the row."
+            : "Drag a card to another stage to move the lead. Changes save to the CRM straight away."}
         </p>
       )}
 
-      <Board columns={columns} pipeline={pipeline} canReassign={isAdminRole(me.role)} searchTerm={term} />
+      {asList ? (
+        <PipelineList columns={columns} pipeline={pipeline} searchTerm={term} />
+      ) : (
+        <Board columns={columns} pipeline={pipeline} canReassign={isAdminRole(me.role)} searchTerm={term} />
+      )}
     </>
   );
 }
