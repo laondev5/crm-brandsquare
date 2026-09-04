@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getPipeline, listCampaigns, listLeads } from "@/lib/queries";
+import { getPipeline, listCampaigns, listLeads, listSites } from "@/lib/queries";
 import { daysQuiet, isStale, isAdminRole } from "@/lib/types";
 import StatusPill from "../pill";
 import QuietFor from "./quiet-for";
@@ -16,7 +16,7 @@ export default async function LeadsPage({
   const formId = Number(sp.form) || null;
   const siteId = sp.site === "this" ? "this" : Number(sp.site) || null;
 
-  const [{ rows, total, pages, page, stale_after_days, now }, campaigns, pipeline] = await Promise.all([
+  const [{ rows, total, pages, page, stale_after_days, now }, campaigns, pipeline, sites] = await Promise.all([
     listLeads({
       status: sp.status,
       search: sp.s,
@@ -29,6 +29,9 @@ export default async function LeadsPage({
     // results stay scoped to their own leads by the server.
     listCampaigns(1, 100).then((r) => r.rows).catch(() => []),
     getPipeline(),
+    // Only a super admin can manage websites, but everyone benefits from
+    // filtering by one once more than a single site feeds the CRM.
+    listSites(me).then((r) => r.sites).catch(() => []),
   ]);
 
   // The stage tabs come from the configured pipeline, so a stage added in
@@ -65,6 +68,18 @@ export default async function LeadsPage({
         <Link href="/leads/new" className="btn">
           Add lead
         </Link>
+        {/* Exports exactly what the current filters show — a file that differs
+            from the screen is how the wrong list reaches a client. */}
+        <a
+          href={`/api/leads/export?${new URLSearchParams(
+            Object.entries({ status: sp.status, s: sp.s, form: sp.form, site: sp.site }).filter(
+              ([, v]) => v
+            ) as [string, string][]
+          )}`}
+          className="btn ghost"
+        >
+          Export
+        </a>
         <form className="row" action="/leads" style={{ width: "100%" }}>
           {sp.status && <input type="hidden" name="status" value={sp.status} />}
           <select name="form" defaultValue={sp.form ?? ""} style={{ width: 190 }}>
@@ -75,6 +90,17 @@ export default async function LeadsPage({
               </option>
             ))}
           </select>
+          {sites.length > 0 && (
+            <select name="site" defaultValue={sp.site ?? ""} style={{ width: 170 }}>
+              <option value="">All websites</option>
+              <option value="this">This site</option>
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             type="search"
             name="s"

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, ChevronDown, LayoutDashboard, Target, UsersRound } from "lucide-react";
+import { Activity, ChevronDown, LayoutDashboard, ListChecks, Target, UsersRound } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -29,6 +29,7 @@ interface NavGroup {
  * that the trackers belong to the team's own work rather than to a customer.
  */
 const GROUPS: NavGroup[] = [
+  { label: "My work", icon: ListChecks, href: "/my-work" },
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   {
     label: "Leads",

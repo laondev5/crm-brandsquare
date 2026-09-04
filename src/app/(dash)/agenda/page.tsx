@@ -145,6 +145,14 @@ function groupByDue(rows: LeadRow[]): Record<BucketKey, LeadRow[]> {
     const due = new Date(l.next_action_at.replace(" ", "T"));
     if (isNaN(due.getTime())) continue;
 
+    // Somebody has worked the lead since the date came round — a note, an
+    // email, a stage change — so it is not outstanding any more, whether or
+    // not the stage moved. It drops off the agenda until a new date is set.
+    if (l.last_activity_at) {
+      const touched = new Date(l.last_activity_at.replace(" ", "T"));
+      if (!isNaN(touched.getTime()) && touched.getTime() > due.getTime()) continue;
+    }
+
     const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
     const dayDiff = Math.round((dueDay - startOfToday) / DAY);
 

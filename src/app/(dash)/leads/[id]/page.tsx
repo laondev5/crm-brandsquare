@@ -35,10 +35,15 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   ]);
 
   const answers = parsePayload(lead.payload);
+  // Same rule as the agenda: a follow-up that has been worked since its date
+  // came round is not outstanding, whether or not the stage moved.
+  const dueAt = lead.next_action_at ? new Date(lead.next_action_at.replace(" ", "T")) : null;
+  const touchedAt = lead.last_activity_at ? new Date(lead.last_activity_at.replace(" ", "T")) : null;
   const overdue =
-    lead.next_action_at &&
-    new Date(lead.next_action_at.replace(" ", "T")) < new Date() &&
-    !isClosed(pipeline, lead.status);
+    !!dueAt &&
+    dueAt < new Date() &&
+    !isClosed(pipeline, lead.status) &&
+    !(touchedAt && touchedAt > dueAt);
 
   return (
     <>
