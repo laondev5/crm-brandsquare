@@ -231,6 +231,20 @@
   .tbl-sort:hover { color: var(--p); }
   /* A scroll-depth bar: the number alone never conveys how far short of the
      page it stops. */
+  /* Follow-up list. A completed task stays visible but recedes — deleting it
+     would lose the record that it was done. */
+  .tasklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .tasklist li {
+    display: flex; align-items: center; gap: 10px; padding: 9px 0;
+    border-bottom: 1px solid var(--line); font-size: 13.5px;
+  }
+  .tasklist li:last-child { border-bottom: 0; }
+  .tasklist label { display: flex; align-items: center; gap: 9px; flex: 1; cursor: pointer; min-width: 0; }
+  .tasklist__title { color: var(--ink); font-weight: 500; }
+  .tasklist li.is-done .tasklist__title { text-decoration: line-through; color: var(--muted); font-weight: 400; }
+  .tasklist__due { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .tasklist__due.is-over { color: var(--err); font-weight: 600; }
+
   .depth-bar {
     background: #eeeef4; border-radius: 99px; height: 7px; overflow: hidden;
     min-width: 54px; display: block;

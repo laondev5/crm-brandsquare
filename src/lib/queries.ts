@@ -22,6 +22,8 @@ import type {
   Role,
   Analytics,
   Heatmap,
+  Task,
+  LeadFile,
   Site,
   Pipeline,
   TrackerCounts,
@@ -124,6 +126,51 @@ export async function getHeatmap(path: string, days = 30): Promise<Heatmap> {
   return api.get<Heatmap>("/analytics/heatmap", { path, days });
 }
 
+/* ---------------- tasks and files ---------------- */
+
+export async function addTask(leadId: number, title: string, dueAt: string, actor: DashUser) {
+  return api.post<{ ok: boolean; id: number; tasks: Task[] }>(`/leads/${leadId}/tasks`, {
+    title,
+    due_at: dueAt,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function updateTask(
+  taskId: number,
+  patch: { done?: boolean; title?: string; due_at?: string },
+  actor: DashUser
+) {
+  return api.patch<{ ok: boolean; tasks: Task[] }>(`/tasks/${taskId}`, {
+    ...patch,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteTask(taskId: number, actor: DashUser) {
+  return api.del<{ ok: boolean; tasks: Task[] }>(`/tasks/${taskId}`, {
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteLeadFile(fileId: number, actor: DashUser) {
+  return api.del<{ ok: boolean; files: LeadFile[] }>(`/files/${fileId}`, {
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+/** Warns about a lead we already have, before the form is filled in. */
+export async function checkDuplicate(email: string, phone: string) {
+  return api.get<{ matches: { id: number; name: string; email: string; phone: string; status: string; created_at: string }[] }>(
+    "/leads/check",
+    { email, phone }
+  );
+}
+
 /* ---------------- pipeline stages ---------------- */
 
 /**
@@ -171,6 +218,8 @@ export async function getLeadFull(id: number, ownerId?: number | null) {
       now: number;
       /** Days of silence that count as stale, 0 when the flag is switched off. */
       stale_after_days: number;
+      tasks: Task[];
+      files: LeadFile[];
     }>(`/leads/${id}`, { owner: ownerId ?? undefined });
   } catch {
     return null;

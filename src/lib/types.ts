@@ -512,3 +512,34 @@ export function humanSeconds(s: number): string {
   const r = s % 60;
   return r ? m + "m " + r + "s" : m + "m";
 }
+
+
+/* ---------------- tasks and files ---------------- */
+
+export interface Task {
+  id: number;
+  lead_id: number;
+  title: string;
+  due_at: string | null;
+  /** Null while still outstanding. */
+  done_at: string | null;
+  created_by_name: string;
+  created_at: string;
+}
+
+export interface LeadFile {
+  id: number;
+  name: string;
+  url: string;
+  mime: string;
+  size_bytes: number;
+  uploaded_by_name: string;
+  created_at: string;
+}
+
+/** File sizes people can read — "1.4 MB" rather than 1468006. */
+export function humanSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB";
+  return (bytes / 1024 / 1024).toFixed(1) + " MB";
+}

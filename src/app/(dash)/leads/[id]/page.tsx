@@ -11,6 +11,7 @@ import {
 import { daysQuiet, hasPermission, isClosed, isStale, parsePayload, isAdminRole } from "@/lib/types";
 
 import Manage from "./manage";
+import Tasks from "./tasks";
 import StatusPill from "../../pill";
 import WhatsAppButton from "./whatsapp-button";
 import EmailPanel from "./email-panel";
@@ -120,6 +121,8 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
               </tbody>
             </table>
           </div>
+
+          <Tasks leadId={lead.id} initial={full.tasks ?? []} />
 
           <div className="card">
             <h2>Notes</h2>
