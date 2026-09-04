@@ -80,7 +80,13 @@ export async function listLeads(f: LeadFilter) {
 export interface SiteList {
   sites: Site[];
   /** The CRM's own website, whose leads carry no site id. */
-  this_site: { name: string; url: string; leads: number };
+  this_site: {
+    name: string;
+    url: string;
+    leads: number;
+    views: number;
+    last_visit: string | null;
+  };
 }
 
 export const listSites = cache(async (actor: DashUser): Promise<SiteList> => {
@@ -118,12 +124,18 @@ export async function deleteSite(actor: DashUser, id: number) {
  * page works is the whole team's business. Only the connection settings are
  * restricted to a super admin.
  */
-export const getAnalytics = cache(async (days = 30): Promise<Analytics> => {
-  return api.get<Analytics>("/analytics", { days });
-});
+export const getAnalytics = cache(
+  async (days = 30, site: string | number = "all"): Promise<Analytics> => {
+    return api.get<Analytics>("/analytics", { days, site });
+  }
+);
 
-export async function getHeatmap(path: string, days = 30): Promise<Heatmap> {
-  return api.get<Heatmap>("/analytics/heatmap", { path, days });
+export async function getHeatmap(
+  path: string,
+  days = 30,
+  site: string | number = "all"
+): Promise<Heatmap> {
+  return api.get<Heatmap>("/analytics/heatmap", { path, days, site });
 }
 
 /* ---------------- tasks and files ---------------- */
@@ -562,6 +574,9 @@ export interface Metrics {
   load: { id: number; name: string; open_leads: number; won: number }[];
 }
 
-export async function metrics(ownerId?: number | null) {
-  return api.get<Metrics>("/metrics", { owner: ownerId ?? undefined });
+export async function metrics(ownerId?: number | null, siteId?: number | "this" | null) {
+  return api.get<Metrics>("/metrics", {
+    owner: ownerId ?? undefined,
+    site: siteId ?? undefined,
+  });
 }

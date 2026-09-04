@@ -31,6 +31,10 @@ export interface Site {
   created_at: string;
   last_seen_at: string | null;
   leads: number;
+  /** Pageviews received from this website. Zero with leads arriving means the
+   *  site is connected but not sending its traffic yet. */
+  views: number;
+  last_visit: string | null;
 }
 export type UserStatus = "invited" | "active" | "disabled";
 
@@ -221,6 +225,9 @@ export function isStale(
 
 export interface LeadRow extends Lead {
   owner: string | null;
+  /** Null for a lead from the website the CRM itself runs on. */
+  site_id: number | null;
+  site_name: string | null;
   /** Null when the campaign form has since been deleted — the lead survives it. */
   form_id: number | null;
   form_name: string | null;
@@ -461,6 +468,10 @@ export interface AnalyticsTotals {
 }
 
 export interface PageStat {
+  /** Null for the website the CRM runs on. Pages are grouped per site, so two
+   *  sites both having a "/" stay two rows rather than one meaningless one. */
+  site_id: number | null;
+  site: string;
   path: string;
   title: string;
   views: number;
@@ -487,18 +498,56 @@ export interface DayStat {
   conversions: number;
 }
 
+/** One row of the website picker, with what that site had in the period. */
+export interface SiteTraffic {
+  /** "this" for the CRM's own website, otherwise the site id as a string. */
+  key: string;
+  id: number | null;
+  name: string;
+  url: string;
+  views: number;
+  visitors: number;
+  conversions: number;
+  last_seen: string | null;
+}
+
+export interface DeviceStat {
+  device: string;
+  views: number;
+  conversions: number;
+  rate: number;
+  avg_seconds: number;
+  avg_scroll: number;
+  bounce_rate: number;
+}
+
 export interface Analytics {
   days: number;
+  /** Which website these figures cover: "all", "this", or a site id. */
+  site: string | number;
+  /** Every website, whichever one is selected — the counts behind the picker. */
+  sites: SiteTraffic[];
   totals: AnalyticsTotals;
   pages: PageStat[];
   sources: SourceStat[];
   daily: DayStat[];
-  devices: { device: string; views: number; conversions: number }[];
+  devices: DeviceStat[];
 }
 
 export interface Heatmap {
   path: string;
   days: number;
+  site: string | number;
+  site_name: string;
+  /** The same page split by device — a layout can work on desktop and lose
+   *  everyone on a phone, and one blended heatmap hides that. */
+  devices: {
+    device: string;
+    visits: number;
+    avg_scroll: number;
+    avg_seconds: number;
+    conversions: number;
+  }[];
   points: { x: number; y: number; w: number }[];
   elements: { selector: string; label: string; clicks: number }[];
   /** Visits grouped by how far down they reached, in 10% bands. */

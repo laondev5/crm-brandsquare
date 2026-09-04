@@ -561,6 +561,32 @@
   /* A lead that has gone quiet. Amber rather than red: it needs chasing, it
      is not yet lost, and red is already spoken for by overdue follow-ups. */
   .pill.p-stale { background: #faeeda; color: #854f0b; margin-left: 8px; vertical-align: middle; }
+
+  /* Which website a lead or a page belongs to. Teal, so it reads as a place
+     rather than as a stage or a warning — both of which already own a colour. */
+  .pill.p-site {
+    background: #dcf1f2; color: #0b5a63; margin-left: 8px; vertical-align: middle;
+  }
+
+  /* ---------- website picker ----------
+     Wider than a tab because each one carries its traffic underneath: picking
+     a site is easier when the list already says which ones are reporting. */
+  .sitebar {
+    display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px;
+  }
+  .sitebar a {
+    display: block; padding: 8px 14px; border-radius: var(--r);
+    border: 1px solid var(--line); background: #fff; min-width: 130px;
+    text-decoration: none; transition: border-color .12s, box-shadow .12s;
+  }
+  .sitebar a b { display: block; font-size: 13.5px; color: var(--ink); }
+  .sitebar a span { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .sitebar a:hover { border-color: var(--p); }
+  .sitebar a.on {
+    border-color: var(--p); box-shadow: inset 0 0 0 1px var(--p);
+    background: #fff7f1;
+  }
+  .sitebar a.on b { color: var(--p); }
   
   /* ---------- tracker editor ---------- */
   .tk-back {

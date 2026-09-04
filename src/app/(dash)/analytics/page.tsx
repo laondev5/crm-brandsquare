@@ -9,7 +9,7 @@ const RANGES = [7, 30, 90];
 export default async function AnalyticsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ days?: string }>;
+  searchParams: Promise<{ days?: string; site?: string }>;
 }) {
   // Traffic is everyone's business — knowing which landing page works is not
   // an admin secret. Only the connection settings are restricted.
@@ -17,10 +17,13 @@ export default async function AnalyticsPage({
 
   const sp = await searchParams;
   const days = RANGES.includes(Number(sp.days)) ? Number(sp.days) : 30;
+  // "all" is the default on purpose: a CRM covering several websites should
+  // open on the whole picture, not on one of them.
+  const site = sp.site === "this" || Number(sp.site) ? (sp.site as string) : "all";
 
   let data;
   try {
-    data = await getAnalytics(days);
+    data = await getAnalytics(days, site);
   } catch {
     return (
       <>
@@ -37,6 +40,18 @@ export default async function AnalyticsPage({
 
   const t = data.totals;
   const noData = t.views === 0;
+  const allSites = data.sites ?? [];
+  const many = allSites.length > 1;
+  const selected = site === "all" ? null : allSites.find((s) => s.key === site);
+  const totalViews = allSites.reduce((n, s) => n + s.views, 0);
+
+  const href = (over: { days?: number; site?: string }) => {
+    const p = new URLSearchParams();
+    p.set("days", String(over.days ?? days));
+    const s = over.site ?? site;
+    if (s !== "all") p.set("site", s);
+    return `/analytics?${p}`;
+  };
 
   return (
     <>
@@ -45,12 +60,47 @@ export default async function AnalyticsPage({
         <div className="spacer" />
         <div className="tabs" style={{ marginBottom: 0 }}>
           {RANGES.map((d) => (
-            <Link key={d} href={`/analytics?days=${d}`} className={d === days ? "on" : ""}>
+            <Link key={d} href={href({ days: d })} className={d === days ? "on" : ""}>
               {d} days
             </Link>
           ))}
         </div>
       </div>
+
+      {/* The website picker. Sites with no traffic are still listed — being
+          able to see that a connected site is sending nothing is the point. */}
+      {many && (
+        <div className="sitebar">
+          <Link href={href({ site: "all" })} className={site === "all" ? "on" : ""}>
+            <b>All websites</b>
+            <span>{totalViews.toLocaleString()} views</span>
+          </Link>
+          {allSites.map((s) => (
+            <Link key={s.key} href={href({ site: s.key })} className={site === s.key ? "on" : ""}>
+              <b>{s.name}</b>
+              <span>
+                {s.views ? (
+                  <>
+                    {s.views.toLocaleString()} views · {s.conversions} enquiries
+                  </>
+                ) : (
+                  "no traffic yet"
+                )}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {selected && selected.views === 0 && (
+        <div className="msg warn">
+          <strong>{selected.name}</strong> has sent no traffic in the last {days} days. On that
+          website, open <strong>Brandsquare → Settings</strong>, check that visitor tracking is on
+          and that it is set to send to this CRM, then press{" "}
+          <strong>Send everything to the CRM now</strong>. Traffic is sent every 15 minutes, and
+          your own visits are never counted while you are signed in to WordPress there.
+        </div>
+      )}
 
       {noData ? (
         <div className="card">
@@ -90,7 +140,7 @@ export default async function AnalyticsPage({
           </div>
 
           <div className="card" style={{ marginBottom: 20 }}>
-            <h2>Visitors and enquiries</h2>
+            <h2>Visitors and enquiries{selected ? ` — ${selected.name}` : ""}</h2>
             <TrafficChart daily={data.daily} />
           </div>
 
@@ -110,9 +160,12 @@ export default async function AnalyticsPage({
                 </thead>
                 <tbody>
                   {data.pages.map((p) => (
-                    <tr key={p.path}>
+                    <tr key={`${p.site_id ?? 0}:${p.path}`}>
                       <td data-l="Page">
                         <strong style={{ color: "var(--ink)" }}>{p.path}</strong>
+                        {/* Which website this page belongs to, when more than
+                            one is in view — two sites can both have a "/". */}
+                        {site === "all" && many && <span className="pill p-site">{p.site}</span>}
                         {p.title && (
                           <>
                             <br />
@@ -141,7 +194,9 @@ export default async function AnalyticsPage({
                       </td>
                       <td>
                         <Link
-                          href={`/analytics/page?path=${encodeURIComponent(p.path)}&days=${days}`}
+                          href={`/analytics/page?path=${encodeURIComponent(p.path)}&days=${days}&site=${
+                            p.site_id ?? "this"
+                          }`}
                           className="btn ghost sm"
                         >
                           Detail
@@ -190,16 +245,43 @@ export default async function AnalyticsPage({
                 )}
               </div>
 
+              {/* Phone versus desktop, with how far each gets and how many
+                  leave straight away — the two numbers that say whether the
+                  site actually works on a phone, rather than just how many
+                  people arrived on one. */}
               <div className="card">
-                <h2>Device</h2>
-                <table className="kv">
+                <h2>Phone, tablet or desktop</h2>
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>Device</th>
+                      <th style={{ width: 60 }}>Views</th>
+                      <th style={{ width: 70 }}>Scroll</th>
+                      <th style={{ width: 80 }}>Left fast</th>
+                      <th style={{ width: 90 }}>Enquiries</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {data.devices.map((d) => (
                       <tr key={d.device}>
-                        <th style={{ textTransform: "capitalize" }}>{d.device || "unknown"}</th>
-                        <td style={{ textAlign: "right" }}>
-                          <strong style={{ color: "var(--ink)" }}>{d.views}</strong>
-                          <span style={{ color: "var(--muted)" }}> · {d.conversions} enquiries</span>
+                        <td data-l="Device" style={{ textTransform: "capitalize" }}>
+                          <strong style={{ color: "var(--ink)" }}>{d.device || "unknown"}</strong>
+                        </td>
+                        <td data-l="Views">{d.views.toLocaleString()}</td>
+                        <td data-l="Scroll">
+                          <div className="depth-bar" title={`${d.avg_scroll}% average depth`}>
+                            <span style={{ width: `${d.avg_scroll}%` }} />
+                          </div>
+                          <small>{d.avg_scroll}%</small>
+                        </td>
+                        <td data-l="Left fast">
+                          <span style={{ color: d.bounce_rate > 60 ? "var(--err)" : undefined }}>
+                            {d.bounce_rate}%
+                          </span>
+                        </td>
+                        <td data-l="Enquiries">
+                          <strong style={{ color: "var(--ink)" }}>{d.conversions}</strong>
+                          <span style={{ color: "var(--muted)" }}> · {d.rate}%</span>
                         </td>
                       </tr>
                     ))}

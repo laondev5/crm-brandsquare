@@ -6,13 +6,16 @@ import ClickMap from "./click-map";
 export default async function PageDetail({
   searchParams,
 }: {
-  searchParams: Promise<{ path?: string; days?: string }>;
+  searchParams: Promise<{ path?: string; days?: string; site?: string }>;
 }) {
   await requireUser();
 
   const sp = await searchParams;
   const path = (sp.path ?? "").trim();
   const days = Number(sp.days) || 30;
+  // A path alone is ambiguous once several websites feed the CRM: two of them
+  // can both have a "/". The site comes through from the row that was clicked.
+  const site = sp.site === "this" || Number(sp.site) ? (sp.site as string) : "all";
 
   if (!path) {
     return (
@@ -27,7 +30,7 @@ export default async function PageDetail({
 
   let data;
   try {
-    data = await getHeatmap(path, days);
+    data = await getHeatmap(path, days, site);
   } catch {
     return (
       <>
@@ -61,15 +64,22 @@ export default async function PageDetail({
     <>
       <div className="head">
         <h1>{path}</h1>
+        {site !== "all" && <span className="pill p-site">{data.site_name}</span>}
         <div className="spacer" />
-        <Link href={`/analytics?days=${days}`} className="btn ghost">
+        <Link
+          href={`/analytics?days=${days}${site === "all" ? "" : `&site=${site}`}`}
+          className="btn ghost"
+        >
           Back to traffic
         </Link>
       </div>
 
       {totalVisits === 0 ? (
         <div className="card">
-          <p className="empty">No visits recorded for this page in the last {days} days.</p>
+          <p className="empty">
+            No visits recorded for {path} in the last {days} days
+            {site !== "all" ? ` on ${data.site_name}` : ""}.
+          </p>
         </div>
       ) : (
         <>
@@ -79,6 +89,23 @@ export default async function PageDetail({
               <strong>{biggestDropAt + 10}%</strong> down the page —{" "}
               <strong>{biggestDrop}</strong> of {totalVisits} visits stopped there. That band is
               where the page is losing people.
+            </div>
+          )}
+
+          {data.devices.length > 0 && (
+            <div className="stats">
+              {data.devices.map((d) => (
+                <div
+                  key={d.device}
+                  className={`stat ${d.device === "mobile" ? "t-today" : d.device === "tablet" ? "t-quiet" : "t-open"}`}
+                >
+                  <span style={{ textTransform: "capitalize" }}>{d.device || "unknown"}</span>
+                  <b>{d.visits.toLocaleString()}</b>
+                  <small style={{ color: "var(--muted)" }}>
+                    {d.avg_scroll}% down · {d.conversions} enquiries
+                  </small>
+                </div>
+              ))}
             </div>
           )}
 

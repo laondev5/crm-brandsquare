@@ -46,6 +46,25 @@ export default function SiteRow({ site }: { site: Site }) {
         </Link>
       </td>
 
+      {/* Traffic sits beside leads because the two arrive by different routes:
+          a site can be delivering enquiries while its tracking is switched off,
+          and a zero here is what says so. */}
+      <td data-l="Traffic">
+        {site.views ? (
+          <Link href={`/analytics?site=${site.id}`} className="name">
+            {site.views.toLocaleString()}
+          </Link>
+        ) : (
+          <span style={{ color: "var(--warn)", fontWeight: 600 }}>None yet</span>
+        )}
+        {site.last_visit && (
+          <>
+            <br />
+            <small style={{ color: "var(--muted)" }}>{fmt(site.last_visit)}</small>
+          </>
+        )}
+      </td>
+
       <td data-l="Last received">
         {site.last_seen_at ? fmt(site.last_seen_at) : <span style={{ color: "var(--muted)" }}>Never</span>}
       </td>

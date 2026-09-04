@@ -164,6 +164,7 @@ export default async function LeadsPage({
                 <th>Email</th>
                 <th style={{ width: 130 }}>Phone</th>
                 <th style={{ width: 160 }}>Campaign</th>
+                {sites.length > 0 && <th style={{ width: 130 }}>Website</th>}
                 <th style={{ width: 105 }}>Stage</th>
                 <th style={{ width: 130 }}>Owner</th>
                 <th style={{ width: 120 }}>
@@ -198,19 +199,23 @@ export default async function LeadsPage({
                       <span style={{ color: "var(--muted)" }}>—</span>
                     )}
                   </td>
+                  {/* Which website the enquiry came from. Only shown once more
+                      than one feeds the CRM — a single-site install does not
+                      need a column that always says the same thing. */}
+                  {sites.length > 0 && (
+                    <td data-l="Website">
+                      {l.site_name ? (
+                        <span className="pill p-site">{l.site_name}</span>
+                      ) : (
+                        <span style={{ color: "var(--muted)" }}>This site</span>
+                      )}
+                    </td>
+                  )}
                   <td data-l="Stage">
                     <StatusPill status={l.status} pipeline={pipeline} />
                   </td>
                   <td data-l="Owner">
                     {l.owner ?? "Unassigned"}
-                    {/* Only worth naming once more than one website feeds the
-                        CRM; before that it is noise on every row. */}
-                    {l.site_name && (
-                      <>
-                        <br />
-                        <small style={{ color: "var(--muted)" }}>via {l.site_name}</small>
-                      </>
-                    )}
                   </td>
                   <td data-l={sp.status === "stale" ? "Last activity" : "Received"}>
                     {sp.status === "stale"
