@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { listLeads } from "@/lib/queries";
 import type { LeadRow } from "@/lib/types";
 import StatusPill from "../pill";
+import { isAdminRole } from "@/lib/types";
 
 /** Follow-ups are read soonest-first, so one generous page covers the view. */
 const LIMIT = 100;
@@ -19,7 +20,7 @@ const BUCKETS: { key: BucketKey; label: string; blurb: string }[] = [
 
 export default async function AgendaPage() {
   const me = await requireUser();
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   let rows: LeadRow[] = [];
   let failed = false;

@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { api, ApiError } from "./api";
+import { isAdminRole } from "./types";
 import type { DashUser, Role } from "./types";
 
 export const SESSION_COOKIE = "bsq_session";
@@ -84,8 +85,26 @@ export async function requireRole(role: Role): Promise<DashUser> {
   return u;
 }
 
+/**
+ * Either admin tier. Use this rather than requireRole("admin") — a super admin
+ * outranks an admin, and an exact-match check would lock them out of every
+ * screen an admin can reach, which is the opposite of what the rank means.
+ */
+export async function requireAdmin(): Promise<DashUser> {
+  const u = await requireUser();
+  if (!isAdminRole(u.role)) redirect("/");
+  return u;
+}
+
+/** The top tier: manages admins and the connected websites. */
+export async function requireSuperAdmin(): Promise<DashUser> {
+  const u = await requireUser();
+  if (u.role !== "superadmin") redirect("/");
+  return u;
+}
+
 export function isAdmin(u: DashUser | null) {
-  return u?.role === "admin";
+  return u ? isAdminRole(u.role) : false;
 }
 
 /* ---------------- invites ---------------- */

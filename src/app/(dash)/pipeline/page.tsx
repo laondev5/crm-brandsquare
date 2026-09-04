@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getPipeline, listLeads } from "@/lib/queries";
-import { weightedOpen, type LeadStatus } from "@/lib/types";
+import { weightedOpen, type LeadStatus, isAdminRole } from "@/lib/types";
 import Board, { type BoardColumn } from "./board";
 
 /** How many cards are rendered per column before it says "+N more". */
@@ -20,7 +20,7 @@ export default async function PipelinePage({
   const term = (sp.s ?? "").trim();
 
   const me = await requireUser();
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   // One request per stage, in parallel. Fetching every lead and grouping in
   // memory would work today and quietly stop working once the pipeline is
@@ -160,7 +160,7 @@ export default async function PipelinePage({
         </p>
       )}
 
-      <Board columns={columns} pipeline={pipeline} canReassign={me.role === "admin"} searchTerm={term} />
+      <Board columns={columns} pipeline={pipeline} canReassign={isAdminRole(me.role)} searchTerm={term} />
     </>
   );
 }

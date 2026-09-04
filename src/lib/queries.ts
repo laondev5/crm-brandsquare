@@ -19,6 +19,8 @@ import type {
   Note,
   LeadStatus,
   Permission,
+  Role,
+  Site,
   Pipeline,
   TrackerCounts,
   TrackerRecord,
@@ -37,6 +39,8 @@ export interface LeadFilter {
   /** A sub-admin's own id. Sent to the server, which puts it in the WHERE
    *  clause — scope is never a UI concern. */
   ownerId?: number | null;
+  /** Which connected website. "this" means the CRM's own site. */
+  siteId?: number | "this" | null;
   /** Narrow to one campaign form. */
   formId?: number | null;
   page?: number;
@@ -60,10 +64,47 @@ export async function listLeads(f: LeadFilter) {
     s: f.search,
     owner: f.ownerId ?? undefined,
     form: f.formId ?? undefined,
+    site: f.siteId ?? undefined,
     sort: f.sort,
     page: f.page ?? 1,
     per: f.perPage ?? 20,
   });
+}
+
+/* ---------------- connected websites ---------------- */
+
+export interface SiteList {
+  sites: Site[];
+  /** The CRM's own website, whose leads carry no site id. */
+  this_site: { name: string; url: string; leads: number };
+}
+
+export const listSites = cache(async (actor: DashUser): Promise<SiteList> => {
+  return api.get<SiteList>("/sites", { actor_id: actor.id });
+});
+
+/**
+ * Adds a website and returns its key. The key is stored hashed on the server,
+ * so this response is the only time it can be read — the UI has to show it
+ * once and say so.
+ */
+export async function createSite(actor: DashUser, name: string, url: string) {
+  return api.post<{ id: number; name: string; url: string; site_key: string; hub_url: string }>(
+    "/sites",
+    { name, url, actor_id: actor.id }
+  );
+}
+
+export async function updateSite(
+  actor: DashUser,
+  id: number,
+  patch: { name?: string; url?: string; status?: "active" | "revoked" }
+) {
+  await api.patch(`/sites/${id}`, { ...patch, actor_id: actor.id });
+}
+
+export async function deleteSite(actor: DashUser, id: number) {
+  return api.del<{ ok: boolean; name: string }>(`/sites/${id}`, { actor_id: actor.id });
 }
 
 /* ---------------- pipeline stages ---------------- */
@@ -192,32 +233,40 @@ export async function allSubadmins() {
   return res.users;
 }
 
-export async function createSubadmin(input: {
+/**
+ * Creates a team member. `role` is sent explicitly and the server checks the
+ * creator is allowed to hand it out — an admin cannot mint another admin by
+ * posting a different role, which is why actor identity travels with every
+ * one of these calls now.
+ */
+export async function createMember(input: {
   email: string;
   name: string;
   capacity: number;
   createdBy: number;
   permissions: Permission[];
+  role?: Role;
 }) {
   return api.post<{ id: number; invite_token: string; temp_password: string }>("/users", {
     email: input.email,
     name: input.name,
-    role: "subadmin",
+    role: input.role ?? "subadmin",
     capacity: input.capacity,
     created_by: input.createdBy,
     permissions: input.permissions,
   });
 }
 
-export async function setUserStatus(id: number, status: "active" | "disabled") {
-  await api.patch(`/users/${id}`, { status });
+export async function setUserStatus(id: number, status: "active" | "disabled", actor: DashUser) {
+  await api.patch(`/users/${id}`, { status, actor_id: actor.id });
 }
 
-export async function updateSubadmin(
+export async function updateMember(
   id: number,
-  patch: { name?: string; email?: string; capacity?: number; permissions?: Permission[] }
+  patch: { name?: string; email?: string; capacity?: number; permissions?: Permission[]; role?: Role },
+  actor: DashUser
 ) {
-  await api.patch(`/users/${id}`, patch);
+  await api.patch(`/users/${id}`, { ...patch, actor_id: actor.id });
 }
 
 /** Deletes the account and spreads their leads across whoever is left. */

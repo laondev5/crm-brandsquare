@@ -19,6 +19,7 @@ import {
 import { ApiError } from "@/lib/api";
 import {
   hasPermission,
+  isAdminRole,
   stageLabel,
   type LeadStatus,
   type BulkLeadRow,
@@ -45,7 +46,7 @@ export async function updateLeadAction(
 
   // Sub-admins may only touch their own leads. Their id is sent as the scope,
   // and the plugin puts it in the WHERE clause — a forged id finds nothing.
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   const current = await getLeadFull(id, scope);
   if (!current) {
@@ -61,7 +62,7 @@ export async function updateLeadAction(
   }
 
   // Reassignment is an admin-only power, so the field is only ever sent by one.
-  if (me.role === "admin") {
+  if (isAdminRole(me.role)) {
     const raw = form.get("assigned_to");
     if (raw !== null) {
       const ownerId = Number(raw) || null;
@@ -163,7 +164,7 @@ export async function deleteLeadAction(id: number): Promise<{ error: string }> {
     return { error: "You do not have permission to delete leads." };
   }
 
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   try {
     await deleteLead(id, me, scope);
@@ -217,7 +218,7 @@ export async function addLeadAction(_prev: AddLeadState, form: FormData): Promis
   // Admins choose who gets it (or leave it unassigned); a sub-admin only ever
   // adds to their own list — enforced here by which field the form even sent.
   let selfAssignTo: number | null = null;
-  if (me.role === "admin") {
+  if (isAdminRole(me.role)) {
     if (assignedRaw === "unassigned") row.unassigned = true;
     else if (assignedRaw) row.assigned_to = Number(assignedRaw) || undefined;
   } else {
@@ -321,7 +322,7 @@ export async function logWhatsAppOpenAction(leadId: number) {
   const me = await requireUser();
   if (!hasPermission(me, "send_whatsapp")) return;
 
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
   try {
     await logWhatsAppOpen(leadId, me, scope);
     revalidatePath(`/leads/${leadId}`);
@@ -359,7 +360,7 @@ export async function sendLeadEmailAction(_prev: LeadEmailState, form: FormData)
     footer_color: String(form.get("footer_color") ?? "#7A7A7A"),
   };
 
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   try {
     await sendLeadEmail({ leadId, subject, blocks, actor: me, ownerId: scope });

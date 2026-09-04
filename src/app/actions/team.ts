@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
-import { createSubadmin, setUserStatus, updateSubadmin, deleteSubadmin } from "@/lib/queries";
+import { requireAdmin } from "@/lib/auth";
+import { createMember, setUserStatus, updateMember, deleteSubadmin } from "@/lib/queries";
 import { sendInvite } from "@/lib/mailer";
 import { ApiError } from "@/lib/api";
 import { PERMISSIONS, type Permission } from "@/lib/types";
@@ -14,7 +14,7 @@ function readPermissions(form: FormData): Permission[] {
 }
 
 export async function createSubadminAction(_prev: FormState, form: FormData): Promise<FormState> {
-  const admin = await requireRole("admin");
+  const admin = await requireAdmin();
 
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const name = String(form.get("name") ?? "").trim();
@@ -27,7 +27,7 @@ export async function createSubadminAction(_prev: FormState, form: FormData): Pr
   try {
     // The plugin creates the account, the temporary password and the invite
     // token in one call, so a half-made user can't be left behind.
-    created = await createSubadmin({ email, name, capacity: 0, createdBy: admin.id, permissions });
+    created = await createMember({ email, name, capacity: 0, createdBy: admin.id, permissions });
   } catch (e) {
     if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
     throw e;
@@ -50,19 +50,19 @@ export async function createSubadminAction(_prev: FormState, form: FormData): Pr
 }
 
 export async function setStatusAction(form: FormData) {
-  await requireRole("admin");
+  const admin = await requireAdmin();
   const id = Number(form.get("id"));
   const status = String(form.get("status"));
   if (status !== "active" && status !== "disabled") return;
 
   // The plugin drops every session for that user when disabling, so the
   // lockout is immediate rather than waiting for a token to lapse.
-  await setUserStatus(id, status);
+  await setUserStatus(id, status, admin);
   revalidatePath("/team");
 }
 
 export async function updateSubadminAction(_prev: FormState, form: FormData): Promise<FormState> {
-  await requireRole("admin");
+  const admin = await requireAdmin();
   const id = Number(form.get("id"));
   const name = String(form.get("name") ?? "").trim();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
@@ -72,7 +72,7 @@ export async function updateSubadminAction(_prev: FormState, form: FormData): Pr
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { error: "Enter a valid email address." };
 
   try {
-    await updateSubadmin(id, { name, email, permissions });
+    await updateMember(id, { name, email, permissions }, admin);
   } catch (e) {
     if (e instanceof ApiError && e.status >= 400 && e.status < 500) return { error: e.message };
     throw e;
@@ -83,7 +83,7 @@ export async function updateSubadminAction(_prev: FormState, form: FormData): Pr
 }
 
 export async function deleteSubadminAction(_prev: FormState, form: FormData): Promise<FormState> {
-  const admin = await requireRole("admin");
+  const admin = await requireAdmin();
   const id = Number(form.get("id"));
 
   if (id === admin.id) return { error: "You cannot delete your own account." };

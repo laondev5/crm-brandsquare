@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isAdminRole } from "@/lib/types";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { listCampaigns } from "@/lib/queries";
@@ -12,7 +13,7 @@ export default async function CampaignsPage({
   if (!me) redirect("/login");
   // Campaign totals span every lead, including ones a sub-admin doesn't own,
   // so this stays admin-only. They still see the campaign on their own leads.
-  if (me.role !== "admin") redirect("/leads");
+  if (!isAdminRole(me.role)) redirect("/leads");
 
   const sp = await searchParams;
   const page = Number(sp.page) || 1;

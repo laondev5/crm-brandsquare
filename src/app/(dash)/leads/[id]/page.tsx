@@ -8,7 +8,7 @@ import {
   getLeadFull,
   getPipeline,
 } from "@/lib/queries";
-import { daysQuiet, hasPermission, isClosed, isStale, parsePayload } from "@/lib/types";
+import { daysQuiet, hasPermission, isClosed, isStale, parsePayload, isAdminRole } from "@/lib/types";
 
 import Manage from "./manage";
 import StatusPill from "../../pill";
@@ -21,14 +21,14 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   const { id: raw } = await params;
   const id = Number(raw);
   const me = await requireUser();
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   const full = await getLeadFull(id, scope);
   if (!full) notFound();
 
   const { lead, notes, activity } = full;
   const [subs, emailHistory, emailSettings, pipeline] = await Promise.all([
-    me.role === "admin" ? allSubadmins() : Promise.resolve([]),
+    isAdminRole(me.role) ? allSubadmins() : Promise.resolve([]),
     getLeadEmails(id, scope),
     getEmailSettings().catch(() => null),
     getPipeline(),
@@ -81,7 +81,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
                   <th>Campaign</th>
                   <td>
                     {lead.form_name ? (
-                      me.role === "admin" && lead.form_id ? (
+                      isAdminRole(me.role) && lead.form_id ? (
                         <Link
                           href={`/campaigns/${lead.form_id}`}
                           style={{ color: "var(--p)", fontWeight: 600 }}
@@ -155,7 +155,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
           <Manage
             lead={lead}
             subs={subs}
-            isAdmin={me.role === "admin"}
+            isAdmin={isAdminRole(me.role)}
             pipeline={pipeline}
           />
 

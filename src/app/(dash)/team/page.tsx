@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { isAdminRole } from "@/lib/types";
 import { currentUser } from "@/lib/auth";
 import { listTeam } from "@/lib/queries";
 import NewSubadmin from "./new";
@@ -7,7 +8,7 @@ import TeamRow from "./row";
 export default async function TeamPage() {
   const me = await currentUser();
   if (!me) redirect("/login");
-  if (me.role !== "admin") redirect("/");
+  if (!isAdminRole(me.role)) redirect("/");
 
   const team = await listTeam();
 

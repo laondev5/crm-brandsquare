@@ -11,6 +11,7 @@ import {
 import { ApiError } from "@/lib/api";
 import { getTracker, NO_VALUE, PRIORITIES, type TrackerDef } from "@/lib/trackers";
 import type { FormState } from "./auth";
+import { isAdminRole } from "@/lib/types";
 
 /**
  * Turns a submitted form into the shape the API takes, using the tracker's own
@@ -94,7 +95,7 @@ export async function saveTrackerAction(_prev: FormState, form: FormData): Promi
   if ("error" in parsed) return parsed;
 
   const id = Number(form.get("id")) || 0;
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   try {
     if (id) {
@@ -103,7 +104,7 @@ export async function saveTrackerAction(_prev: FormState, form: FormData): Promi
       // A sub-admin's own entries are stamped with their id so their view
       // stays scoped; an admin can leave it against whoever they named.
       await createTrackerRecord(
-        { ...parsed, owner_id: me.role === "admin" ? undefined : me.id },
+        { ...parsed, owner_id: isAdminRole(me.role) ? undefined : me.id },
         me
       );
     }
@@ -131,7 +132,7 @@ export async function setTrackerStatusAction(
     return { error: "Unknown status." };
   }
 
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   try {
     await updateTrackerRecord(id, { status }, scope);
@@ -152,7 +153,7 @@ export async function deleteTrackerAction(
   const me = await requireUser();
   if (!getTracker(trackerKey)) return { error: "Unknown tracker." };
 
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   try {
     await deleteTrackerRecord(id, scope);

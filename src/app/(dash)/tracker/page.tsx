@@ -3,10 +3,11 @@ import { requireUser } from "@/lib/auth";
 import { trackerSummary } from "@/lib/queries";
 import { TRACKERS } from "@/lib/trackers";
 import type { TrackerCounts } from "@/lib/types";
+import { isAdminRole } from "@/lib/types";
 
 export default async function TrackerHub() {
   const me = await requireUser();
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   // One request for all eight counts. If it fails the hub still renders — you
   // can always reach a tracker, you just don't see its workload yet.

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isAdminRole } from "@/lib/types";
 import { requireUser } from "@/lib/auth";
 import { listEmailCampaigns } from "@/lib/queries";
 
@@ -14,7 +15,7 @@ export default async function EmailPage({
   // Sub-admins see only the sends they made.
   const { rows, total, pages } = await listEmailCampaigns(
     page,
-    me.role === "admin" ? null : me.id
+    isAdminRole(me.role) ? null : me.id
   );
 
   return (
@@ -22,7 +23,7 @@ export default async function EmailPage({
       <div className="head">
         <h1>Email marketing</h1>
         <div className="spacer" />
-        {me.role === "admin" && (
+        {isAdminRole(me.role) && (
           <Link href="/email/settings" className="btn ghost">
             Sender settings
           </Link>

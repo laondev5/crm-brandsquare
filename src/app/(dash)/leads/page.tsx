@@ -1,19 +1,20 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getPipeline, listCampaigns, listLeads } from "@/lib/queries";
-import { daysQuiet, isStale } from "@/lib/types";
+import { daysQuiet, isStale, isAdminRole } from "@/lib/types";
 import StatusPill from "../pill";
 import QuietFor from "./quiet-for";
 
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; s?: string; form?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; s?: string; form?: string; site?: string; page?: string }>;
 }) {
   const sp = await searchParams;
   const me = await requireUser();
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
   const formId = Number(sp.form) || null;
+  const siteId = sp.site === "this" ? "this" : Number(sp.site) || null;
 
   const [{ rows, total, pages, page, stale_after_days, now }, campaigns, pipeline] = await Promise.all([
     listLeads({
@@ -21,6 +22,7 @@ export default async function LeadsPage({
       search: sp.s,
       ownerId: scope,
       formId,
+      siteId,
       page: Number(sp.page) || 1,
     }),
     // Sub-admins get the picker too — it only names campaigns, and their
@@ -42,7 +44,7 @@ export default async function LeadsPage({
 
   const qs = (over: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    const merged = { status: sp.status, s: sp.s, form: sp.form, ...over };
+    const merged = { status: sp.status, s: sp.s, form: sp.form, site: sp.site, ...over };
     Object.entries(merged).forEach(([k, v]) => {
       if (v) p.set(k, v);
     });
@@ -55,7 +57,7 @@ export default async function LeadsPage({
   return (
     <>
       <div className="head">
-        <h1>{me.role === "admin" ? "Leads" : "My leads"}</h1>
+        <h1>{isAdminRole(me.role) ? "Leads" : "My leads"}</h1>
         <div className="spacer" />
         <Link href="/leads/import" className="btn ghost">
           Import
@@ -159,7 +161,7 @@ export default async function LeadsPage({
                   <td data-l="Phone">{l.phone || "—"}</td>
                   <td data-l="Campaign">
                     {l.form_name ? (
-                      me.role === "admin" && l.form_id ? (
+                      isAdminRole(me.role) && l.form_id ? (
                         <Link href={`/campaigns/${l.form_id}`} style={{ color: "var(--p)", fontWeight: 600 }}>
                           {l.form_name}
                         </Link>
@@ -173,7 +175,17 @@ export default async function LeadsPage({
                   <td data-l="Stage">
                     <StatusPill status={l.status} pipeline={pipeline} />
                   </td>
-                  <td data-l="Owner">{l.owner ?? "Unassigned"}</td>
+                  <td data-l="Owner">
+                    {l.owner ?? "Unassigned"}
+                    {/* Only worth naming once more than one website feeds the
+                        CRM; before that it is noise on every row. */}
+                    {l.site_name && (
+                      <>
+                        <br />
+                        <small style={{ color: "var(--muted)" }}>via {l.site_name}</small>
+                      </>
+                    )}
+                  </td>
                   <td data-l={sp.status === "stale" ? "Last activity" : "Received"}>
                     {sp.status === "stale"
                       ? l.last_activity_at

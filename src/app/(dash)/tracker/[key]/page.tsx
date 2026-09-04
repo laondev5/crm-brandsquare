@@ -5,6 +5,7 @@ import { listTrackerRecords } from "@/lib/queries";
 import { getTracker } from "@/lib/trackers";
 import type { TrackerRecord } from "@/lib/types";
 import TrackerView from "./view";
+import { isAdminRole } from "@/lib/types";
 
 export default async function TrackerPage({
   params,
@@ -19,7 +20,7 @@ export default async function TrackerPage({
 
   const sp = await searchParams;
   const me = await requireUser();
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   const page = Number(sp.page) || 1;
 
@@ -102,7 +103,7 @@ export default async function TrackerPage({
           Could not load this tracker. Check that the CRM can reach WordPress, then reload.
         </div>
       ) : (
-        <TrackerView def={def} rows={rows} canSeeOwner={me.role === "admin"} />
+        <TrackerView def={def} rows={rows} canSeeOwner={isAdminRole(me.role)} />
       )}
 
       {pages > 1 && (

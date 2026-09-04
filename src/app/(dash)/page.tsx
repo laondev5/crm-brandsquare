@@ -1,22 +1,22 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getPipeline, listCampaigns, listLeads, metrics } from "@/lib/queries";
-import { weightedOpen } from "@/lib/types";
+import { weightedOpen, isAdminRole } from "@/lib/types";
 import StatusPill from "./pill";
 
 export default async function Overview() {
   const me = await requireUser();
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   const [m, recent, campaigns, pipeline] = await Promise.all([
     metrics(scope),
     listLeads({ ownerId: scope, perPage: 8 }),
-    me.role === "admin"
+    isAdminRole(me.role)
       ? listCampaigns(1, 100).then((r) => r.rows).catch(() => [])
       : Promise.resolve([]),
     getPipeline(),
   ]);
-  const load = me.role === "admin" ? m.load : [];
+  const load = isAdminRole(me.role) ? m.load : [];
   const topCampaigns = [...campaigns].sort((a, b) => b.leads - a.leads).slice(0, 5);
 
   return (
@@ -129,7 +129,7 @@ export default async function Overview() {
             </table>
           </div>
 
-          {me.role === "admin" && (
+          {isAdminRole(me.role) && (
             <div className="card">
               <h2>Top campaigns</h2>
               {topCampaigns.length === 0 ? (
@@ -160,7 +160,7 @@ export default async function Overview() {
             </div>
           )}
 
-          {me.role === "admin" && (
+          {isAdminRole(me.role) && (
             <div className="card">
               <h2>Team load</h2>
               {load.length === 0 ? (

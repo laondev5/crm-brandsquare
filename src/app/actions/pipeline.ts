@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { getPipeline, listLeads, updateLead } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
 import type { LeadStatus } from "@/lib/types";
+import { isAdminRole } from "@/lib/types";
 
 /**
  * Drag-and-drop stage change from the pipeline board.
@@ -25,7 +26,7 @@ export async function moveLeadAction(
     return { error: "Unknown stage." };
   }
 
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   try {
     await updateLead(id, me, { status }, scope);
@@ -60,7 +61,7 @@ export async function quickSearchAction(term: string): Promise<QuickHit[]> {
   if (q.length < 2) return [];
 
   const me = await requireUser();
-  const scope = me.role === "admin" ? null : me.id;
+  const scope = isAdminRole(me.role) ? null : me.id;
 
   try {
     const { rows } = await listLeads({ search: q, ownerId: scope, perPage: 6, page: 1 });

@@ -1,10 +1,11 @@
 import { requireUser } from "@/lib/auth";
+import { isAdminRole } from "@/lib/types";
 import { audiencePreview, getEmailSettings, listCampaigns } from "@/lib/queries";
 import Composer from "./composer";
 
 export default async function NewEmailPage() {
   const me = await requireUser();
-  const ownerId = me.role === "admin" ? null : me.id;
+  const ownerId = isAdminRole(me.role) ? null : me.id;
 
   const [settings, campaigns] = await Promise.all([
     getEmailSettings(),
@@ -38,7 +39,7 @@ export default async function NewEmailPage() {
       allCount={allCount.count}
       sample={allCount.sample}
       campaigns={perForm}
-      isAdmin={me.role === "admin"}
+      isAdmin={isAdminRole(me.role)}
     />
   );
 }

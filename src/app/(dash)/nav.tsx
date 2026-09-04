@@ -11,6 +11,8 @@ interface NavChild {
   href: string;
   label: string;
   adminOnly?: boolean;
+  /** Only the top tier — connecting websites and managing admins. */
+  superOnly?: boolean;
 }
 
 interface NavGroup {
@@ -45,18 +47,19 @@ const GROUPS: NavGroup[] = [
       { href: "/agenda", label: "Agenda" },
       { href: "/tracker", label: "Trackers" },
       { href: "/team", label: "Members", adminOnly: true },
+      { href: "/sites", label: "Websites", superOnly: true },
     ],
   },
 ];
 
-export default function NavLinks({ isAdmin }: { isAdmin: boolean }) {
+export default function NavLinks({ isAdmin, isSuper }: { isAdmin: boolean; isSuper?: boolean }) {
   const path = usePathname();
 
   const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   const visible = GROUPS.map((g) => ({
     ...g,
-    children: g.children?.filter((c) => isAdmin || !c.adminOnly),
+    children: g.children?.filter((c) => (isAdmin || !c.adminOnly) && (isSuper || !c.superOnly)),
   })).filter((g) => g.href || (g.children && g.children.length > 0));
 
   const groupIsActive = (g: (typeof visible)[number]) =>

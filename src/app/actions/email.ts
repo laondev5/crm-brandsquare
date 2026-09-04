@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser, requireRole } from "@/lib/auth";
+import { requireUser, requireAdmin } from "@/lib/auth";
 import { createEmailCampaign, saveEmailSettings } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
 import type { EmailBlocks } from "@/lib/types";
 import type { FormState } from "./auth";
+import { isAdminRole } from "@/lib/types";
 
 export type SendState = FormState & { campaignId?: number };
 
@@ -14,7 +15,7 @@ export async function sendCampaignAction(_prev: SendState, form: FormData): Prom
 
   // A sub-admin may only ever reach leads assigned to them. Their id is sent
   // as the scope and the plugin puts it in the WHERE clause.
-  const ownerId = me.role === "admin" ? null : me.id;
+  const ownerId = isAdminRole(me.role) ? null : me.id;
 
   const subject = String(form.get("subject") ?? "").trim();
   if (!subject) return { error: "Enter a subject line." };
@@ -63,7 +64,7 @@ export async function sendCampaignAction(_prev: SendState, form: FormData): Prom
 }
 
 export async function saveEmailSettingsAction(_prev: FormState, form: FormData): Promise<FormState> {
-  await requireRole("admin");
+  await requireAdmin();
 
   const patch: Record<string, unknown> = {
     from_email: String(form.get("from_email") ?? "").trim(),

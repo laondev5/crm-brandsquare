@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/auth";
 import { getCampaign, getPipeline, listLeads } from "@/lib/queries";
 
 import StatusPill from "../../pill";
+import { isAdminRole } from "@/lib/types";
 
 export default async function CampaignDetail({
   params,
@@ -14,7 +15,7 @@ export default async function CampaignDetail({
 }) {
   const me = await currentUser();
   if (!me) redirect("/login");
-  if (me.role !== "admin") redirect("/leads");
+  if (!isAdminRole(me.role)) redirect("/leads");
 
   const { id: raw } = await params;
   const id = Number(raw);

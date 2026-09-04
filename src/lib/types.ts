@@ -1,4 +1,37 @@
-export type Role = "admin" | "subadmin";
+export type Role = "superadmin" | "admin" | "subadmin";
+
+/** Both admin tiers see the whole CRM; only what they can administer differs. */
+export function isAdminRole(role: Role): boolean {
+  return role === "superadmin" || role === "admin";
+}
+
+/**
+ * Who may create, change or delete an account at a given level. A super admin
+ * manages anyone; an admin manages sub-admins only. The plugin enforces this
+ * too — hiding a button is convenience, not the check.
+ */
+export function canManageRole(actor: Role, target: Role): boolean {
+  if (actor === "superadmin") return true;
+  if (actor === "admin") return target === "subadmin";
+  return false;
+}
+
+export const ROLE_LABEL: Record<Role, string> = {
+  superadmin: "Super admin",
+  admin: "Admin",
+  subadmin: "Sub-admin",
+};
+
+/** A website whose enquiries land in this CRM. */
+export interface Site {
+  id: number;
+  name: string;
+  url: string;
+  status: "active" | "revoked";
+  created_at: string;
+  last_seen_at: string | null;
+  leads: number;
+}
 export type UserStatus = "invited" | "active" | "disabled";
 
 /**
@@ -149,6 +182,9 @@ export interface Lead {
    * tracked it, which is why nothing treats null as "silent forever".
    */
   last_activity_at: string | null;
+  /** Which website the enquiry came from. Null means this CRM's own site. */
+  site_id: number | null;
+  site_name: string | null;
   /** Only ever set while the lead sits in the Lost stage; cleared on reopen. */
   lost_reason: string;
 }
