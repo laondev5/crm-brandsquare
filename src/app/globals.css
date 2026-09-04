@@ -229,6 +229,14 @@
     color: inherit; text-transform: inherit; letter-spacing: inherit; font-weight: inherit;
   }
   .tbl-sort:hover { color: var(--p); }
+  /* A scroll-depth bar: the number alone never conveys how far short of the
+     page it stops. */
+  .depth-bar {
+    background: #eeeef4; border-radius: 99px; height: 7px; overflow: hidden;
+    min-width: 54px; display: block;
+  }
+  .depth-bar span { display: block; height: 100%; background: var(--st-new); border-radius: 99px; }
+
   .tbl tr.is-warn td { background: #fffdf7; }
   .tbl tr.is-stale td { background: #fffaf6; }
   

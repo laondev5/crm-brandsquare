@@ -20,6 +20,8 @@ import type {
   LeadStatus,
   Permission,
   Role,
+  Analytics,
+  Heatmap,
   Site,
   Pipeline,
   TrackerCounts,
@@ -105,6 +107,21 @@ export async function updateSite(
 
 export async function deleteSite(actor: DashUser, id: number) {
   return api.del<{ ok: boolean; name: string }>(`/sites/${id}`, { actor_id: actor.id });
+}
+
+/* ---------------- analytics ---------------- */
+
+/**
+ * Traffic figures are readable by everyone signed in — knowing which landing
+ * page works is the whole team's business. Only the connection settings are
+ * restricted to a super admin.
+ */
+export const getAnalytics = cache(async (days = 30): Promise<Analytics> => {
+  return api.get<Analytics>("/analytics", { days });
+});
+
+export async function getHeatmap(path: string, days = 30): Promise<Heatmap> {
+  return api.get<Heatmap>("/analytics/heatmap", { path, days });
 }
 
 /* ---------------- pipeline stages ---------------- */

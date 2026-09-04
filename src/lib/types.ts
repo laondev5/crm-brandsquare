@@ -445,3 +445,70 @@ export function parsePayload(raw: string | null): PayloadRow[] {
     return [];
   }
 }
+
+
+/* ---------------- analytics ---------------- */
+
+export interface AnalyticsTotals {
+  views: number;
+  visitors: number;
+  sessions: number;
+  conversions: number;
+  /** Conversions as a percentage of pageviews. */
+  rate: number;
+  avg_seconds: number;
+  avg_scroll: number;
+}
+
+export interface PageStat {
+  path: string;
+  title: string;
+  views: number;
+  visitors: number;
+  conversions: number;
+  rate: number;
+  avg_seconds: number;
+  avg_scroll: number;
+  bounce_rate: number;
+}
+
+export interface SourceStat {
+  source: string;
+  campaign: string;
+  views: number;
+  conversions: number;
+  rate: number;
+}
+
+export interface DayStat {
+  day: string;
+  views: number;
+  visitors: number;
+  conversions: number;
+}
+
+export interface Analytics {
+  days: number;
+  totals: AnalyticsTotals;
+  pages: PageStat[];
+  sources: SourceStat[];
+  daily: DayStat[];
+  devices: { device: string; views: number; conversions: number }[];
+}
+
+export interface Heatmap {
+  path: string;
+  days: number;
+  points: { x: number; y: number; w: number }[];
+  elements: { selector: string; label: string; clicks: number }[];
+  /** Visits grouped by how far down they reached, in 10% bands. */
+  depth: { band: number; visits: number }[];
+}
+
+/** Seconds as something readable at a glance — "1m 40s" beats "100". */
+export function humanSeconds(s: number): string {
+  if (s < 60) return s + "s";
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r ? m + "m " + r + "s" : m + "m";
+}

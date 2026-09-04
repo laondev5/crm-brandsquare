@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LayoutDashboard, Target, UsersRound } from "lucide-react";
+import { Activity, ChevronDown, LayoutDashboard, Target, UsersRound } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -41,13 +41,20 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Traffic",
+    icon: Activity,
+    children: [
+      { href: "/analytics", label: "Overview" },
+      { href: "/sites", label: "Websites", superOnly: true },
+    ],
+  },
+  {
     label: "Team",
     icon: UsersRound,
     children: [
       { href: "/agenda", label: "Agenda" },
       { href: "/tracker", label: "Trackers" },
       { href: "/team", label: "Members", adminOnly: true },
-      { href: "/sites", label: "Websites", superOnly: true },
     ],
   },
 ];
