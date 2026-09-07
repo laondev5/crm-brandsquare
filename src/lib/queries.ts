@@ -27,6 +27,7 @@ import type {
   SavedView,
   MessageTemplate,
   DuplicateMatch,
+  PageSnapshot,
   Site,
   Pipeline,
   TrackerCounts,
@@ -723,4 +724,23 @@ export async function uploadLeadFile(leadId: number, actor: DashUser, file: File
   form.append("actor_id", String(actor.id));
   form.append("actor_name", actor.name);
   return api.upload<{ ok: true; files: LeadFile[] }>(`/leads/${leadId}/files`, form);
+}
+
+/* ---------------- the page behind a heatmap ---------------- */
+
+/**
+ * The saved rendering of one page. Never throws: the heatmap is still worth
+ * showing without its backdrop, so a missing or failed snapshot degrades to
+ * the plain map rather than taking the screen down.
+ */
+export async function getSnapshot(
+  path: string,
+  site: string | number = "all",
+  device = "desktop"
+): Promise<PageSnapshot | null> {
+  try {
+    return await api.get<PageSnapshot>("/analytics/snapshot", { path, site, device });
+  } catch {
+    return null;
+  }
 }

@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getHeatmap } from "@/lib/queries";
+import { getHeatmap, getSnapshot } from "@/lib/queries";
 import ClickMap from "./click-map";
+import PageMap from "./page-map";
 
 export default async function PageDetail({
   searchParams,
 }: {
-  searchParams: Promise<{ path?: string; days?: string; site?: string }>;
+  searchParams: Promise<{ path?: string; days?: string; site?: string; screen?: string }>;
 }) {
   await requireUser();
 
@@ -16,6 +17,11 @@ export default async function PageDetail({
   // A path alone is ambiguous once several websites feed the CRM: two of them
   // can both have a "/". The site comes through from the row that was clicked.
   const site = sp.site === "this" || Number(sp.site) ? (sp.site as string) : "all";
+  // Which screen shape to show the page at. The clicks are plotted against
+  // whichever copy is on screen, so this picks both at once.
+  const screen = ["mobile", "tablet", "desktop"].includes(sp.screen ?? "")
+    ? (sp.screen as string)
+    : "desktop";
 
   if (!path) {
     return (
@@ -41,6 +47,10 @@ export default async function PageDetail({
       </>
     );
   }
+
+  // Best effort: without it the heatmap still works, just without the page
+  // behind it, so it must never be able to fail the screen.
+  const snapshot = await getSnapshot(path, site, screen);
 
   const totalVisits = data.depth.reduce((n, d) => n + d.visits, 0);
 
@@ -110,9 +120,38 @@ export default async function PageDetail({
           )}
 
           <div className="grid2">
-            <div className="card">
+            <div className="card" style={{ minWidth: 0 }}>
               <h2>Where people clicked</h2>
-              <ClickMap points={data.points} />
+
+              {/* Which shape of screen the page is shown at. Switching this
+                  changes both the copy and which clicks are plotted on it. */}
+              <div className="tabs" style={{ marginBottom: 12 }}>
+                {["desktop", "tablet", "mobile"].map((d) => (
+                  <Link
+                    key={d}
+                    href={`/analytics/page?path=${encodeURIComponent(path)}&days=${days}${
+                      site === "all" ? "" : `&site=${site}`
+                    }&screen=${d}`}
+                    className={d === screen ? "on" : ""}
+                    style={{ textTransform: "capitalize" }}
+                  >
+                    {d}
+                  </Link>
+                ))}
+              </div>
+
+              {snapshot?.found ? (
+                <PageMap snapshot={snapshot} points={data.points} requested={screen} />
+              ) : (
+                <>
+                  <div className="msg warn" style={{ marginTop: 0 }}>
+                    No copy of this page has been saved yet, so the clicks are shown on their own.
+                    One is taken automatically the next time somebody visits this page on a{" "}
+                    {screen} screen, and appears here within a few minutes.
+                  </div>
+                  <ClickMap points={data.points} />
+                </>
+              )}
             </div>
 
             <div style={{ display: "grid", gap: 20, alignContent: "start" }}>

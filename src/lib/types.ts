@@ -591,6 +591,24 @@ export interface LeadFile {
   created_at: string;
 }
 
+/**
+ * A saved rendering of a page, used as the backdrop to its heatmap.
+ *
+ * `exact` is false when nothing was captured for the screen shape asked for
+ * and another one is being shown instead — the clicks are then in a different
+ * layout from the picture, which the screen has to say out loud rather than
+ * quietly mislead.
+ */
+export interface PageSnapshot {
+  found: boolean;
+  device: string;
+  exact: boolean;
+  width: number;
+  height: number;
+  captured_at: string | null;
+  html: string;
+}
+
 /* ---------------- saved views, templates, duplicates ---------------- */
 
 /**
