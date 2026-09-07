@@ -76,6 +76,50 @@ async function request<T>(path: string, init: RequestInit & { params?: Params } 
   return body as T;
 }
 
+/**
+ * A multipart POST, for the one endpoint that takes a file.
+ *
+ * Content-Type is deliberately omitted: fetch generates it from the FormData
+ * along with the boundary, and setting it by hand produces a body PHP cannot
+ * parse — $_FILES arrives empty and the upload fails with no useful error.
+ */
+async function upload<T>(path: string, form: FormData, params?: Params): Promise<T> {
+  if (!BASE || !KEY) {
+    throw new ApiError("WP_API_URL or WP_API_KEY is not set. Copy .env.example to .env.local.", 500);
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(url(path, params), {
+      method: "POST",
+      headers: { "X-BSQ-Key": KEY },
+      body: form,
+      cache: "no-store",
+    });
+  } catch (e: any) {
+    throw new ApiError(`Could not reach WordPress at ${BASE}. ${e?.message ?? ""}`.trim(), 503);
+  }
+
+  const text = await res.text();
+  let body: any = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    // An upload rejected by the host rather than by WordPress — mod_security,
+    // or a size limit — comes back as an HTML error page.
+    throw new ApiError(
+      `The upload was refused before it reached WordPress (HTTP ${res.status}). It may be larger than the server allows.`,
+      res.status || 502
+    );
+  }
+
+  if (!res.ok) {
+    throw new ApiError(body?.message || `Upload failed (HTTP ${res.status})`, res.status, body?.code || "");
+  }
+
+  return body as T;
+}
+
 export const api = {
   get: <T>(path: string, params?: Params) => request<T>(path, { method: "GET", params }),
   post: <T>(path: string, data?: unknown, params?: Params) =>
@@ -84,6 +128,7 @@ export const api = {
     request<T>(path, { method: "PATCH", body: JSON.stringify(data ?? {}), params }),
   del: <T>(path: string, data?: unknown, params?: Params) =>
     request<T>(path, { method: "DELETE", body: JSON.stringify(data ?? {}), params }),
+  upload,
 };
 
 export async function ping() {

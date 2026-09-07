@@ -3,7 +3,8 @@
 import { useActionState, useState } from "react";
 import { updateLeadAction } from "@/app/actions/leads";
 import type { FormState } from "@/app/actions/auth";
-import type { DashUser, LeadRow, Pipeline } from "@/lib/types";
+import type { DashUser, LeadRow, MessageTemplate, Pipeline } from "@/lib/types";
+import TemplatePicker from "./template-picker";
 
 /**
  * The Manage panel.
@@ -26,13 +27,18 @@ export default function Manage({
   subs,
   isAdmin,
   pipeline,
+  templates,
 }: {
   lead: LeadRow;
   subs: DashUser[];
   isAdmin: boolean;
   pipeline: Pipeline;
+  templates: MessageTemplate[];
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updateLeadAction, {});
+  // The note is controlled only so a template can be dropped into it. It is
+  // still the same field the form submits.
+  const [note, setNote] = useState("");
   return (
     <form className="card" action={action}>
       <h2>Manage</h2>
@@ -70,6 +76,20 @@ export default function Manage({
         </label>
       )}
 
+      {/* The one identity field worth editing here. Which business someone is
+          from is normally learned on the call, not typed into the form. */}
+      <label className="f">
+        <span>Company</span>
+        <input
+          key={lead.company}
+          type="text"
+          name="company"
+          defaultValue={lead.company}
+          maxLength={190}
+          placeholder="Which business are they from?"
+        />
+      </label>
+
       <label className="f">
         <span>Next action due</span>
         <input
@@ -83,7 +103,22 @@ export default function Manage({
 
       <label className="f">
         <span>Add a note</span>
-        <textarea name="note" placeholder="What happened on this lead?" />
+        <TemplatePicker
+          templates={templates}
+          vars={{
+            name: lead.name,
+            email: lead.email,
+            phone: lead.phone,
+            company: lead.company,
+          }}
+          onPick={(body) => setNote(body)}
+        />
+        <textarea
+          name="note"
+          placeholder="What happened on this lead?"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
       </label>
 
       <button

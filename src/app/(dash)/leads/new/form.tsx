@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { addLeadAction, type AddLeadState } from "../../../actions/leads";
+import Duplicates from "./duplicates";
 
 import type { Campaign, DashUser, Pipeline } from "@/lib/types";
 
@@ -43,6 +44,10 @@ function AddLeadFormInner({
   const [fields, setFields] = useState<{ label: string; value: string }[]>([
     { label: "", value: "" },
   ]);
+  // Held in state only so the duplicate check can watch them. The form still
+  // submits the DOM values as it always did.
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
   if (state.leadCreated) {
     return (
@@ -88,16 +93,34 @@ function AddLeadFormInner({
               </label>
               <label className="f">
                 <span>Phone</span>
-                <input type="tel" name="phone" placeholder="0803 123 4567" />
+                <input
+                  type="tel"
+                  name="phone"
+                  placeholder="0803 123 4567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
               </label>
             </div>
             <label className="f">
               <span>Email</span>
-              <input type="email" name="email" placeholder="chinedu@ridgemills.ng" />
+              <input
+                type="email"
+                name="email"
+                placeholder="chinedu@ridgemills.ng"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
+            <label className="f">
+              <span>Company</span>
+              <input type="text" name="company" placeholder="Ridge Mills Ltd" maxLength={190} />
             </label>
             <small style={{ color: "var(--muted)", fontSize: 12 }}>
               At least one of name, email or phone is required.
             </small>
+
+            <Duplicates email={email} phone={phone} />
           </div>
 
           <div className="card">

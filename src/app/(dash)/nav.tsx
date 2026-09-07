@@ -39,6 +39,7 @@ const GROUPS: NavGroup[] = [
       { href: "/pipeline", label: "Pipeline" },
       { href: "/campaigns", label: "Campaigns", adminOnly: true },
       { href: "/email", label: "Email" },
+      { href: "/templates", label: "Templates" },
     ],
   },
   {

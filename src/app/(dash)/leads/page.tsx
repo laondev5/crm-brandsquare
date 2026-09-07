@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getPipeline, listCampaigns, listLeads, listSites } from "@/lib/queries";
+import { allSubadmins, getPipeline, listCampaigns, listLeads, listSites, listViews } from "@/lib/queries";
 import { daysQuiet, isStale, isAdminRole } from "@/lib/types";
 import StatusPill from "../pill";
 import QuietFor from "./quiet-for";
+import BulkBar from "./bulk-bar";
+import ViewsBar from "./views-bar";
 
 export default async function LeadsPage({
   searchParams,
@@ -16,7 +18,8 @@ export default async function LeadsPage({
   const formId = Number(sp.form) || null;
   const siteId = sp.site === "this" ? "this" : Number(sp.site) || null;
 
-  const [{ rows, total, pages, page, stale_after_days, now }, campaigns, pipeline, sites] = await Promise.all([
+  const [{ rows, total, pages, page, stale_after_days, now }, campaigns, pipeline, sites, views, subs] =
+    await Promise.all([
     listLeads({
       status: sp.status,
       search: sp.s,
@@ -32,6 +35,10 @@ export default async function LeadsPage({
     // Only a super admin can manage websites, but everyone benefits from
     // filtering by one once more than a single site feeds the CRM.
     listSites(me).then((r) => r.sites).catch(() => []),
+    // Saved views are shared, and a failure to load them must not take the
+    // leads list down with it.
+    listViews().catch(() => []),
+    isAdminRole(me.role) ? allSubadmins().catch(() => []) : Promise.resolve([]),
   ]);
 
   // The stage tabs come from the configured pipeline, so a stage added in
@@ -56,6 +63,18 @@ export default async function LeadsPage({
   };
 
   const active = campaigns.find((c) => c.id === formId);
+
+  // What a saved view stores: the filters, without the page number — a view
+  // pinned to page 3 would be wrong the moment a lead is added.
+  const currentQuery = (() => {
+    const p = new URLSearchParams();
+    Object.entries({ status: sp.status, s: sp.s, form: sp.form, site: sp.site }).forEach(
+      ([k, v]) => {
+        if (v) p.set(k, v);
+      }
+    );
+    return p.toString();
+  })();
 
   return (
     <>
@@ -124,6 +143,8 @@ export default async function LeadsPage({
         ))}
       </div>
 
+      <ViewsBar views={views} currentQuery={currentQuery} />
+
       {sp.status === "stale" && (
         <div className="msg warn">
           {stale_after_days > 0 ? (
@@ -152,6 +173,7 @@ export default async function LeadsPage({
         </div>
       )}
 
+      <BulkBar subs={subs} pipeline={pipeline} isAdmin={isAdminRole(me.role)}>
       <div className="card" style={{ padding: "6px 8px" }}>
         {rows.length === 0 ? (
           <p className="empty">No leads match this view.</p>
@@ -159,6 +181,7 @@ export default async function LeadsPage({
           <table className="tbl">
             <thead>
               <tr>
+                <th style={{ width: 34 }} />
                 <th style={{ width: 60 }}>ID</th>
                 <th>Name</th>
                 <th>Email</th>
@@ -175,6 +198,15 @@ export default async function LeadsPage({
             <tbody>
               {rows.map((l) => (
                 <tr key={l.id}>
+                  {/* Read by BulkBar straight from the DOM, so these rows stay
+                      server-rendered and there is no second copy of the table. */}
+                  <td data-l="">
+                    <input
+                      type="checkbox"
+                      data-lead-id={l.id}
+                      aria-label={`Select lead ${l.id}`}
+                    />
+                  </td>
                   <td data-l="ID">#{l.id}</td>
                   <td data-l="Name">
                     <Link href={`/leads/${l.id}`} className="name">
@@ -230,6 +262,7 @@ export default async function LeadsPage({
           </table>
         )}
       </div>
+      </BulkBar>
 
       {pages > 1 && (
         <div className="row" style={{ marginTop: 16, justifyContent: "center" }}>

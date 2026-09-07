@@ -24,6 +24,9 @@ import type {
   Heatmap,
   Task,
   LeadFile,
+  SavedView,
+  MessageTemplate,
+  DuplicateMatch,
   Site,
   Pipeline,
   TrackerCounts,
@@ -304,6 +307,7 @@ export interface LeadUpdate {
   next_action_at?: string | null;
   /** Only honoured by the server while the lead is in the Lost stage. */
   lost_reason?: string;
+  company?: string;
 }
 
 export async function updateLead(
@@ -624,4 +628,99 @@ export async function metrics(ownerId?: number | null, siteId?: number | "this" 
     owner: ownerId ?? undefined,
     site: siteId ?? undefined,
   });
+}
+
+/* ---------------- saved views ---------------- */
+
+export const listViews = cache(async (): Promise<SavedView[]> => {
+  const r = await api.get<{ views: SavedView[] }>("/views");
+  return r.views ?? [];
+});
+
+export async function createView(actor: DashUser, name: string, query: string) {
+  return api.post<{ ok: true; id: number }>("/views", { name, query, actor_id: actor.id });
+}
+
+export async function deleteView(id: number) {
+  return api.del<{ ok: true }>(`/views/${id}`);
+}
+
+/* ---------------- message templates ---------------- */
+
+export const listTemplates = cache(async (channel?: string): Promise<MessageTemplate[]> => {
+  const r = await api.get<{ templates: MessageTemplate[] }>("/templates", { channel });
+  return r.templates ?? [];
+});
+
+export async function createTemplate(input: {
+  actor: DashUser;
+  name: string;
+  channel: string;
+  subject: string;
+  body: string;
+}) {
+  return api.post<{ ok: true; id: number }>("/templates", {
+    name: input.name,
+    channel: input.channel,
+    subject: input.subject,
+    body: input.body,
+    actor_id: input.actor.id,
+  });
+}
+
+export async function deleteTemplate(id: number) {
+  return api.del<{ ok: true }>(`/templates/${id}`);
+}
+
+/* ---------------- acting on many leads at once ---------------- */
+
+/**
+ * The sub-admin scope is passed as `owner` exactly as it is for a single
+ * lead: the plugin puts it in the WHERE clause for every id in turn, so a
+ * selection that reaches beyond someone's own leads simply updates fewer
+ * rows than were ticked rather than being refused outright.
+ */
+export async function bulkUpdateLeads(input: {
+  ids: number[];
+  actor: DashUser;
+  status?: string;
+  assignedTo?: number | null;
+  ownerId?: number | null;
+}) {
+  return api.post<{ ok: true; updated: number }>("/leads/bulk-update", {
+    ids: input.ids,
+    status: input.status || undefined,
+    assigned_to: input.assignedTo === undefined ? undefined : input.assignedTo,
+    actor_id: input.actor.id,
+    actor_name: input.actor.name,
+    owner: input.ownerId ?? undefined,
+  });
+}
+
+/* ---------------- duplicate detection ---------------- */
+
+/**
+ * Existing leads that share this email, or the tail of this phone number.
+ * Wraps checkDuplicate with the typed shape and, more importantly, a failure
+ * that returns nothing: a duplicate check that errors must never be able to
+ * block someone adding a lead.
+ */
+export async function checkDuplicates(email: string, phone: string): Promise<DuplicateMatch[]> {
+  if (!email && !phone) return [];
+  try {
+    const r = await checkDuplicate(email, phone);
+    return (r.matches ?? []) as DuplicateMatch[];
+  } catch {
+    return [];
+  }
+}
+
+/* ---------------- files on a lead ---------------- */
+
+export async function uploadLeadFile(leadId: number, actor: DashUser, file: File) {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  form.append("actor_id", String(actor.id));
+  form.append("actor_name", actor.name);
+  return api.upload<{ ok: true; files: LeadFile[] }>(`/leads/${leadId}/files`, form);
 }

@@ -780,4 +780,62 @@
     }
   }
   
+
+  /* ---------- files on a lead, and saved template lists ---------- */
+  .filelist { list-style: none; margin: 0; padding: 0; }
+  .filelist li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "name btn" "meta btn";
+    align-items: center;
+    gap: 0 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .filelist li:last-child { border-bottom: 0; }
+  .filelist li .name { grid-area: name; font-weight: 600; color: var(--p); }
+  .filelist li small { grid-area: meta; color: var(--muted); font-size: 12px; }
+  .filelist li button { grid-area: btn; }
+
+  /* ---------- saved views ---------- */
+  .views {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin: 0 0 14px;
+  }
+  .viewchip {
+    display: inline-flex; align-items: center; gap: 2px;
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 3px 4px 3px 12px; font-size: 12.5px; background: #fff;
+  }
+  .viewchip.on { border-color: var(--p); background: #f4f2ff; }
+  .viewchip a { font-weight: 600; color: var(--txt); }
+  .viewchip.on a { color: var(--p); }
+  .viewchip button {
+    border: 0; background: none; cursor: pointer; color: var(--muted);
+    font-size: 13px; line-height: 1; padding: 4px 7px; border-radius: 999px;
+  }
+  .viewchip button:hover { color: var(--err); background: #fff0f0; }
+
+  /* ---------- bulk action bar ----------
+     Fixed to the bottom so a selection made at the top of a long list can
+     still be acted on without scrolling back down to find the controls. */
+  .bulkbar {
+    position: sticky; bottom: 12px; z-index: 30;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    margin-top: 12px; padding: 10px 14px;
+    background: var(--ink); color: #fff;
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(7, 0, 58, .28);
+  }
+  .bulkbar strong { font-size: 13px; }
+  .bulkbar select {
+    padding: 6px 8px !important; font-size: 12.5px; border-radius: 6px;
+    border: 0; color: var(--txt); background: #fff;
+  }
+
+  @media (max-width: 700px) {
+    .bulkbar { flex-direction: column; align-items: stretch; }
+    .bulkbar select, .bulkbar .btn { width: 100%; }
+  }
+
+
 }

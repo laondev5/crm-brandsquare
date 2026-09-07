@@ -174,6 +174,10 @@ export interface Lead {
   name: string;
   email: string;
   phone: string;
+  /** Which business the person is from. Unlike the other identity fields this
+   *  is editable in the CRM: it is usually learned on the call afterwards
+   *  rather than typed into the form. */
+  company: string;
   payload: string | null;
   source_url: string;
   status: LeadStatus;
@@ -398,6 +402,7 @@ export interface BulkLeadRow {
   name?: string;
   email?: string;
   phone?: string;
+  company?: string;
   answers?: LeadAnswer[];
   status?: LeadStatus;
   assigned_to?: number;
@@ -584,6 +589,53 @@ export interface LeadFile {
   size_bytes: number;
   uploaded_by_name: string;
   created_at: string;
+}
+
+/* ---------------- saved views, templates, duplicates ---------------- */
+
+/**
+ * A named set of list filters. The query is stored as the querystring the
+ * leads page already understands, so saving a view is just remembering the
+ * URL someone arrived at — no second filter language to keep in step.
+ */
+export interface SavedView {
+  id: number;
+  name: string;
+  query: string;
+}
+
+export type TemplateChannel = "note" | "email" | "whatsapp";
+
+export interface MessageTemplate {
+  id: number;
+  name: string;
+  channel: TemplateChannel;
+  subject: string;
+  body: string;
+}
+
+/** An existing lead that looks like the one being added. */
+export interface DuplicateMatch {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  status: LeadStatus;
+  created_at: string;
+}
+
+/**
+ * Fills the placeholders a template may use. Anything unrecognised is left
+ * alone rather than blanked, so a stray brace in someone's copy survives.
+ */
+export function fillTemplate(
+  body: string,
+  vars: { name?: string; email?: string; phone?: string; company?: string }
+): string {
+  return body.replace(/\{\{\s*(name|email|phone|company)\s*\}\}/gi, (whole, key: string) => {
+    const v = vars[key.toLowerCase() as keyof typeof vars];
+    return v ? v : whole;
+  });
 }
 
 /** File sizes people can read — "1.4 MB" rather than 1468006. */

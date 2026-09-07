@@ -7,11 +7,13 @@ import {
   getLeadEmails,
   getLeadFull,
   getPipeline,
+  listTemplates,
 } from "@/lib/queries";
 import { daysQuiet, hasPermission, isClosed, isStale, parsePayload, isAdminRole } from "@/lib/types";
 
 import Manage from "./manage";
 import Tasks from "./tasks";
+import Files from "./files";
 import StatusPill from "../../pill";
 import WhatsAppButton from "./whatsapp-button";
 import EmailPanel from "./email-panel";
@@ -28,11 +30,12 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   if (!full) notFound();
 
   const { lead, notes, activity } = full;
-  const [subs, emailHistory, emailSettings, pipeline] = await Promise.all([
+  const [subs, emailHistory, emailSettings, pipeline, noteTemplates] = await Promise.all([
     isAdminRole(me.role) ? allSubadmins() : Promise.resolve([]),
     getLeadEmails(id, scope),
     getEmailSettings().catch(() => null),
     getPipeline(),
+    listTemplates("note").catch(() => []),
   ]);
 
   const answers = parsePayload(lead.payload);
@@ -84,6 +87,12 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
                   </tr>
                 ))}
                 <tr>
+                  <th>Company</th>
+                  <td>
+                    {lead.company || <span style={{ color: "var(--muted)" }}>Not recorded</span>}
+                  </td>
+                </tr>
+                <tr>
                   <th>Campaign</th>
                   <td>
                     {lead.form_name ? (
@@ -123,6 +132,8 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
           </div>
 
           <Tasks leadId={lead.id} initial={full.tasks ?? []} />
+
+          <Files leadId={lead.id} initial={full.files ?? []} />
 
           <div className="card">
             <h2>Notes</h2>
@@ -165,6 +176,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
             subs={subs}
             isAdmin={isAdminRole(me.role)}
             pipeline={pipeline}
+            templates={noteTemplates}
           />
 
           {hasPermission(me, "delete_leads") && <DeleteLead id={lead.id} name={lead.name} />}

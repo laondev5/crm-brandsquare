@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import {
   addNote,
   bulkCreateLeads,
+  checkDuplicates,
   deleteLead,
   deleteNote,
   getLeadFull,
@@ -23,6 +24,7 @@ import {
   stageLabel,
   type LeadStatus,
   type BulkLeadRow,
+  type DuplicateMatch,
   type BulkImportResult,
   type EmailBlocks,
 } from "@/lib/types";
@@ -79,6 +81,14 @@ export async function updateLeadAction(
   const lostReason = form.get("lost_reason");
   if (lostReason !== null) patch.lost_reason = String(lostReason).slice(0, 255);
 
+  // Sent whenever the field is present, including empty, so clearing the box
+  // really clears the company rather than leaving the old one in place.
+  const company = form.get("company");
+  if (company !== null) {
+    const clean = String(company).trim().slice(0, 190);
+    if (clean !== (current.lead.company ?? "")) patch.company = clean;
+  }
+
   const note = String(form.get("note") ?? "").trim();
 
   try {
@@ -102,6 +112,7 @@ export async function updateLeadAction(
   const changed: string[] = [];
   if (patch.status) changed.push(`stage set to ${stageLabel(pipeline, patch.status)}`);
   if (patch.assigned_to !== undefined) changed.push("owner updated");
+  if (patch.company !== undefined) changed.push(patch.company ? "company set" : "company cleared");
   if (note) changed.push("note added");
 
   return { ok: changed.length ? `Saved — ${changed.join(", ")}.` : "Saved." };
@@ -185,6 +196,21 @@ export async function deleteLeadAction(id: number): Promise<{ error: string }> {
 
 export type AddLeadState = FormState & { leadCreated?: boolean };
 
+/**
+ * Looks for a lead we already have, for the warning on the add form.
+ *
+ * Deliberately advisory: it never blocks the save. The same person really can
+ * enquire twice about two different machines, and a CRM that refuses the
+ * second one teaches people to work around it.
+ */
+export async function findDuplicatesAction(
+  email: string,
+  phone: string
+): Promise<DuplicateMatch[]> {
+  await requireUser();
+  return checkDuplicates(email.trim(), phone.trim());
+}
+
 export async function addLeadAction(_prev: AddLeadState, form: FormData): Promise<AddLeadState> {
   const me = await requireUser();
 
@@ -210,6 +236,7 @@ export async function addLeadAction(_prev: AddLeadState, form: FormData): Promis
     name,
     email,
     phone,
+    company: String(form.get("company") ?? "").trim(),
     answers,
     status: (await getPipeline()).stages.some((s) => s.key === status) ? status : "new",
     note: String(form.get("note") ?? "").trim() || undefined,
