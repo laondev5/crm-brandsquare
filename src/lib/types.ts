@@ -135,7 +135,7 @@ export type Permission =
 
 export const PERMISSIONS: { key: Permission; label: string; hint: string }[] = [
   { key: "send_email", label: "Send email to leads", hint: "Compose and send from a lead's page or in bulk" },
-  { key: "send_whatsapp", label: "Message leads on WhatsApp", hint: "Open the shared WhatsApp conversation" },
+  { key: "send_whatsapp", label: "Message leads on WhatsApp", hint: "Reply in the shared WhatsApp inbox" },
   { key: "add_leads", label: "Add leads manually", hint: "Enter a lead by hand" },
   { key: "import_leads", label: "Import leads from a file", hint: "Upload a CSV or Excel sheet" },
   { key: "delete_leads", label: "Delete leads", hint: "Permanent, with no way to undo it — leave this off unless they need it" },
@@ -589,6 +589,74 @@ export interface LeadFile {
   size_bytes: number;
   uploaded_by_name: string;
   created_at: string;
+}
+
+/* ---------------- WhatsApp ---------------- */
+
+/**
+ * One phone number's conversation. A shared inbox, deliberately not scoped
+ * to whoever owns the matching lead — the business has one WhatsApp number,
+ * so anyone with permission to send can pick up any thread, the same way a
+ * real shared inbox works.
+ */
+export interface WaConversation {
+  id: number;
+  phone: string;
+  contact_name: string;
+  /** The lead's name where one is linked, otherwise the saved contact name,
+   *  otherwise the phone number — always something to show, never blank. */
+  display_name: string;
+  lead_id: number | null;
+  /** Who the linked lead is assigned to, if any — null with a lead_id set
+   *  means the lead itself is unassigned, not that this field is missing. */
+  assigned_to: number | null;
+  assigned_name: string | null;
+  last_message_at: string | null;
+  last_message_preview: string;
+  last_direction: "in" | "out" | "";
+  unread_count: number;
+}
+
+export type WaMessageStatus = "sending" | "sent" | "delivered" | "read" | "failed";
+
+export interface WaMessage {
+  id: number;
+  wamid: string | null;
+  direction: "in" | "out";
+  type: string;
+  body: string | null;
+  has_media: boolean;
+  media_mime: string | null;
+  media_filename: string | null;
+  context_wamid: string | null;
+  status: WaMessageStatus;
+  error_message: string;
+  actor_name: string;
+  created_at: string;
+}
+
+export interface WaThread {
+  conversation: WaConversation;
+  lead: {
+    id: number;
+    name: string;
+    email: string;
+    status: string;
+    assigned_to: number | null;
+    assigned_name: string | null;
+  } | null;
+  messages: WaMessage[];
+}
+
+export interface WaSettings {
+  phone_number_id: string;
+  waba_id: string;
+  display_phone: string;
+  verify_token: string;
+  has_access_token: boolean;
+  has_app_secret: boolean;
+  configured: boolean;
+  webhook_url: string;
 }
 
 /**

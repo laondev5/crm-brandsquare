@@ -28,6 +28,9 @@ import type {
   MessageTemplate,
   DuplicateMatch,
   PageSnapshot,
+  WaConversation,
+  WaThread,
+  WaSettings,
   Site,
   Pipeline,
   TrackerCounts,
@@ -743,4 +746,66 @@ export async function getSnapshot(
   } catch {
     return null;
   }
+}
+
+/* ---------------- WhatsApp ---------------- */
+
+export const getWaConversations = cache(async (search?: string) => {
+  return api.get<{ conversations: WaConversation[]; configured: boolean; unread_total: number }>(
+    "/whatsapp/conversations",
+    { search }
+  );
+});
+
+export const getWaThread = cache(async (id: number): Promise<WaThread> => {
+  return api.get<WaThread>(`/whatsapp/conversations/${id}`);
+});
+
+export async function sendWaMessage(id: number, text: string, actor: DashUser) {
+  return api.post<{ message: WaConversation }>(`/whatsapp/conversations/${id}/send`, {
+    text,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function markWaRead(id: number) {
+  return api.post<{ ok: boolean }>(`/whatsapp/conversations/${id}/read`, {});
+}
+
+export async function getWaSettings(actor: DashUser): Promise<WaSettings> {
+  return api.get<WaSettings>("/whatsapp/settings", { actor_id: actor.id });
+}
+
+export async function saveWaSettings(
+  actor: DashUser,
+  patch: {
+    phone_number_id?: string;
+    waba_id?: string;
+    display_phone?: string;
+    verify_token?: string;
+    access_token?: string;
+    app_secret?: string;
+  }
+): Promise<WaSettings> {
+  return api.post<WaSettings>("/whatsapp/settings", { ...patch, actor_id: actor.id });
+}
+
+export async function verifyWaSettings(actor: DashUser) {
+  return api.post<{ ok: boolean; display_phone_number: string; verified_name: string; quality_rating: string }>(
+    "/whatsapp/settings/verify",
+    { actor_id: actor.id }
+  );
+}
+
+/** Fakes a customer message arriving. The plugin refuses this once a real
+ *  Meta connection is configured, so it can only ever be a testing tool, not
+ *  a way to plant a fabricated message in a live inbox. */
+export async function simulateWaInbound(actor: DashUser, phone: string, text: string, name?: string) {
+  return api.post<{ conversation: WaConversation }>("/whatsapp/simulate-inbound", {
+    phone,
+    text,
+    name,
+    actor_id: actor.id,
+  });
 }
