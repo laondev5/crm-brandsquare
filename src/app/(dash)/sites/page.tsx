@@ -6,14 +6,18 @@ import SiteRow from "./row";
 
 export default async function SitesPage() {
   const me = await requireSuperAdmin();
-  const { sites, this_site } = await listSites(me);
+  const { sites, this_site, traffic_supported, plugin_version } = await listSites(me);
 
   const live = sites.filter((s) => s.status === "active").length;
   const totalLeads = sites.reduce((n, s) => n + s.leads, 0) + this_site.leads;
   const totalViews = sites.reduce((n, s) => n + s.views, 0) + this_site.views;
   // A connected site that has sent leads but no traffic is the one failure
-  // worth naming outright: it means the tracking half is not reporting.
-  const quiet = sites.filter((s) => s.status === "active" && s.views === 0);
+  // worth naming outright: it means the tracking half is not reporting. It is
+  // only a real signal once the plugin here is new enough to report traffic at
+  // all — otherwise every site looks silent.
+  const quiet = traffic_supported
+    ? sites.filter((s) => s.status === "active" && s.views === 0)
+    : [];
 
   return (
     <>
@@ -22,6 +26,7 @@ export default async function SitesPage() {
         <div className="spacer" />
         <span className="board-legend">
           <b>{live + 1}</b> live · <b>{totalLeads}</b> leads
+          {plugin_version && <> · plugin {plugin_version}</>}
         </span>
       </div>
 
@@ -45,9 +50,19 @@ export default async function SitesPage() {
         </div>
         <div className="stat t-won">
           <span>Pageviews from all sites</span>
-          <b>{totalViews.toLocaleString()}</b>
+          <b>{traffic_supported ? totalViews.toLocaleString() : "—"}</b>
         </div>
       </div>
+
+      {!traffic_supported && (
+        <div className="msg warn">
+          <strong>The plugin on this website is out of date.</strong> It is answering without any
+          traffic figures, so the columns below read &mdash; and the Traffic screens can only show
+          this site&rsquo;s own visitors. Upload the current{" "}
+          <strong>brandsquare-quote-form.php</strong> to this WordPress installation (Plugins &rarr;
+          Plugin File Editor, or replace the file over FTP), then reload this page.
+        </div>
+      )}
 
       {quiet.length > 0 && (
         <div className="msg warn">
@@ -87,15 +102,21 @@ export default async function SitesPage() {
                 </Link>
               </td>
               <td data-l="Traffic">
-                <Link href="/analytics?site=this" className="name">
-                  {this_site.views.toLocaleString()}
-                </Link>
+                {traffic_supported ? (
+                  <Link href="/analytics?site=this" className="name">
+                    {this_site.views.toLocaleString()}
+                  </Link>
+                ) : (
+                  <span style={{ color: "var(--muted)" }}>—</span>
+                )}
               </td>
               <td data-l="Last received">
                 {this_site.last_visit ? (
                   fmtDate(this_site.last_visit)
                 ) : (
-                  <span style={{ color: "var(--muted)" }}>No visits yet</span>
+                  <span style={{ color: "var(--muted)" }}>
+                    {traffic_supported ? "No visits yet" : "—"}
+                  </span>
                 )}
               </td>
               <td data-l="Status">
@@ -105,7 +126,7 @@ export default async function SitesPage() {
             </tr>
 
             {sites.map((s) => (
-              <SiteRow key={s.id} site={s} />
+              <SiteRow key={s.id} site={s} traffic={traffic_supported} />
             ))}
           </tbody>
         </table>

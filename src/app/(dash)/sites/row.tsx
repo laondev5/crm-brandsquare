@@ -6,7 +6,15 @@ import { useRouter } from "next/navigation";
 import { removeSiteAction, setSiteStatusAction } from "@/app/actions/sites";
 import type { Site } from "@/lib/types";
 
-export default function SiteRow({ site }: { site: Site }) {
+export default function SiteRow({
+  site,
+  traffic = true,
+}: {
+  site: Site;
+  /** False when this hub's plugin is too old to report traffic — a zero then
+   *  means "not measured", not "nobody visited", and must not be flagged. */
+  traffic?: boolean;
+}) {
   const router = useRouter();
   const [err, setErr] = useState("");
   const [busy, startTransition] = useTransition();
@@ -50,7 +58,9 @@ export default function SiteRow({ site }: { site: Site }) {
           a site can be delivering enquiries while its tracking is switched off,
           and a zero here is what says so. */}
       <td data-l="Traffic">
-        {site.views ? (
+        {!traffic ? (
+          <span style={{ color: "var(--muted)" }}>&mdash;</span>
+        ) : site.views ? (
           <Link href={`/analytics?site=${site.id}`} className="name">
             {site.views.toLocaleString()}
           </Link>

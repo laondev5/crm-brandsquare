@@ -87,10 +87,55 @@ export interface SiteList {
     views: number;
     last_visit: string | null;
   };
+  /**
+   * False when the WordPress plugin on this hub predates traffic reporting.
+   * The dashboard is deployed independently of the plugin, so it will always
+   * be possible to be running a newer CRM against an older WordPress. When
+   * that happens the traffic figures are simply absent from the response —
+   * this flag lets the Websites page say so plainly instead of showing zeros
+   * that look like a tracking fault, or failing on a missing field.
+   */
+  traffic_supported: boolean;
+  /** The plugin version answering on the hub, so an upload can be confirmed
+   *  from the dashboard instead of guessed at. Unknown on older plugins,
+   *  which is itself the answer. */
+  plugin_version: string | null;
 }
 
+/** The response as it arrives: every traffic field is optional, because an
+ *  older plugin simply will not send it. */
+type RawSiteList = {
+  plugin_version?: string;
+  sites?: (Omit<Site, "views" | "last_visit"> & { views?: number; last_visit?: string | null })[];
+  this_site?: {
+    name?: string;
+    url?: string;
+    leads?: number;
+    views?: number;
+    last_visit?: string | null;
+  };
+};
+
 export const listSites = cache(async (actor: DashUser): Promise<SiteList> => {
-  return api.get<SiteList>("/sites", { actor_id: actor.id });
+  const res = (await api.get<RawSiteList>("/sites", { actor_id: actor.id })) ?? {};
+  const own = res.this_site ?? {};
+
+  return {
+    traffic_supported: own.views !== undefined,
+    plugin_version: res.plugin_version ?? null,
+    sites: (res.sites ?? []).map((s) => ({
+      ...s,
+      views: Number(s.views ?? 0),
+      last_visit: s.last_visit ?? null,
+    })),
+    this_site: {
+      name: own.name ?? "This website",
+      url: own.url ?? "",
+      leads: Number(own.leads ?? 0),
+      views: Number(own.views ?? 0),
+      last_visit: own.last_visit ?? null,
+    },
+  };
 });
 
 /**
