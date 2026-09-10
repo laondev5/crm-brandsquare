@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getPipeline, listLeads } from "@/lib/queries";
+import { getPipeline, listCampaigns, listLeads } from "@/lib/queries";
 import { weightedOpen, type LeadStatus, isAdminRole } from "@/lib/types";
 import Board, { type BoardColumn } from "./board";
 import PipelineList from "./list";
+import RememberView from "./remember-view";
 
 /** How many cards are rendered per column before it says "+N more". */
 const PER_COLUMN = 40;
@@ -15,11 +16,14 @@ const ROT_STALE = 14;
 export default async function PipelinePage({
   searchParams,
 }: {
-  searchParams: Promise<{ s?: string; view?: string }>;
+  searchParams: Promise<{ s?: string; view?: string; form?: string }>;
 }) {
   const sp = await searchParams;
   const term = (sp.s ?? "").trim();
   const asList = sp.view === "list";
+  // A campaign can carry its own stages, so the board has to know which
+  // pipeline it is drawing before it can ask for the columns.
+  const formId = Number(sp.form) || null;
 
   const me = await requireUser();
   const scope = isAdminRole(me.role) ? null : me.id;
@@ -32,7 +36,12 @@ export default async function PipelinePage({
   // Search goes to the server for the same reason: filtering the loaded cards
   // in the browser would only ever search the 40 per column already on screen
   // and quietly miss matches sitting behind a "+N more".
-  const pipeline = await getPipeline();
+  const [pipeline, campaigns] = await Promise.all([
+    getPipeline(formId),
+    listCampaigns(1, 100)
+      .then((r) => r.rows)
+      .catch(() => []),
+  ]);
 
   const results = await Promise.all(
     pipeline.stages.map((s) =>
@@ -40,6 +49,7 @@ export default async function PipelinePage({
         status: s.key,
         search: term || undefined,
         ownerId: scope,
+        formId,
         perPage: PER_COLUMN,
         page: 1,
       })
@@ -102,7 +112,12 @@ export default async function PipelinePage({
 
   const qs = (over: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    const merged: Record<string, string | undefined> = { s: term || undefined, view: sp.view, ...over };
+    const merged: Record<string, string | undefined> = {
+      s: term || undefined,
+      view: sp.view,
+      form: sp.form,
+      ...over,
+    };
     Object.entries(merged).forEach(([k, v]) => {
       if (v) p.set(k, v);
     });
@@ -112,6 +127,7 @@ export default async function PipelinePage({
 
   return (
     <>
+      <RememberView current={asList ? "list" : "board"} />
       <div className="head">
         <h1>Pipeline</h1>
         <div className="spacer" />
@@ -140,6 +156,18 @@ export default async function PipelinePage({
 
         <form className="row" action="/pipeline">
           {asList && <input type="hidden" name="view" value="list" />}
+          {/* Campaigns can have pipelines of their own, so this picks both the
+              leads shown and the columns they are shown in. */}
+          {campaigns.length > 0 && (
+            <select name="form" defaultValue={sp.form ?? ""} style={{ width: 190 }}>
+              <option value="">All campaigns</option>
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             type="search"
             name="s"
@@ -151,6 +179,14 @@ export default async function PipelinePage({
           <button className="btn ghost">Search</button>
         </form>
       </div>
+
+      {pipeline.custom && (
+        <div className="msg" style={{ marginTop: 0 }}>
+          Showing <strong>{campaigns.find((c) => c.id === formId)?.name}</strong>, which has a
+          pipeline of its own.{" "}
+          <Link href={`/settings/stages?form=${formId}`}>Edit its stages</Link>
+        </div>
+      )}
 
       {anyFailed && (
         <div className="msg err">

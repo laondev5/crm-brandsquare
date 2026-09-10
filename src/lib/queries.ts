@@ -33,6 +33,8 @@ import type {
   WaSettings,
   Site,
   Pipeline,
+  Stage,
+  LeadSort,
   TrackerCounts,
   TrackerRecord,
 } from "./types";
@@ -56,8 +58,12 @@ export interface LeadFilter {
   formId?: number | null;
   page?: number;
   perPage?: number;
-  /** "next" orders by follow-up date, soonest first. Default is newest-first. */
-  sort?: "next";
+  /**
+   * How to order the list. "next" is the agenda's own ordering (soonest
+   * follow-up first) and is not offered as a user-facing choice; the rest are.
+   * The server whitelists these — it will not accept a column name.
+   */
+  sort?: LeadSort | "next";
 }
 
 export async function listLeads(f: LeadFilter) {
@@ -70,6 +76,15 @@ export async function listLeads(f: LeadFilter) {
     stale_after_days: number;
     /** Server clock, so "quiet for 20 days" is not computed from the browser's. */
     now: string;
+    /** Which ordering the server actually applied. */
+    sort?: string;
+    /**
+     * Where this page starts in the whole result set. The list numbers its
+     * rows 1..N from here, so row 21 on page 2 reads as 21 rather than
+     * restarting at 1 — and the numbering follows whatever sort is applied
+     * rather than being tied to the database id.
+     */
+    offset?: number;
   }>("/leads", {
     status: f.status,
     s: f.search,
@@ -247,13 +262,40 @@ export async function checkDuplicate(email: string, phone: string) {
  * page with no columns would look like "you have no leads" rather than like a
  * failed request.
  */
-export const getPipeline = cache(async (): Promise<Pipeline> => {
+/**
+ * The pipeline to draw. A campaign may carry its own stages, so anything that
+ * shows one campaign's leads should pass its id and get that campaign's
+ * columns rather than the shared set.
+ */
+export const getPipeline = cache(async (formId?: number | null): Promise<Pipeline> => {
   try {
-    return await api.get<Pipeline>("/stages");
+    return await api.get<Pipeline>("/stages", formId ? { form: formId } : undefined);
   } catch {
     return DEFAULT_PIPELINE;
   }
 });
+
+/** Replaces the shared pipeline every campaign falls back to. */
+export async function saveStages(actor: DashUser, stages: Stage[]) {
+  return api.post<Pipeline>("/stages", { stages, actor_id: actor.id });
+}
+
+/**
+ * Replaces one campaign's pipeline, or hands it back to the shared one.
+ *
+ * The response carries `moved`: how many leads were sitting in a stage the new
+ * list no longer has and were rehomed rather than left pointing at nothing.
+ */
+export async function saveFormStages(
+  actor: DashUser,
+  formId: number,
+  stages: Stage[] | null
+) {
+  return api.post<Pipeline & { moved?: number }>(`/forms/${formId}/stages`, {
+    actor_id: actor.id,
+    ...(stages ? { stages } : { inherit: 1 }),
+  });
+}
 
 /* ---------------- campaigns ---------------- */
 

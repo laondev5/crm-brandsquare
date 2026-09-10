@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { moveLeadAction } from "@/app/actions/pipeline";
 import type { Pipeline } from "@/lib/types";
 import type { BoardColumn } from "./board";
 
 type SortKey = "stage" | "name" | "owner" | "idle" | "received";
+
+/** Rows per page in the table. Enough to scan, few enough to stay readable. */
+const PER_PAGE = 25;
 
 /**
  * The same pipeline as a table.
@@ -29,6 +32,7 @@ export default function PipelineList({
   const router = useRouter();
   const [sort, setSort] = useState<SortKey>("stage");
   const [desc, setDesc] = useState(false);
+  const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [err, setErr] = useState("");
   const [, startTransition] = useTransition();
@@ -66,6 +70,19 @@ export default function PipelineList({
       }
     });
   }, [columns, sort, desc, stageRank]);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / PER_PAGE));
+
+  // Re-sorting or searching changes what belongs on page one, so a stale page
+  // number would land you somewhere arbitrary — or past the end entirely.
+  useEffect(() => {
+    setPage(1);
+  }, [sort, desc, searchTerm]);
+
+  const visible = useMemo(
+    () => rows.slice((page - 1) * PER_PAGE, page * PER_PAGE),
+    [rows, page]
+  );
 
   const move = (id: number, status: string) => {
     setErr("");
@@ -127,7 +144,7 @@ export default function PipelineList({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {visible.map((r) => (
               <tr key={r.id} className={r.rot !== "none" ? `is-${r.rot}` : ""}>
                 <td data-l="Name">
                   <Link href={`/leads/${r.id}`} className="name">
@@ -173,6 +190,37 @@ export default function PipelineList({
           </tbody>
         </table>
       </div>
+
+      {pageCount > 1 && (
+        <div
+          className="row"
+          style={{ justifyContent: "space-between", alignItems: "center", marginTop: 12 }}
+        >
+          <span style={{ fontSize: 13, color: "var(--muted)" }}>
+            Showing <b>{(page - 1) * PER_PAGE + 1}</b>–
+            <b>{Math.min(page * PER_PAGE, rows.length)}</b> of <b>{rows.length}</b>
+          </span>
+          <span className="row" style={{ gap: 8 }}>
+            <button
+              className="btn ghost sm"
+              disabled={page === 1}
+              onClick={() => setPage((n) => Math.max(1, n - 1))}
+            >
+              Previous
+            </button>
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>
+              Page {page} of {pageCount}
+            </span>
+            <button
+              className="btn ghost sm"
+              disabled={page >= pageCount}
+              onClick={() => setPage((n) => Math.min(pageCount, n + 1))}
+            >
+              Next
+            </button>
+          </span>
+        </div>
+      )}
 
       <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 12, marginTop: 14 }}>
         {rows.length} lead{rows.length === 1 ? "" : "s"} shown

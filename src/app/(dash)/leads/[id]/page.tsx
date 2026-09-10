@@ -52,8 +52,14 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   return (
     <>
       <div className="head">
-        <h1>
-          Lead #{lead.id} <StatusPill status={lead.status} pipeline={pipeline} />
+        {/* The person, not the row number. Whoever opens this screen is about
+            to ring a human being, and "#412" is not who they are calling. The
+            id stays visible underneath, because it is still what you quote
+            when two people are talking about the same lead. */}
+        <h1 style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {lead.name?.trim() || "(no name)"}
+          <StatusPill status={lead.status} pipeline={pipeline} />
+          <span style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)" }}>#{lead.id}</span>
         </h1>
         <div className="spacer" />
         {hasPermission(me, "send_whatsapp") && lead.phone && (

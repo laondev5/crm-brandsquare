@@ -1,24 +1,48 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { allSubadmins, getPipeline, listCampaigns, listLeads, listSites, listViews } from "@/lib/queries";
+import {
+  allSubadmins,
+  getPipeline,
+  listCampaigns,
+  listLeads,
+  listSites,
+  listViews,
+} from "@/lib/queries";
+import { isLeadSort } from "@/lib/types";
 import { daysQuiet, isStale, isAdminRole } from "@/lib/types";
 import StatusPill from "../pill";
 import QuietFor from "./quiet-for";
 import BulkBar from "./bulk-bar";
 import ViewsBar from "./views-bar";
+import SortSelect from "./sort-select";
 
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; s?: string; form?: string; site?: string; page?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    s?: string;
+    form?: string;
+    site?: string;
+    page?: string;
+    sort?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const me = await requireUser();
   const scope = isAdminRole(me.role) ? null : me.id;
   const formId = Number(sp.form) || null;
   const siteId = sp.site === "this" ? "this" : Number(sp.site) || null;
+  const sort = isLeadSort(sp.sort) ? sp.sort : "newest";
 
-  const [{ rows, total, pages, page, stale_after_days, now }, campaigns, pipeline, sites, views, subs] =
+  const [
+    { rows, total, pages, page, stale_after_days, now, offset = 0 },
+    campaigns,
+    pipeline,
+    sites,
+    views,
+    subs,
+  ] =
     await Promise.all([
     listLeads({
       status: sp.status,
@@ -26,6 +50,7 @@ export default async function LeadsPage({
       ownerId: scope,
       formId,
       siteId,
+      sort,
       page: Number(sp.page) || 1,
     }),
     // Sub-admins get the picker too — it only names campaigns, and their
@@ -54,7 +79,14 @@ export default async function LeadsPage({
 
   const qs = (over: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    const merged = { status: sp.status, s: sp.s, form: sp.form, site: sp.site, ...over };
+    const merged = {
+      status: sp.status,
+      s: sp.s,
+      form: sp.form,
+      site: sp.site,
+      sort: sp.sort,
+      ...over,
+    };
     Object.entries(merged).forEach(([k, v]) => {
       if (v) p.set(k, v);
     });
@@ -101,6 +133,10 @@ export default async function LeadsPage({
         </a>
         <form className="row" action="/leads" style={{ width: "100%" }}>
           {sp.status && <input type="hidden" name="status" value={sp.status} />}
+          {/* The picker below navigates on its own, so it carries no name and
+              would otherwise be dropped when this form submits — searching
+              would silently reset the order back to newest-first. */}
+          {sort !== "newest" && <input type="hidden" name="sort" value={sort} />}
           <select name="form" defaultValue={sp.form ?? ""} style={{ width: 190 }}>
             <option value="">All campaigns</option>
             {campaigns.map((c) => (
@@ -120,6 +156,7 @@ export default async function LeadsPage({
               ))}
             </select>
           )}
+          <SortSelect current={sort} />
           <input
             type="search"
             name="s"
@@ -182,7 +219,7 @@ export default async function LeadsPage({
             <thead>
               <tr>
                 <th style={{ width: 34 }} />
-                <th style={{ width: 60 }}>ID</th>
+                <th style={{ width: 52 }}>#</th>
                 <th>Name</th>
                 <th>Email</th>
                 <th style={{ width: 130 }}>Phone</th>
@@ -196,7 +233,7 @@ export default async function LeadsPage({
               </tr>
             </thead>
             <tbody>
-              {rows.map((l) => (
+              {rows.map((l, i) => (
                 <tr key={l.id}>
                   {/* Read by BulkBar straight from the DOM, so these rows stay
                       server-rendered and there is no second copy of the table. */}
@@ -207,7 +244,11 @@ export default async function LeadsPage({
                       aria-label={`Select lead ${l.id}`}
                     />
                   </td>
-                  <td data-l="ID">#{l.id}</td>
+                  {/* Position in the list, not the database id: the ids have
+                      gaps wherever a lead was deleted, and a column that jumps
+                      from 8 to 14 reads as missing data. Counts on from the
+                      page offset so page 2 continues rather than restarting. */}
+                  <td data-l="#" style={{ color: "var(--muted)" }}>{offset + i + 1}</td>
                   <td data-l="Name">
                     <Link href={`/leads/${l.id}`} className="name">
                       {l.name || "(no name)"}

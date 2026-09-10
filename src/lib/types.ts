@@ -55,12 +55,34 @@ export interface Stage {
   type: "open" | "won" | "lost";
 }
 
+/** The orderings a person can pick from the leads list. */
+export type LeadSort = "newest" | "oldest" | "name" | "name_desc" | "recent" | "quiet";
+
+export const LEAD_SORTS: { key: LeadSort; label: string }[] = [
+  { key: "newest", label: "Newest first" },
+  { key: "oldest", label: "Oldest first" },
+  { key: "name", label: "Name A–Z" },
+  { key: "name_desc", label: "Name Z–A" },
+  { key: "recent", label: "Recently active" },
+  { key: "quiet", label: "Quietest first" },
+];
+
+export function isLeadSort(v: string | undefined): v is LeadSort {
+  return !!v && LEAD_SORTS.some((s) => s.key === v);
+}
+
 export interface Pipeline {
   stages: Stage[];
   won_key: string;
   lost_key: string;
   /** Keys that still count as in play. */
   open: string[];
+  /** Which campaign this pipeline belongs to, or null for the shared one. */
+  form?: number | null;
+  /** True when this campaign carries its own stages rather than the shared set. */
+  custom?: boolean;
+  /** The built-in stages, offered when building a pipeline from scratch. */
+  defaults?: Stage[];
 }
 
 /**

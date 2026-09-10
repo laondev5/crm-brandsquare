@@ -65,6 +65,7 @@ const GROUPS: NavGroup[] = [
       { href: "/agenda", label: "Agenda" },
       { href: "/tracker", label: "Trackers" },
       { href: "/team", label: "Members", adminOnly: true },
+      { href: "/settings/stages", label: "Pipeline stages", adminOnly: true },
     ],
   },
 ];
