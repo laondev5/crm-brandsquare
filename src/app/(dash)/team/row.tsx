@@ -3,15 +3,26 @@
 import { useActionState, useState } from "react";
 import {
   setStatusAction,
+  setRoleAction,
   updateSubadminAction,
   deleteSubadminAction,
 } from "../../actions/team";
 import type { FormState } from "../../actions/auth";
 import type { TeamMember } from "@/lib/queries";
+import { ROLES } from "@/lib/types";
 import PermissionCheckboxes from "./permissions";
 
-export default function TeamRow({ u, meId }: { u: TeamMember; meId: number }) {
+export default function TeamRow({
+  u,
+  meId,
+  isSuper = false,
+}: {
+  u: TeamMember;
+  meId: number;
+  isSuper?: boolean;
+}) {
   const [editing, setEditing] = useState(false);
+  const [rankErr, setRankErr] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [editState, editAction, editPending] = useActionState<FormState, FormData>(
     updateSubadminAction,
@@ -24,6 +35,7 @@ export default function TeamRow({ u, meId }: { u: TeamMember; meId: number }) {
 
   const isSelf = u.id === meId;
   const isAdmin = u.role === "admin";
+  const roleLabel = ROLES.find((r) => r.key === u.role)?.label ?? u.role;
 
   if (editing) {
     return (
@@ -67,7 +79,42 @@ export default function TeamRow({ u, meId }: { u: TeamMember; meId: number }) {
         {isSelf && <span style={{ color: "var(--muted)", fontWeight: 400 }}> (you)</span>}
       </td>
       <td data-l="Email">{u.email}</td>
-      <td data-l="Role">{isAdmin ? "Admin" : "Sub-admin"}</td>
+      <td data-l="Role">
+        {/* A super admin can promote or demote anyone but themselves. The
+            plugin refuses to demote the last super admin, so the CRM cannot
+            be left with nobody able to manage it. */}
+        {isSuper && !isSelf ? (
+          <form
+            action={async (form) => {
+              setRankErr("");
+              const res = await setRoleAction(form);
+              if (res?.error) setRankErr(res.error);
+            }}
+          >
+            <input type="hidden" name="id" value={u.id} />
+            <select
+              name="role"
+              defaultValue={u.role}
+              aria-label={`Rank for ${u.name}`}
+              onChange={(e) => e.currentTarget.form?.requestSubmit()}
+              style={{ width: "100%" }}
+            >
+              {ROLES.map((r) => (
+                <option key={r.key} value={r.key}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            {rankErr && (
+              <small style={{ color: "var(--err)", display: "block", marginTop: 4 }}>
+                {rankErr}
+              </small>
+            )}
+          </form>
+        ) : (
+          roleLabel
+        )}
+      </td>
       <td data-l="Status">
         <span className={`pill s-${u.status}`}>{cap(u.status)}</span>
       </td>

@@ -71,6 +71,62 @@ export function isLeadSort(v: string | undefined): v is LeadSort {
   return !!v && LEAD_SORTS.some((s) => s.key === v);
 }
 
+/* ---------------- Meta Conversions API ---------------- */
+
+/**
+ * One Meta dataset (what Events Manager used to call a pixel).
+ *
+ * There are many, not one: each ad account or campaign that needs its own
+ * reporting gets a row, so adding next quarter's campaign never disturbs the
+ * one already running.
+ */
+export interface MetaDataset {
+  id: number;
+  name: string;
+  dataset_id: string;
+  api_version: string;
+  lead_event_source: string;
+  status: "active" | "paused";
+  /** Restrict to one campaign, or null for every campaign. */
+  form_id: number | null;
+  /** Restrict to one website, or null for every website. */
+  site_id: number | null;
+  /** Stage keys that trigger a send. Empty means every stage. */
+  stages: string[];
+  test_code: string;
+  /** The token itself is never returned — only whether one is saved. */
+  has_token: boolean;
+  created_at: string;
+  last_sent_at: string | null;
+  last_error: string;
+  counts: { pending: number; sent: number; failed: number; cancelled: number };
+}
+
+export interface MetaEvent {
+  id: number;
+  dataset: string | null;
+  lead_id: number | null;
+  event_name: string;
+  event_time: number;
+  status: "pending" | "sent" | "failed" | "cancelled";
+  attempts: number;
+  error: string;
+  trace: string;
+  created_at: string;
+  sent_at: string | null;
+}
+
+/** The three ranks, with what each one actually means. */
+export const ROLES: { key: Role; label: string; note: string }[] = [
+  { key: "subadmin", label: "Sub-admin", note: "Works their own leads only." },
+  { key: "admin", label: "Admin", note: "The whole CRM, and can manage sub-admins." },
+  {
+    key: "superadmin",
+    label: "Super admin",
+    note: "Everything, plus managing admins, websites and ad credentials.",
+  },
+];
+
 export interface Pipeline {
   stages: Stage[];
   won_key: string;

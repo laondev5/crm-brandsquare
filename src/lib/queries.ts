@@ -35,6 +35,8 @@ import type {
   Pipeline,
   Stage,
   LeadSort,
+  MetaDataset,
+  MetaEvent,
   TrackerCounts,
   TrackerRecord,
 } from "./types";
@@ -850,4 +852,61 @@ export async function simulateWaInbound(actor: DashUser, phone: string, text: st
     name,
     actor_id: actor.id,
   });
+}
+
+/* ---------------- Meta Conversions API ---------------- */
+
+export async function listMetaDatasets(actor: DashUser) {
+  return api.get<{ datasets: MetaDataset[]; default_source: string; api_version: string }>(
+    "/meta/datasets",
+    { actor_id: actor.id }
+  );
+}
+
+/** The access token is write-only: sent here, never read back. */
+export async function createMetaDataset(
+  actor: DashUser,
+  body: Record<string, unknown>
+) {
+  return api.post<MetaDataset>("/meta/datasets", { ...body, actor_id: actor.id });
+}
+
+export async function updateMetaDataset(
+  actor: DashUser,
+  id: number,
+  body: Record<string, unknown>
+) {
+  return api.patch<MetaDataset>(`/meta/datasets/${id}`, { ...body, actor_id: actor.id });
+}
+
+export async function deleteMetaDataset(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/meta/datasets/${id}`, { actor_id: actor.id });
+}
+
+/** Sends one event immediately so the connection can be proved. */
+export async function testMetaDataset(actor: DashUser, id: number) {
+  return api.post<{ ok: true; trace: string; note: string }>(`/meta/datasets/${id}/test`, {
+    actor_id: actor.id,
+  });
+}
+
+export async function listMetaEvents(actor: DashUser, dataset?: number, per = 50) {
+  return api.get<{ events: MetaEvent[] }>("/meta/events", {
+    actor_id: actor.id,
+    dataset: dataset ?? undefined,
+    per,
+  });
+}
+
+export async function flushMetaEvents(actor: DashUser) {
+  return api.post<{ ok: true; sent: number; failed: number; error: string }>("/meta/flush", {
+    actor_id: actor.id,
+  });
+}
+
+export async function retryMetaEvents(actor: DashUser) {
+  return api.post<{ ok: true; requeued: number; sent: number; failed: number; error: string }>(
+    "/meta/retry",
+    { actor_id: actor.id }
+  );
 }

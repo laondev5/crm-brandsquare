@@ -11,6 +11,8 @@ export default async function TeamPage() {
   if (!isAdminRole(me.role)) redirect("/");
 
   const team = await listTeam();
+  // Only a super admin may change ranks or create anything above a sub-admin.
+  const isSuper = me.role === "superadmin";
 
   return (
     <>
@@ -34,13 +36,13 @@ export default async function TeamPage() {
             </thead>
             <tbody>
               {team.map((u) => (
-                <TeamRow key={u.id} u={u} meId={me.id} />
+                <TeamRow key={u.id} u={u} meId={me.id} isSuper={isSuper} />
               ))}
             </tbody>
           </table>
         </div>
 
-        <NewSubadmin />
+        <NewSubadmin isSuper={isSuper} />
       </div>
 
       <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 16, maxWidth: 720 }}>

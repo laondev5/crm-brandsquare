@@ -3,15 +3,15 @@
 import { useActionState } from "react";
 import { createSubadminAction } from "../../actions/team";
 import type { FormState } from "../../actions/auth";
-import { DESTRUCTIVE_PERMISSIONS, PERMISSIONS } from "@/lib/types";
+import { DESTRUCTIVE_PERMISSIONS, PERMISSIONS, ROLES } from "@/lib/types";
 import PermissionCheckboxes from "./permissions";
 
-export default function NewSubadmin() {
+export default function NewSubadmin({ isSuper = false }: { isSuper?: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createSubadminAction, {});
 
   return (
     <form className="card" action={action}>
-      <h2>Add a sub-admin</h2>
+      <h2>{isSuper ? "Add a team member" : "Add a sub-admin"}</h2>
 
       {state.error && <div className="msg err">{state.error}</div>}
       {state.ok && <div className="msg ok">{state.ok}</div>}
@@ -25,6 +25,21 @@ export default function NewSubadmin() {
         <span>Email</span>
         <input type="email" name="email" required placeholder="chinedu@brandsquare.shop" />
       </label>
+
+      {/* Only a super admin sees this. An admin can create sub-admins and
+          nothing else, so a rank picker would only offer them one option. */}
+      {isSuper && (
+        <label className="f">
+          <span>Rank</span>
+          <select name="role" defaultValue="subadmin">
+            {ROLES.map((r) => (
+              <option key={r.key} value={r.key}>
+                {r.label} — {r.note}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <div className="f">
         <span>What can they do?</span>

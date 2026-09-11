@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, ChevronDown, LayoutDashboard, ListChecks, MessageCircle, Target, UsersRound } from "lucide-react";
+import {
+  Activity,
+  ChevronDown,
+  LayoutDashboard,
+  ListChecks,
+  Megaphone,
+  Settings2,
+  Target,
+  UsersRound,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -21,6 +30,10 @@ interface NavGroup {
   /** A group with an href and no children is a plain link, not a menu. */
   href?: string;
   children?: NavChild[];
+  /** Gating for a top-level link. A menu is hidden by its children instead:
+   *  it disappears once nothing inside it is visible. */
+  adminOnly?: boolean;
+  superOnly?: boolean;
 }
 
 /**
@@ -51,11 +64,13 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "WhatsApp",
-    icon: MessageCircle,
+    label: "Meta",
+    icon: Megaphone,
     children: [
-      { href: "/whatsapp", label: "Inbox" },
-      { href: "/whatsapp/settings", label: "Settings", superOnly: true },
+      { href: "/whatsapp", label: "WhatsApp inbox" },
+      { href: "/whatsapp/settings", label: "WhatsApp settings", superOnly: true },
+      { href: "/settings/meta", label: "Ads", superOnly: true },
+      { href: "/settings/meta/datasets", label: "Ad datasets", superOnly: true },
     ],
   },
   {
@@ -65,8 +80,14 @@ const GROUPS: NavGroup[] = [
       { href: "/agenda", label: "Agenda" },
       { href: "/tracker", label: "Trackers" },
       { href: "/team", label: "Members", adminOnly: true },
-      { href: "/settings/stages", label: "Pipeline stages", adminOnly: true },
     ],
+  },
+  // How the CRM itself behaves, as opposed to the work going through it.
+  // Last, because it is the section you visit least.
+  {
+    label: "Settings",
+    icon: Settings2,
+    children: [{ href: "/settings/stages", label: "Pipeline stages", adminOnly: true }],
   },
 ];
 
@@ -75,10 +96,12 @@ export default function NavLinks({ isAdmin, isSuper }: { isAdmin: boolean; isSup
 
   const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
-  const visible = GROUPS.map((g) => ({
-    ...g,
-    children: g.children?.filter((c) => (isAdmin || !c.adminOnly) && (isSuper || !c.superOnly)),
-  })).filter((g) => g.href || (g.children && g.children.length > 0));
+  const allowed = (x: { adminOnly?: boolean; superOnly?: boolean }) =>
+    (isAdmin || !x.adminOnly) && (isSuper || !x.superOnly);
+
+  const visible = GROUPS.filter(allowed)
+    .map((g) => ({ ...g, children: g.children?.filter(allowed) }))
+    .filter((g) => g.href || (g.children && g.children.length > 0));
 
   const groupIsActive = (g: (typeof visible)[number]) =>
     g.children?.some((c) => isActive(c.href)) ?? false;
