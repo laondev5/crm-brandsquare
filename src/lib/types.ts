@@ -876,8 +876,11 @@ export interface WaDiagnostics {
   subscription: {
     checked: boolean;
     subscribed: boolean;
-    apps: { id: string; name: string }[];
+    apps: { id: string; name: string; ours?: boolean }[];
     error: string;
+    /** The app the saved token belongs to — the one that must be subscribed.
+     *  Null when Meta would not say, in which case "subscribed" is a guess. */
+    our_app?: { id: string; name: string } | null;
   };
   log: { at: string; kind: "message" | "handshake"; ok: boolean; detail: string }[];
 }

@@ -31,11 +31,19 @@ export default function Diagnostics({ diag }: { diag: WaDiagnostics }) {
   const accepted = messages.find((l) => l.ok && l.detail.startsWith("Accepted"));
   const badSig = messages.find((l) => !l.ok && l.detail.includes("signature did not match"));
 
+  const ours = sub.our_app;
+  const others = sub.apps.filter((a) => !a.ours);
+
   let verdict: { tone: "ok" | "warn" | "err"; text: string };
   if (sub.checked && !sub.error && !sub.subscribed) {
     verdict = {
       tone: "err",
-      text: "Your app is not subscribed to this WhatsApp Business Account, so Meta delivers nothing to this site. Press Subscribe below — that is the fix.",
+      text:
+        `Your app${ours?.name ? `, ${ours.name},` : ""} is not subscribed to this WhatsApp Business Account, so Meta delivers nothing to this site.` +
+        (others.length
+          ? ` The app that is — ${others.map((a) => a.name || a.id).join(", ")} — is Meta's own, not yours.`
+          : "") +
+        " Press Subscribe below — that is the fix.",
     };
   } else if (badSig && (!accepted || badSig.at > accepted.at)) {
     verdict = {
@@ -46,10 +54,17 @@ export default function Diagnostics({ diag }: { diag: WaDiagnostics }) {
     verdict = { tone: "ok", text: `Messages are arriving — the last one came in ${fmt(accepted.at)}.` };
   } else if (sub.error) {
     verdict = { tone: "warn", text: `Could not ask Meta about the subscription: ${sub.error}` };
+  } else if (log.length === 0) {
+    // Subscribed, yet not even a verification has come in: Meta has never
+    // reached this site since the plugin started keeping a record.
+    verdict = {
+      tone: "warn",
+      text: "Subscribed, but nothing from Meta has reached this site yet. In the App Dashboard, open WhatsApp → Configuration and press Verify and save on the webhook again — it should appear below as a Verify within seconds. If it does not, Meta cannot reach the callback URL.",
+    };
   } else {
     verdict = {
       tone: "warn",
-      text: "Meta has not delivered a message yet. Check that the webhook's messages field is subscribed, and that the phone you are texting from is on the test number's allowed list.",
+      text: "Meta has reached this site but has not delivered a message yet. Check that the webhook's messages field is subscribed, and that the phone you are texting from is on the test number's allowed list.",
     };
   }
 
@@ -76,12 +91,37 @@ export default function Diagnostics({ diag }: { diag: WaDiagnostics }) {
                 <span style={{ color: "var(--muted)" }}>{sub.error || "Not checked"}</span>
               ) : sub.error ? (
                 <span style={{ color: "var(--err)" }}>{sub.error}</span>
-              ) : sub.subscribed ? (
-                <span style={{ color: "var(--ok)" }}>
-                  Subscribed: {sub.apps.map((a) => a.name || a.id).join(", ")}
-                </span>
               ) : (
-                <span style={{ color: "var(--err)", fontWeight: 600 }}>Not subscribed</span>
+                <>
+                  <span
+                    style={{
+                      color: sub.subscribed ? "var(--ok)" : "var(--err)",
+                      fontWeight: sub.subscribed ? 400 : 600,
+                    }}
+                  >
+                    {sub.subscribed ? "Your app is subscribed" : "Your app is not subscribed"}
+                    {ours?.name ? ` (${ours.name})` : ""}
+                  </span>
+                  {sub.apps.length > 0 && (
+                    <>
+                      <br />
+                      <small style={{ color: "var(--muted)" }}>
+                        On the list:{" "}
+                        {sub.apps
+                          .map((a) => (a.name || a.id) + (a.ours ? " — yours" : " — not yours"))
+                          .join(", ")}
+                      </small>
+                    </>
+                  )}
+                  {!ours && (
+                    <>
+                      <br />
+                      <small style={{ color: "var(--muted)" }}>
+                        Meta would not say which app the token belongs to, so this is a best guess.
+                      </small>
+                    </>
+                  )}
+                </>
               )}
             </td>
           </tr>
