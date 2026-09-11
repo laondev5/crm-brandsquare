@@ -1,29 +1,45 @@
 "use client";
 
-import { whatsAppLink } from "@/lib/phone";
-import { logWhatsAppOpenAction } from "../../../actions/leads";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { MessageCircle } from "lucide-react";
+import { openLeadChatAction } from "@/app/actions/whatsapp";
 
 /**
- * A real <a href> so the chat opens even if JS fails to load — no click
- * handler stands between the user and WhatsApp. The activity-log call rides
- * alongside it, fired and forgotten; a failed log never blocks the message.
+ * Opens this lead's chat in the CRM's own inbox, starting one if they have
+ * never been messaged. Replying there rather than from a personal phone keeps
+ * the chat on the business number and in the history the whole team sees --
+ * which is also where the next person to pick the lead up will look.
  */
-export default function WhatsAppButton({ leadId, phone }: { leadId: number; phone: string }) {
-  const link = whatsAppLink(phone);
-  if (!link) return null;
+export default function WhatsAppButton({ leadId }: { leadId: number }) {
+  const router = useRouter();
+  const [busy, start] = useTransition();
+  const [err, setErr] = useState("");
 
   return (
-    <a
-      href={link}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="btn"
-      style={{ background: "#25D366" }}
-      onClick={() => {
-        logWhatsAppOpenAction(leadId).catch(() => {});
-      }}
-    >
-      WhatsApp
-    </a>
+    <>
+      {err && (
+        <span role="alert" style={{ color: "var(--err)", fontSize: 12, maxWidth: 260 }}>
+          {err}
+        </span>
+      )}
+      <button
+        type="button"
+        className="btn"
+        style={{ background: "#25D366" }}
+        disabled={busy}
+        onClick={() => {
+          setErr("");
+          start(async () => {
+            const res = await openLeadChatAction(leadId);
+            if ("error" in res) setErr(res.error);
+            else router.push(`/whatsapp?c=${res.conversationId}`);
+          });
+        }}
+      >
+        <MessageCircle className="size-4" aria-hidden="true" style={{ marginRight: 4 }} />
+        {busy ? "Opening…" : "WhatsApp"}
+      </button>
+    </>
   );
 }

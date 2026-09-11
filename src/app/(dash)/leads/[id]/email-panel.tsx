@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { sendLeadEmailAction, type LeadEmailState } from "../../../actions/leads";
-import type { EmailBlocks, LeadEmail } from "@/lib/types";
+import type { EmailBlocks, LeadEmail, MessageTemplate } from "@/lib/types";
+import TemplatePicker from "./template-picker";
 
 export default function EmailPanel({
   leadId,
@@ -12,6 +13,8 @@ export default function EmailPanel({
   defaults,
   fromLabel,
   canSend,
+  templates = [],
+  vars = {},
 }: {
   leadId: number;
   leadEmail: string;
@@ -20,8 +23,13 @@ export default function EmailPanel({
   defaults: EmailBlocks;
   fromLabel: string;
   canSend: boolean;
+  /** Saved email templates, filled with this lead's details when picked. */
+  templates?: MessageTemplate[];
+  vars?: { name?: string; email?: string; phone?: string; company?: string };
 }) {
   const [open, setOpen] = useState(false);
+  const subjectRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [state, action, pending] = useActionState<LeadEmailState, FormData>(sendLeadEmailAction, {});
 
   return (
@@ -69,13 +77,24 @@ export default function EmailPanel({
                 To <strong>{leadEmail}</strong>, from {fromLabel}
               </p>
 
+              <TemplatePicker
+                templates={templates}
+                vars={vars}
+                onPick={(body, subject) => {
+                  if (subjectRef.current && subject) subjectRef.current.value = subject;
+                  if (bodyRef.current) {
+                    bodyRef.current.value = body;
+                    bodyRef.current.focus();
+                  }
+                }}
+              />
               <label className="f">
                 <span>Subject</span>
-                <input type="text" name="subject" required autoFocus />
+                <input ref={subjectRef} type="text" name="subject" required autoFocus />
               </label>
               <label className="f">
                 <span>Message</span>
-                <textarea name="body_html" rows={6} required />
+                <textarea ref={bodyRef} name="body_html" rows={6} required />
               </label>
 
               <div className="row">

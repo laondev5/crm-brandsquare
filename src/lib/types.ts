@@ -762,6 +762,15 @@ export interface WaMessage {
   error_message: string;
   actor_name: string;
   created_at: string;
+  /** Set on a sent template: what the customer saw besides the body. */
+  template?: {
+    template?: string;
+    header_type?: string;
+    header_text?: string;
+    header_image_url?: string;
+    footer?: string;
+    buttons?: string[];
+  } | null;
 }
 
 export interface WaThread {
@@ -775,6 +784,79 @@ export interface WaThread {
     assigned_name: string | null;
   } | null;
   messages: WaMessage[];
+}
+
+/* ---- WhatsApp message templates ---- */
+
+export type WaButton =
+  | { type: "quick_reply"; text: string }
+  | { type: "url"; text: string; url: string }
+  | { type: "phone"; text: string; phone: string };
+
+export type WaHeaderType = "none" | "text" | "image";
+
+export interface WaTemplate {
+  id: number;
+  /** Meta's identifier, made from the label: "Quote follow-up" → quote_follow_up. */
+  name: string;
+  label: string;
+  language: string;
+  category: string;
+  header_type: WaHeaderType;
+  header_text: string;
+  header_image_url: string;
+  body: string;
+  footer: string;
+  buttons: WaButton[];
+  variables: { key: string; example: string }[];
+  /** Meta's verdict: PENDING, APPROVED, REJECTED, PAUSED or DISABLED. */
+  status: string;
+  rejected_reason: string;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WaTemplateInput {
+  label: string;
+  language: string;
+  category: string;
+  header_type: WaHeaderType;
+  header_text: string;
+  header_image_url: string;
+  body: string;
+  footer: string;
+  buttons: WaButton[];
+  /** An example for every field the CRM cannot fill from a lead. */
+  examples: Record<string, string>;
+}
+
+/** Fields that fill themselves from the lead a template is sent to. */
+export const WA_LEAD_FIELDS: { key: string; label: string; sample: string }[] = [
+  { key: "first_name", label: "First name", sample: "Amina" },
+  { key: "name", label: "Full name", sample: "Amina Bello" },
+  { key: "company", label: "Company", sample: "Kano Agro Ltd" },
+  { key: "email", label: "Email", sample: "amina@example.com" },
+  { key: "phone", label: "Phone", sample: "+234 803 000 0000" },
+];
+
+export const WA_TEMPLATE_LANGUAGES = [
+  { code: "en", label: "English" },
+  { code: "en_US", label: "English (US)" },
+  { code: "en_GB", label: "English (UK)" },
+  { code: "fr", label: "French" },
+  { code: "ar", label: "Arabic" },
+  { code: "pt_BR", label: "Portuguese (Brazil)" },
+  { code: "es", label: "Spanish" },
+];
+
+/** The {{fields}} in a body, each once, in the order they first appear. */
+export function waTemplateFields(body: string): string[] {
+  const seen: string[] = [];
+  for (const m of body.matchAll(/\{\{\s*([a-z][a-z0-9_]{0,30})\s*\}\}/g)) {
+    if (!seen.includes(m[1])) seen.push(m[1]);
+  }
+  return seen;
 }
 
 /**
@@ -859,10 +941,11 @@ export interface DuplicateMatch {
  */
 export function fillTemplate(
   body: string,
-  vars: { name?: string; email?: string; phone?: string; company?: string }
+  vars: { name?: string; email?: string; phone?: string; company?: string; first_name?: string }
 ): string {
-  return body.replace(/\{\{\s*(name|email|phone|company)\s*\}\}/gi, (whole, key: string) => {
-    const v = vars[key.toLowerCase() as keyof typeof vars];
+  const all = { ...vars, first_name: vars.first_name || (vars.name ?? "").trim().split(/\s+/)[0] };
+  return body.replace(/\{\{\s*(first_name|name|email|phone|company)\s*\}\}/gi, (whole, key: string) => {
+    const v = all[key.toLowerCase() as keyof typeof all];
     return v ? v : whole;
   });
 }

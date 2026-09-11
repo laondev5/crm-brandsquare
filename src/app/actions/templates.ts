@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
-import { createTemplate, deleteTemplate } from "@/lib/queries";
+import { createTemplate, deleteTemplate, updateTemplate } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
 import type { TemplateChannel } from "@/lib/types";
 
@@ -10,7 +10,9 @@ type Result = { ok: true } | { error: string };
 
 const CHANNELS: TemplateChannel[] = ["note", "email", "whatsapp"];
 
+/** Creates a template, or rewords an existing one when `id` is given. */
 export async function saveTemplateAction(input: {
+  id?: number;
   name: string;
   channel: string;
   subject: string;
@@ -25,6 +27,15 @@ export async function saveTemplateAction(input: {
   const channel = (CHANNELS as string[]).includes(input.channel) ? input.channel : "note";
 
   try {
+    if (input.id) {
+      await updateTemplate(input.id, {
+        name,
+        subject: channel === "email" ? input.subject.trim() : "",
+        body: input.body,
+      });
+      revalidatePath("/templates");
+      return { ok: true };
+    }
     await createTemplate({
       actor: me,
       name,

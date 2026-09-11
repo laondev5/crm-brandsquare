@@ -8,7 +8,9 @@ import {
   getLeadFull,
   getPipeline,
   listTemplates,
+  listWaTemplates,
 } from "@/lib/queries";
+import TemplatePicker from "../../whatsapp/template-picker";
 import { daysQuiet, hasPermission, isClosed, isStale, parsePayload, isAdminRole } from "@/lib/types";
 
 import Manage from "./manage";
@@ -30,13 +32,21 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   if (!full) notFound();
 
   const { lead, notes, activity } = full;
-  const [subs, emailHistory, emailSettings, pipeline, noteTemplates] = await Promise.all([
+  const [subs, emailHistory, emailSettings, pipeline, noteTemplates, emailTemplates] = await Promise.all([
     isAdminRole(me.role) ? allSubadmins() : Promise.resolve([]),
     getLeadEmails(id, scope),
     getEmailSettings().catch(() => null),
     getPipeline(),
     listTemplates("note").catch(() => []),
+    listTemplates("email").catch(() => []),
   ]);
+
+  // The way to open a WhatsApp conversation with a lead from inside the CRM:
+  // an approved template is the only first message WhatsApp will carry.
+  const waTemplates =
+    hasPermission(me, "send_whatsapp") && lead.phone
+      ? ((await listWaTemplates().catch(() => null))?.templates ?? []).filter((t) => t.status === "APPROVED")
+      : [];
 
   const answers = parsePayload(lead.payload);
   // Same rule as the agenda: a follow-up that has been worked since its date
@@ -63,7 +73,15 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
         </h1>
         <div className="spacer" />
         {hasPermission(me, "send_whatsapp") && lead.phone && (
-          <WhatsAppButton leadId={lead.id} phone={lead.phone} />
+          <WhatsAppButton leadId={lead.id} />
+        )}
+        {waTemplates.length > 0 && (
+          <TemplatePicker
+            templates={waTemplates}
+            to={{ lead_id: lead.id }}
+            contact={{ name: lead.name, email: lead.email, phone: lead.phone, company: lead.company }}
+            label="Send template"
+          />
         )}
         <Link href="/leads" className="btn ghost">
           Back to leads
@@ -155,6 +173,8 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
               defaults={emailSettings.blocks_default}
               fromLabel={`${emailSettings.from_name} <${emailSettings.from_email}>`}
               canSend={hasPermission(me, "send_email")}
+              templates={emailTemplates}
+              vars={{ name: lead.name, email: lead.email, phone: lead.phone, company: lead.company }}
             />
           )}
 

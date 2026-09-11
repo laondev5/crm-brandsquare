@@ -129,6 +129,7 @@ function MediaBlock({ message }: { message: WaMessage }) {
 
 export default function MessageBubble({ message }: { message: WaMessage }) {
   const out = message.direction === "out";
+  const tpl = message.template;
   const time = new Date(message.created_at.replace(" ", "T"));
   const timeLabel = isNaN(time.getTime())
     ? ""
@@ -148,10 +149,47 @@ export default function MessageBubble({ message }: { message: WaMessage }) {
       >
         {message.has_media && <MediaBlock message={message} />}
 
+        {/* A template carries more than its text: the header the customer
+            saw goes above it, the footer and buttons below. */}
+        {tpl?.header_type === "image" && tpl.header_image_url && (
+          // eslint-disable-next-line @next/next/no-img-element -- a WordPress media URL
+          <img
+            src={tpl.header_image_url}
+            alt=""
+            style={{ maxWidth: 280, width: "100%", borderRadius: 8, display: "block", marginBottom: 6 }}
+          />
+        )}
+        {tpl?.header_type === "text" && tpl.header_text && (
+          <strong style={{ display: "block", fontSize: 14, marginBottom: 4 }}>{tpl.header_text}</strong>
+        )}
+
         {message.body && (
           <p style={{ margin: message.has_media ? "6px 4px 2px" : 0, fontSize: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
             {message.body}
           </p>
+        )}
+
+        {tpl?.footer && (
+          <small style={{ display: "block", marginTop: 4, fontSize: 12, color: "var(--muted)" }}>{tpl.footer}</small>
+        )}
+        {tpl?.buttons && tpl.buttons.length > 0 && (
+          <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
+            {tpl.buttons.map((b, i) => (
+              <div
+                key={i}
+                style={{
+                  background: "rgba(255,255,255,.75)",
+                  borderRadius: 6,
+                  padding: "5px 8px",
+                  textAlign: "center",
+                  fontSize: 12.5,
+                  color: "#0086c9",
+                }}
+              >
+                {b}
+              </div>
+            ))}
+          </div>
         )}
 
         <div
@@ -164,7 +202,10 @@ export default function MessageBubble({ message }: { message: WaMessage }) {
           }}
         >
           {out && message.actor_name && (
-            <small style={{ fontSize: 10, color: "var(--muted)", marginRight: "auto" }}>{message.actor_name}</small>
+            <small style={{ fontSize: 10, color: "var(--muted)", marginRight: "auto" }}>
+              {message.actor_name}
+              {tpl?.template ? ` · template: ${tpl.template}` : ""}
+            </small>
           )}
           <small style={{ fontSize: 10, color: "var(--muted)" }}>{timeLabel}</small>
           {out && <StatusIcon status={message.status} />}

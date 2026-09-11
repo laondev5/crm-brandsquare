@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireSuperAdmin, requireUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/types";
 import {
+  openLeadWaChat,
   markWaRead,
   saveWaSettings,
   sendWaMessage,
@@ -37,6 +38,19 @@ export async function sendWaMessageAction(_prev: SendWaState, form: FormData): P
     return { ok: "sent" };
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : "Could not send that message." };
+  }
+}
+
+/** Behind the WhatsApp button on a lead: where to take the admin. */
+export async function openLeadChatAction(leadId: number): Promise<{ conversationId: number } | { error: string }> {
+  const me = await requireUser();
+  if (!hasPermission(me, "send_whatsapp")) return { error: "You do not have permission to send WhatsApp messages." };
+  try {
+    const res = await openLeadWaChat(leadId, me);
+    revalidatePath(`/leads/${leadId}`);
+    return { conversationId: res.conversation_id };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not open the WhatsApp chat." };
   }
 }
 

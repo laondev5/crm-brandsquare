@@ -39,6 +39,9 @@ import type {
   MetaEvent,
   Workday,
   WaDiagnostics,
+  WaMessage,
+  WaTemplate,
+  WaTemplateInput,
   TeamDay,
   WorkStage,
   Project,
@@ -655,6 +658,10 @@ export async function createTemplate(input: {
   });
 }
 
+export async function updateTemplate(id: number, input: { name: string; subject: string; body: string }) {
+  return api.patch<{ ok: true; id: number }>(`/templates/${id}`, input);
+}
+
 export async function deleteTemplate(id: number) {
   return api.del<{ ok: true }>(`/templates/${id}`);
 }
@@ -788,6 +795,56 @@ export async function getWaDiagnostics(actor: DashUser) {
 /** Subscribes the app to the WhatsApp Business Account, using the saved token. */
 export async function subscribeWaApp(actor: DashUser) {
   return api.post<WaDiagnostics>("/whatsapp/subscribe", { actor_id: actor.id });
+}
+
+/** The lead's chat in the inbox -- found, or started if there is none. */
+export async function openLeadWaChat(leadId: number, actor: DashUser) {
+  return api.post<{ conversation_id: number }>(`/leads/${leadId}/whatsapp-chat`, {
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+/* ---------------- WhatsApp message templates ---------------- */
+
+export async function listWaTemplates(refresh = false) {
+  return api.get<{ templates: WaTemplate[]; configured: boolean; sync_error: string }>(
+    "/whatsapp/templates",
+    { refresh: refresh ? 1 : undefined }
+  );
+}
+
+export async function createWaTemplate(actor: DashUser, input: WaTemplateInput) {
+  return api.post<{ template: WaTemplate }>("/whatsapp/templates", {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteWaTemplate(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/whatsapp/templates/${id}`, { actor_id: actor.id });
+}
+
+export async function uploadWaTemplateImage(actor: DashUser, file: File) {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  form.append("actor_id", String(actor.id));
+  return api.upload<{ url: string }>("/whatsapp/templates/image", form);
+}
+
+export async function sendWaTemplate(
+  actor: DashUser,
+  id: number,
+  to: { conversation_id?: number; lead_id?: number },
+  values: Record<string, string>
+) {
+  return api.post<{ conversation_id: number; message: WaMessage }>(`/whatsapp/templates/${id}/send`, {
+    ...to,
+    values,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
 }
 
 /** Fakes a customer message arriving. The plugin refuses this once a real

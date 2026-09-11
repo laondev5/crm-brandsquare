@@ -1,17 +1,18 @@
 import { requireUser } from "@/lib/auth";
 import { isAdminRole } from "@/lib/types";
-import { audiencePreview, getEmailSettings, listCampaigns } from "@/lib/queries";
+import { audiencePreview, getEmailSettings, listCampaigns, listTemplates } from "@/lib/queries";
 import Composer from "./composer";
 
 export default async function NewEmailPage() {
   const me = await requireUser();
   const ownerId = isAdminRole(me.role) ? null : me.id;
 
-  const [settings, campaigns] = await Promise.all([
+  const [settings, campaigns, templates] = await Promise.all([
     getEmailSettings(),
     listCampaigns(1, 100)
       .then((r) => r.rows)
       .catch(() => []),
+    listTemplates("email").catch(() => []),
   ]);
 
   // Reachable counts, not raw lead counts — unsubscribed and address-less
@@ -40,6 +41,7 @@ export default async function NewEmailPage() {
       sample={allCount.sample}
       campaigns={perForm}
       isAdmin={isAdminRole(me.role)}
+      templates={templates}
     />
   );
 }

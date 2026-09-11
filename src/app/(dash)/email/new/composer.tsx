@@ -3,7 +3,11 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { sendCampaignAction, type SendState } from "../../../actions/email";
-import type { EmailBlocks } from "@/lib/types";
+import type { EmailBlocks, MessageTemplate } from "@/lib/types";
+
+// Templates are written with {{first_name}}; a campaign's per-person merge
+// knows it as {{first}}. Company and phone are not merged per person here.
+const toCampaignTags = (s: string) => s.replace(/\{\{\s*first_name\s*\}\}/g, "{{first}}");
 
 export default function Composer({
   blocks,
@@ -13,6 +17,7 @@ export default function Composer({
   sample,
   campaigns,
   isAdmin,
+  templates = [],
 }: {
   blocks: EmailBlocks;
   fromEmail: string;
@@ -21,6 +26,7 @@ export default function Composer({
   sample: { name: string; email: string }[];
   campaigns: { id: number; name: string; count: number }[];
   isAdmin: boolean;
+  templates?: MessageTemplate[];
 }) {
   const [state, action, pending] = useActionState<SendState, FormData>(sendCampaignAction, {});
   const [b, setB] = useState<EmailBlocks>(blocks);
@@ -143,6 +149,26 @@ export default function Composer({
 
           <div className="card">
             <h2>Message</h2>
+            {templates.length > 0 && (
+              <select
+                value=""
+                aria-label="Use a template"
+                style={{ marginBottom: 12 }}
+                onChange={(e) => {
+                  const t = templates.find((x) => String(x.id) === e.target.value);
+                  if (!t) return;
+                  if (t.subject) setSubject(toCampaignTags(t.subject));
+                  setB({ ...b, body_html: toCampaignTags(t.body) });
+                }}
+              >
+                <option value="">Use a template…</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <label className="f">
               <span>Subject</span>
               <input

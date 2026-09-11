@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   ChevronDown,
+  FileText,
   LayoutDashboard,
   Megaphone,
   Settings2,
@@ -50,7 +51,15 @@ const GROUPS: NavGroup[] = [
       { href: "/pipeline", label: "Pipeline" },
       { href: "/campaigns", label: "Campaigns", adminOnly: true },
       { href: "/email", label: "Email" },
-      { href: "/templates", label: "Templates" },
+    ],
+  },
+  {
+    label: "Templates",
+    icon: FileText,
+    children: [
+      { href: "/templates/whatsapp", label: "WhatsApp" },
+      { href: "/templates/email", label: "Email" },
+      { href: "/templates/notes", label: "Notes" },
     ],
   },
   {
@@ -94,7 +103,14 @@ const GROUPS: NavGroup[] = [
 export default function NavLinks({ isAdmin, isSuper }: { isAdmin: boolean; isSuper?: boolean }) {
   const path = usePathname();
 
-  const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
+  // The most specific link wins: on /whatsapp/settings only "WhatsApp
+  // settings" is lit, not the inbox at /whatsapp as well.
+  const matches = (href: string) =>
+    href === "/" ? path === "/" : path === href || path.startsWith(href + "/");
+  const best = GROUPS.flatMap((g) => [g.href, ...(g.children ?? []).map((c) => c.href)])
+    .filter((h): h is string => !!h && matches(h))
+    .sort((a, b) => b.length - a.length)[0];
+  const isActive = (href: string) => href === best;
 
   const allowed = (x: { adminOnly?: boolean; superOnly?: boolean }) =>
     (isAdmin || !x.adminOnly) && (isSuper || !x.superOnly);
