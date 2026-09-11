@@ -71,6 +71,97 @@ export function isLeadSort(v: string | undefined): v is LeadSort {
   return !!v && LEAD_SORTS.some((s) => s.key === v);
 }
 
+/* ---------------- the working day and the board ---------------- */
+
+/** One person's record of one day. */
+export interface Workday {
+  id?: number;
+  user_id: number;
+  name?: string;
+  work_date: string;
+  signed_in_at: string | null;
+  signed_out_at: string | null;
+  summary: string;
+  blockers: string;
+  plan_tomorrow: string;
+  mood: string;
+}
+
+/** A row on the manager's board — everyone, including people who never
+ *  signed in, because "who has not started" is the question it answers. */
+export interface TeamDay {
+  user_id: number;
+  name: string;
+  role: Role;
+  signed_in_at: string | null;
+  signed_out_at: string | null;
+  summary: string;
+  blockers: string;
+  plan_tomorrow: string;
+  mood: string;
+}
+
+export interface WorkStage {
+  key: string;
+  label: string;
+  colour: string;
+}
+
+export interface Project {
+  id: number;
+  name: string;
+  detail: string;
+  status: "active" | "archived";
+  colour: string;
+  owner_id: number | null;
+  owner_name: string | null;
+  due_date: string | null;
+  created_at: string;
+  counts: Record<string, number>;
+  total: number;
+  done: number;
+  progress: number;
+}
+
+export interface WorkTask {
+  id: number;
+  project_id: number | null;
+  project: string | null;
+  colour: string;
+  title: string;
+  detail: string;
+  stage: string;
+  priority: "low" | "normal" | "high";
+  assigned_to: number | null;
+  assignee: string | null;
+  due_date: string | null;
+  /** Why it is stuck. Carried with the move, not typed in afterwards. */
+  blocker: string;
+  blocked_at: string | null;
+  done_at: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** The manager's one-screen answer to "what moved, and what is stuck". */
+export interface WorkOverview {
+  date: string;
+  blocked: WorkTask[];
+  overdue: WorkTask[];
+  team: {
+    user_id: number;
+    name: string;
+    open_tasks: number;
+    blocked_tasks: number;
+    done_tasks: number;
+    signed_in_at: string | null;
+    signed_out_at: string | null;
+    reported: boolean;
+    blockers: string;
+  }[];
+}
+
 /* ---------------- Meta Conversions API ---------------- */
 
 /**

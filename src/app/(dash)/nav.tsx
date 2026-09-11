@@ -77,6 +77,10 @@ const GROUPS: NavGroup[] = [
     label: "Team",
     icon: UsersRound,
     children: [
+      { href: "/work", label: "My day" },
+      { href: "/guide", label: "How this works" },
+      { href: "/projects", label: "Projects" },
+      { href: "/work/team", label: "Team overview", adminOnly: true },
       { href: "/agenda", label: "Agenda" },
       { href: "/tracker", label: "Trackers" },
       { href: "/team", label: "Members", adminOnly: true },

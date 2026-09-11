@@ -37,6 +37,12 @@ import type {
   LeadSort,
   MetaDataset,
   MetaEvent,
+  Workday,
+  TeamDay,
+  WorkStage,
+  Project,
+  WorkTask,
+  WorkOverview,
   TrackerCounts,
   TrackerRecord,
 } from "./types";
@@ -909,4 +915,98 @@ export async function retryMetaEvents(actor: DashUser) {
     "/meta/retry",
     { actor_id: actor.id }
   );
+}
+
+/* ---------------- the working day ---------------- */
+
+export async function getToday(actor: DashUser) {
+  return api.get<{ day: string; workday: Workday | null; now: string }>("/workday/today", {
+    actor_id: actor.id,
+  });
+}
+
+export async function signIn(actor: DashUser) {
+  return api.post<{ day: string; workday: Workday | null; now: string }>("/workday/sign-in", {
+    actor_id: actor.id,
+  });
+}
+
+/** Signing out is what records the day; the summary is required server-side. */
+export async function signOut(
+  actor: DashUser,
+  body: { summary: string; blockers?: string; plan_tomorrow?: string; mood?: string }
+) {
+  return api.post<{ day: string; workday: Workday | null }>("/workday/sign-out", {
+    ...body,
+    actor_id: actor.id,
+  });
+}
+
+export async function listWorkdays(actor: DashUser, date?: string) {
+  return api.get<{ date: string; days: TeamDay[]; manager: boolean }>("/workdays", {
+    actor_id: actor.id,
+    date,
+  });
+}
+
+export async function workdayHistory(actor: DashUser, user?: number, days = 14) {
+  return api.get<{ history: Workday[] }>("/workday/history", {
+    actor_id: actor.id,
+    user,
+    days,
+  });
+}
+
+/* ---------------- projects and the board ---------------- */
+
+export async function listProjects(actor: DashUser, status?: string) {
+  return api.get<{ projects: Project[]; stages: WorkStage[] }>("/projects", {
+    actor_id: actor.id,
+    status,
+  });
+}
+
+export async function saveProject(
+  actor: DashUser,
+  id: number | null,
+  body: Record<string, unknown>
+) {
+  const payload = { ...body, actor_id: actor.id };
+  return id
+    ? api.patch<{ ok: true; id: number }>(`/projects/${id}`, payload)
+    : api.post<{ ok: true; id: number }>("/projects", payload);
+}
+
+export async function deleteProject(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/projects/${id}`, { actor_id: actor.id });
+}
+
+export async function listWorkTasks(
+  actor: DashUser,
+  opts: { project?: number; assigned?: number | "me" } = {}
+) {
+  return api.get<{ tasks: WorkTask[]; stages: WorkStage[] }>("/work-tasks", {
+    actor_id: actor.id,
+    project: opts.project,
+    assigned: opts.assigned,
+  });
+}
+
+export async function saveWorkTask(
+  actor: DashUser,
+  id: number | null,
+  body: Record<string, unknown>
+) {
+  const payload = { ...body, actor_id: actor.id };
+  return id
+    ? api.patch<{ ok: true; task: WorkTask }>(`/work-tasks/${id}`, payload)
+    : api.post<{ ok: true; task: WorkTask }>("/work-tasks", payload);
+}
+
+export async function deleteWorkTask(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/work-tasks/${id}`, { actor_id: actor.id });
+}
+
+export async function workOverview(actor: DashUser) {
+  return api.get<WorkOverview>("/work/overview", { actor_id: actor.id });
 }
