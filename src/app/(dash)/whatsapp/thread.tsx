@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { WaThread } from "@/lib/types";
-import MessageBubble from "./message-bubble";
+import MessageList from "./message-list";
 import Composer from "./composer";
 import MarkRead from "./mark-read";
 
@@ -69,15 +69,7 @@ export default function Thread({
 
       {conversation.unread_count > 0 && <MarkRead id={conversation.id} />}
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 0" }}>
-        {messages.length === 0 ? (
-          <p className="empty" style={{ padding: 24 }}>
-            No messages yet.
-          </p>
-        ) : (
-          messages.map((m) => <MessageBubble key={m.id} message={m} />)
-        )}
-      </div>
+      <MessageList conversationId={conversation.id} messages={messages} />
 
       {canSend ? (
         <Composer conversationId={conversation.id} />

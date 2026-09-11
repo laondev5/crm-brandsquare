@@ -1,8 +1,9 @@
 import { requireUser } from "@/lib/auth";
-import { hasPermission } from "@/lib/types";
+import { hasPermission, waSignature } from "@/lib/types";
 import { getWaConversations, getWaThread } from "@/lib/queries";
 import ConversationList from "./conversation-list";
 import Thread from "./thread";
+import LiveInbox from "./live-inbox";
 
 /**
  * One shared inbox, not one per admin. WhatsApp has a single business
@@ -37,6 +38,12 @@ export default async function WhatsAppPage({
 
   return (
     <>
+      <LiveInbox
+        sig={waSignature(data.conversations, thread?.messages)}
+        conversationId={selected}
+        search={sp.q ?? ""}
+      />
+
       <div className="head">
         <h1>WhatsApp</h1>
         {data.unread_total > 0 && (

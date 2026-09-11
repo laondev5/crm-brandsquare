@@ -777,6 +777,20 @@ export interface WaThread {
   messages: WaMessage[];
 }
 
+/**
+ * A short fingerprint of what the inbox is showing: every conversation's last
+ * message and unread count, plus the open thread's messages and their ticks.
+ * The page renders one and the pulse route computes one the same way, so the
+ * browser only reloads the inbox when the two stop matching.
+ */
+export function waSignature(conversations: WaConversation[], messages?: WaMessage[] | null): string {
+  let s = conversations.map((c) => `${c.id}:${c.last_message_at ?? ""}:${c.unread_count}`).join("|");
+  if (messages) s += "#" + messages.map((m) => `${m.id}:${m.status}`).join("|");
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return `${s.length}.${(h >>> 0).toString(36)}`;
+}
+
 export interface WaSettings {
   phone_number_id: string;
   waba_id: string;
