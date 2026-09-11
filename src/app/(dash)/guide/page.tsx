@@ -58,13 +58,13 @@ export default async function GuidePage() {
         <h2>Your day, start to finish</h2>
 
         <Step n={1} title="Sign in when you start">
-          Open <Link href="/work">My day</Link> and press <strong>Sign in for today</strong>. That
+          Open <Link href="/work">My work</Link> — it opens on <strong>Today</strong> — and press <strong>Sign in for today</strong>. That
           stamps your start time. You only do this once — if you close the laptop and come back,
           it is still the same day.
         </Step>
 
         <Step n={2} title="Work your board">
-          Underneath is everything assigned to you, in five columns: To do, In progress, Blocked,
+          The <strong>My tasks</strong> tab holds everything assigned to you, in five columns: To do, In progress, Blocked,
           In review, Done. Move a card with the dropdown on it as things change.
         </Step>
 
@@ -81,8 +81,8 @@ export default async function GuidePage() {
         </Step>
 
         <Step n={5} title="Your history stays on the page">
-          Your last few days sit at the bottom of My day, so you can see what you said you would
-          do and whether you did it.
+          The <strong>Reports</strong> tab keeps what you wrote, day by day or rolled up by week. The
+          weekly view is built from your daily ones, so there is nothing extra to write.
         </Step>
       </div>
 

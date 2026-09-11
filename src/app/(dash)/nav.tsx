@@ -7,7 +7,6 @@ import {
   Activity,
   ChevronDown,
   LayoutDashboard,
-  ListChecks,
   Megaphone,
   Settings2,
   Target,
@@ -42,7 +41,6 @@ interface NavGroup {
  * that the trackers belong to the team's own work rather than to a customer.
  */
 const GROUPS: NavGroup[] = [
-  { label: "My work", icon: ListChecks, href: "/my-work" },
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   {
     label: "Leads",
@@ -77,12 +75,11 @@ const GROUPS: NavGroup[] = [
     label: "Team",
     icon: UsersRound,
     children: [
-      { href: "/work", label: "My day" },
-      { href: "/guide", label: "How this works" },
+      { href: "/work", label: "My work" },
       { href: "/projects", label: "Projects" },
       { href: "/work/team", label: "Team overview", adminOnly: true },
-      { href: "/agenda", label: "Agenda" },
       { href: "/tracker", label: "Trackers" },
+      { href: "/guide", label: "How this works" },
       { href: "/team", label: "Members", adminOnly: true },
     ],
   },
