@@ -38,7 +38,7 @@ interface NavGroup {
 /**
  * Grouped by the thing you are working on rather than by page. Ten flat links
  * gave no clue that Pipeline and Campaigns are two views of the same leads, or
- * that the trackers belong to the team's own work rather than to a customer.
+ * that the team's own work is not a customer's.
  */
 const GROUPS: NavGroup[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
@@ -78,7 +78,6 @@ const GROUPS: NavGroup[] = [
       { href: "/work", label: "My work" },
       { href: "/projects", label: "Projects" },
       { href: "/work/team", label: "Team overview", adminOnly: true },
-      { href: "/tracker", label: "Trackers" },
       { href: "/guide", label: "How this works" },
       { href: "/team", label: "Members", adminOnly: true },
     ],

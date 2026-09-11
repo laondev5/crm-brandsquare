@@ -588,46 +588,6 @@ export interface BulkImportResult {
   campaign_name: string | null;
 }
 
-/* ---------------- productivity trackers ---------------- */
-
-/**
- * One row in any tracker. The named columns are the ones the plugin can
- * filter and sort on; everything a particular tracker adds lives in `data`,
- * keyed by the field keys in lib/trackers.ts.
- */
-export interface TrackerRecord {
-  id: number;
-  tracker: string;
-  title: string;
-  status: string;
-  priority: string;
-  owner_id: number | null;
-  owner_name: string;
-  entry_date: string | null;
-  due_date: string | null;
-  data: Record<string, string>;
-  created_by_name: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TrackerCounts {
-  total: number;
-  open: number;
-  overdue: number;
-}
-
-export function parsePayload(raw: string | null): PayloadRow[] {
-  if (!raw) return [];
-  try {
-    const p = JSON.parse(raw);
-    return Array.isArray(p) ? p : [];
-  } catch {
-    return [];
-  }
-}
-
-
 /* ---------------- analytics ---------------- */
 
 export interface AnalyticsTotals {
@@ -898,4 +858,15 @@ export function humanSize(bytes: number): string {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB";
   return (bytes / 1024 / 1024).toFixed(1) + " MB";
+}
+
+/** A lead's saved answers, which are stored as a JSON string. */
+export function parsePayload(raw: string | null): PayloadRow[] {
+  if (!raw) return [];
+  try {
+    const p = JSON.parse(raw);
+    return Array.isArray(p) ? p : [];
+  } catch {
+    return [];
+  }
 }
