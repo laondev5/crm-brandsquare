@@ -8,6 +8,7 @@ import {
   saveWaSettings,
   sendWaMessage,
   simulateWaInbound,
+  subscribeWaApp,
   verifyWaSettings,
 } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
@@ -115,4 +116,16 @@ export async function simulateWaInboundAction(_prev: SimulateState, form: FormDa
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : "Could not simulate that message." };
   }
+}
+
+/** The one-click fix for the most common reason nothing arrives. */
+export async function subscribeWaAction(): Promise<{ ok: true } | { error: string }> {
+  const me = await requireSuperAdmin();
+  try {
+    await subscribeWaApp(me);
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not reach Meta." };
+  }
+  revalidatePath("/whatsapp/settings");
+  return { ok: true };
 }

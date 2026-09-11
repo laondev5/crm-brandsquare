@@ -870,3 +870,14 @@ export function parsePayload(raw: string | null): PayloadRow[] {
     return [];
   }
 }
+
+/** Why WhatsApp messages are or are not reaching the CRM. */
+export interface WaDiagnostics {
+  subscription: {
+    checked: boolean;
+    subscribed: boolean;
+    apps: { id: string; name: string }[];
+    error: string;
+  };
+  log: { at: string; kind: "message" | "handshake"; ok: boolean; detail: string }[];
+}

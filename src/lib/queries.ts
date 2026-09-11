@@ -38,6 +38,7 @@ import type {
   MetaDataset,
   MetaEvent,
   Workday,
+  WaDiagnostics,
   TeamDay,
   WorkStage,
   Project,
@@ -778,6 +779,15 @@ export async function verifyWaSettings(actor: DashUser) {
     "/whatsapp/settings/verify",
     { actor_id: actor.id }
   );
+}
+
+export async function getWaDiagnostics(actor: DashUser) {
+  return api.get<WaDiagnostics>("/whatsapp/diagnostics", { actor_id: actor.id });
+}
+
+/** Subscribes the app to the WhatsApp Business Account, using the saved token. */
+export async function subscribeWaApp(actor: DashUser) {
+  return api.post<WaDiagnostics>("/whatsapp/subscribe", { actor_id: actor.id });
 }
 
 /** Fakes a customer message arriving. The plugin refuses this once a real
