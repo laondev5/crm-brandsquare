@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { isAdminRole } from "@/lib/types";
 import { currentUser } from "@/lib/auth";
 import { listTeam } from "@/lib/queries";
-import NewSubadmin from "./new";
+import AddPanel from "./add-panel";
 import TeamRow from "./row";
 
 export default async function TeamPage() {
@@ -20,30 +20,31 @@ export default async function TeamPage() {
         <h1>Team</h1>
       </div>
 
-      <div className="grid2">
-        <div className="card" style={{ padding: "6px 8px" }}>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th style={{ width: 90 }}>Role</th>
-                <th style={{ width: 90 }}>Status</th>
-                <th style={{ width: 80 }}>Open</th>
-                <th style={{ width: 100 }}>Last login</th>
-                <th style={{ width: 240 }} />
-              </tr>
-            </thead>
-            <tbody>
-              {team.map((u) => (
-                <TeamRow key={u.id} u={u} meId={me.id} isSuper={isSuper} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <NewSubadmin isSuper={isSuper} />
+      {/* Full width, and horizontally scrollable rather than crushed: seven
+          columns plus a rank control and three buttons do not fit in half a
+          page, and squeezing them is what made this stop reading as a table. */}
+      <div className="card" style={{ padding: "6px 8px", overflowX: "auto", marginBottom: 18 }}>
+        <table className="tbl" style={{ minWidth: 900 }}>
+          <thead>
+            <tr>
+              <th style={{ width: 170 }}>Name</th>
+              <th style={{ minWidth: 200 }}>Email</th>
+              <th style={{ width: 140 }}>Rank</th>
+              <th style={{ width: 90 }}>Status</th>
+              <th style={{ width: 70 }}>Open</th>
+              <th style={{ width: 110 }}>Last login</th>
+              <th style={{ width: 250 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {team.map((u) => (
+              <TeamRow key={u.id} u={u} meId={me.id} isSuper={isSuper} />
+            ))}
+          </tbody>
+        </table>
       </div>
+
+      <AddPanel isSuper={isSuper} />
 
       <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 16, maxWidth: 720 }}>
         <strong>Disable</strong> ends every one of their sessions immediately and stops new

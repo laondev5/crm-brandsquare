@@ -34,8 +34,19 @@ export default function TeamRow({
   );
 
   const isSelf = u.id === meId;
-  const isAdmin = u.role === "admin";
   const roleLabel = ROLES.find((r) => r.key === u.role)?.label ?? u.role;
+
+  /*
+   * Who this viewer may act on.
+   *
+   * An admin manages sub-admins only. A super admin manages anyone but
+   * themselves — which is the point of the rank, and without it promoting
+   * someone to admin quietly put them beyond editing or disabling.
+   *
+   * The plugin checks the same thing and additionally refuses to remove the
+   * last super admin, so this decides what to draw, not what is allowed.
+   */
+  const canManage = !isSelf && (isSuper || u.role === "subadmin");
 
   if (editing) {
     return (
@@ -124,8 +135,8 @@ export default function TeamRow({
         {delState.error && <div className="msg err">{delState.error}</div>}
         {delState.ok && <div className="msg ok">{delState.ok}</div>}
 
-        {!isAdmin && !isSelf && !delState.ok && (
-          <div className="row" style={{ gap: 6 }}>
+        {canManage && !delState.ok && (
+          <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
             <button className="btn ghost sm" onClick={() => setEditing(true)}>
               Edit
             </button>
