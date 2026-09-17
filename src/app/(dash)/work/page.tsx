@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import {
   allSubadmins,
   getToday,
@@ -38,7 +38,7 @@ export default async function WorkPage({
 }: {
   searchParams: Promise<{ tab?: string; view?: string }>;
 }) {
-  const me = await requireUser();
+  const me = await requireMember();
   const manager = isAdminRole(me.role);
   const scope = manager ? null : me.id;
 

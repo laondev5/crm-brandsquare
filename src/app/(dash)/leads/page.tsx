@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import {
-  allSubadmins,
+  assignableStaff,
+  getLeadProperties,
   getPipeline,
   listCampaigns,
   listLeads,
@@ -9,7 +10,7 @@ import {
   listViews,
 } from "@/lib/queries";
 import { isLeadSort } from "@/lib/types";
-import { daysQuiet, isStale, isAdminRole } from "@/lib/types";
+import { daysQuiet, hasPermission, isStale, isAdminRole } from "@/lib/types";
 import StatusPill from "../pill";
 import QuietFor from "./quiet-for";
 import BulkBar from "./bulk-bar";
@@ -30,7 +31,10 @@ export default async function LeadsPage({
 }) {
   const sp = await searchParams;
   const me = await requireUser();
-  const scope = isAdminRole(me.role) ? null : me.id;
+  // "Mine" narrows an admin's list to leads they took themselves; a
+  // sub-admin's list is only ever their own anyway.
+  const mine = sp.status === "mine" && isAdminRole(me.role);
+  const scope = isAdminRole(me.role) && !mine ? null : me.id;
   const formId = Number(sp.form) || null;
   const siteId = sp.site === "this" ? "this" : Number(sp.site) || null;
   const sort = isLeadSort(sp.sort) ? sp.sort : "newest";
@@ -42,10 +46,11 @@ export default async function LeadsPage({
     sites,
     views,
     subs,
+    properties,
   ] =
     await Promise.all([
     listLeads({
-      status: sp.status,
+      status: mine ? undefined : sp.status,
       search: sp.s,
       ownerId: scope,
       formId,
@@ -63,13 +68,16 @@ export default async function LeadsPage({
     // Saved views are shared, and a failure to load them must not take the
     // leads list down with it.
     listViews().catch(() => []),
-    isAdminRole(me.role) ? allSubadmins().catch(() => []) : Promise.resolve([]),
+    isAdminRole(me.role) ? assignableStaff().catch(() => []) : Promise.resolve([]),
+    getLeadProperties(),
   ]);
+  const listProps = properties.filter((p) => p.in_list);
 
   // The stage tabs come from the configured pipeline, so a stage added in
   // WordPress shows up here without a deploy.
   const TABS = [
     { key: "", label: "All" },
+    ...(isAdminRole(me.role) ? [{ key: "mine", label: "Mine" }] : []),
     { key: "open", label: "Open" },
     { key: "unassigned", label: "Unassigned" },
     { key: "overdue", label: "Overdue" },
@@ -210,7 +218,13 @@ export default async function LeadsPage({
         </div>
       )}
 
-      <BulkBar subs={subs} pipeline={pipeline} isAdmin={isAdminRole(me.role)}>
+      <BulkBar
+        subs={subs}
+        pipeline={pipeline}
+        isAdmin={isAdminRole(me.role)}
+        canDelete={hasPermission(me, "delete_leads")}
+        meId={me.id}
+      >
       <div className="card" style={{ padding: "6px 8px" }}>
         {rows.length === 0 ? (
           <p className="empty">No leads match this view.</p>
@@ -218,13 +232,20 @@ export default async function LeadsPage({
           <table className="tbl">
             <thead>
               <tr>
-                <th style={{ width: 34 }} />
+                <th style={{ width: 34 }}>
+                  <input type="checkbox" data-select-all aria-label="Select every lead on this page" />
+                </th>
                 <th style={{ width: 52 }}>#</th>
                 <th>Name</th>
                 <th>Email</th>
                 <th style={{ width: 130 }}>Phone</th>
                 <th style={{ width: 160 }}>Campaign</th>
                 {sites.length > 0 && <th style={{ width: 130 }}>Website</th>}
+                {listProps.map((p) => (
+                  <th key={p.key} style={{ width: 130 }}>
+                    {p.label}
+                  </th>
+                ))}
                 <th style={{ width: 105 }}>Stage</th>
                 <th style={{ width: 130 }}>Owner</th>
                 <th style={{ width: 120 }}>
@@ -284,6 +305,11 @@ export default async function LeadsPage({
                       )}
                     </td>
                   )}
+                  {listProps.map((p) => (
+                    <td key={p.key} data-l={p.label}>
+                      {l.props?.[p.key] || <span style={{ color: "var(--muted)" }}>—</span>}
+                    </td>
+                  ))}
                   <td data-l="Stage">
                     <StatusPill status={l.status} pipeline={pipeline} />
                   </td>

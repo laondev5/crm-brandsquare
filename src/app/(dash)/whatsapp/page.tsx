@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { hasPermission, waSignature } from "@/lib/types";
-import { getWaConversations, getWaThread, listTemplates, listWaTemplates } from "@/lib/queries";
+import { getWaConversations, getWaThread, listKb, listTemplates, listWaTemplates } from "@/lib/queries";
 import ConversationList from "./conversation-list";
 import Thread from "./thread";
 import LiveInbox from "./live-inbox";
@@ -35,10 +35,11 @@ export default async function WhatsAppPage({
   }
 
   const canSend = hasPermission(me, "send_whatsapp");
-  const [thread, tpl, quickReplies] = await Promise.all([
+  const [thread, tpl, quickReplies, responses] = await Promise.all([
     selected ? getWaThread(selected).catch(() => null) : Promise.resolve(null),
     canSend ? listWaTemplates().catch(() => null) : Promise.resolve(null),
     canSend ? listTemplates("whatsapp").catch(() => []) : Promise.resolve([]),
+    canSend ? listKb("response").catch(() => []) : Promise.resolve([]),
   ]);
 
   return (
@@ -88,6 +89,8 @@ export default async function WhatsAppPage({
           canSend={hasPermission(me, "send_whatsapp")}
           templates={tpl?.templates ?? []}
           quickReplies={quickReplies}
+          responses={responses}
+          meName={me.name}
         />
       </div>
     </>

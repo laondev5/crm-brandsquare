@@ -20,9 +20,13 @@ export default async function DashLayout({ children }: { children: React.ReactNo
             <Image src="/logo-icon.webp" alt="" width={22} height={22} className="brand-mark" priority /> Brandsquare
           </Link>
 
-          <Palette isAdmin={isAdminRole(me.role)} />
+          {me.role !== "author" && <Palette isAdmin={isAdminRole(me.role)} />}
 
-          <NavLinks isAdmin={isAdminRole(me.role)} isSuper={me.role === "superadmin"} />
+          <NavLinks
+            isAdmin={isAdminRole(me.role)}
+            isSuper={me.role === "superadmin"}
+            isAuthor={me.role === "author"}
+          />
 
           <div className="side-foot">
             <div className="who">

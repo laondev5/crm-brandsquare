@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import { isAdminRole } from "@/lib/types";
 
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
@@ -40,9 +40,11 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
  * this button do".
  */
 export default async function GuidePage() {
-  const me = await requireUser();
+  const me = await requireMember();
   const manager = isAdminRole(me.role);
   const superAdmin = me.role === "superadmin";
+  const author = me.role === "author";
+  const blogger = author || manager;
 
   return (
     <>
@@ -133,9 +135,85 @@ export default async function GuidePage() {
             Every card has an assignee dropdown for admins. Moving work off somebody who is
             drowning takes one click.
           </Step>
+
+          <Step n={5} title="Look back at any day, or at one person">
+            Use <strong>← Previous day</strong> or the date box to see any day&rsquo;s sign-ins and
+            reports. The table shows when each person first opened the CRM, when they signed in
+            and out, how much they did on leads, and what they reported. Click a name for their
+            full history: every daily report, every CRM sign-in, what they did on leads and what
+            is on their board.
+          </Step>
         </div>
       )}
 
+      {blogger && (
+        <div className="card">
+          <h2>The blog</h2>
+
+          <Step n={1} title="Write a post">
+            <Link href="/blog/new">Blog → New post</Link>. Add a title and write in the editor — use
+            H2 and H3 for sections, and the image button to add pictures (you will be asked for alt
+            text). The URL is made from the title; change it under the title if you like.
+          </Step>
+
+          <Step n={2} title="Get the SEO score green">
+            In the <strong>Rank Math SEO</strong> box, type the focus keyword, an SEO title and a
+            meta description. The score updates as you write; open each section to see what to fix.
+            Aim for 80 or more.
+          </Step>
+
+          <Step n={3} title="Categories, tags and featured image">
+            Tick a category (or add a new one right there), add tags, and set a featured image.
+            Manage the full list under <Link href="/blog/categories">Categories</Link>.
+          </Step>
+
+          <Step n={4} title="Publish, schedule or save a draft">
+            <strong>Publish now</strong> puts it live on brandsquare.shop.{" "}
+            <strong>Schedule for later</strong> picks a date and time (Nigeria time).{" "}
+            <strong>Save draft</strong> keeps it private until it is ready.
+          </Step>
+
+          <Step n={5} title="See how posts perform">
+            <Link href="/blog/analytics">Blog → Analytics</Link> ranks every post by views, readers,
+            reading time, scroll depth and enquiries. Open a post&rsquo;s analytics for its daily
+            views, where readers came from and the leads it produced.
+          </Step>
+        </div>
+      )}
+
+      {!author && (
+        <div className="card">
+          <h2>Response templates, FAQs and lead properties</h2>
+
+          <Step n={1} title="Answer customers the same, good way">
+            <Link href="/templates/responses">Templates → Response templates</Link> has a ready
+            message for each situation. Type the customer&rsquo;s name and machine at the top, then
+            press <strong>Copy</strong>. They are also in the WhatsApp inbox&rsquo;s{" "}
+            <strong>Quick reply…</strong> list and a lead&rsquo;s email box.
+          </Step>
+
+          <Step n={2} title="Look up an answer">
+            <Link href="/templates/faq">Templates → FAQs</Link> — search a word from the customer&rsquo;s
+            question and copy the recommended answer.
+          </Step>
+
+          <Step n={3} title="Record your own details on a lead">
+            On any lead, <strong>Properties → + Add a field</strong> adds a detail like Role or State
+            for every lead, and <strong>Edit</strong> fills them in. When importing a spreadsheet,
+            map a column to a property, or choose <em>New property</em> to create one from it.
+          </Step>
+
+          {manager && (
+            <Step n={4} title="Keep them up to date (admins)">
+              Settings has <strong>Response templates</strong>, <strong>FAQs</strong> and{" "}
+              <strong>Lead properties</strong> to add, edit, reorder or remove them. Each page has
+              step-by-step instructions at the top.
+            </Step>
+          )}
+        </div>
+      )}
+
+      {!author && (
       <div className="card">
         <h2>WhatsApp</h2>
 
@@ -172,6 +250,7 @@ export default async function GuidePage() {
           </Step>
         )}
       </div>
+      )}
 
       {superAdmin && (
         <div className="card">

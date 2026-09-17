@@ -24,7 +24,11 @@ export async function createSubadminAction(_prev: FormState, form: FormData): Pr
   // checks it again — this just stops the request being made at all.
   const wanted = String(form.get("role") ?? "subadmin") as Role;
   const role: Role =
-    admin.role === "superadmin" && ROLES.some((r) => r.key === wanted) ? wanted : "subadmin";
+    admin.role === "superadmin" && ROLES.some((r) => r.key === wanted)
+      ? wanted
+      : wanted === "author"
+        ? "author"
+        : "subadmin";
 
   if (!name) return { error: "Enter a name." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { error: "Enter a valid email address." };
@@ -125,12 +129,17 @@ export async function deleteSubadminAction(_prev: FormState, form: FormData): Pr
  * connect a website and no way to undo it from here.
  */
 export async function setRoleAction(form: FormData): Promise<{ ok?: string; error?: string }> {
-  const me = await requireSuperAdmin();
+  const me = await requireAdmin();
 
   const id = Number(form.get("id"));
   const role = String(form.get("role")) as Role;
 
   if (!ROLES.some((r) => r.key === role)) return { error: "Unknown role." };
+  // An admin may move people between sub-admin and author only; the plugin
+  // re-checks both the person's current rank and the new one.
+  if (me.role !== "superadmin" && role !== "subadmin" && role !== "author") {
+    return { error: "Only a super admin can grant that rank." };
+  }
   if (id === me.id) return { error: "You cannot change your own rank." };
 
   try {

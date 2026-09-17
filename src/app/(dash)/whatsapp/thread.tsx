@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { MessageTemplate, WaTemplate, WaThread } from "@/lib/types";
+import type { KbItem, MessageTemplate, WaTemplate, WaThread } from "@/lib/types";
 import MessageList from "./message-list";
 import Composer from "./composer";
 import MarkRead from "./mark-read";
@@ -12,11 +12,15 @@ export default function Thread({
   canSend,
   templates = [],
   quickReplies = [],
+  responses = [],
+  meName = "",
 }: {
   thread: WaThread | null;
   canSend: boolean;
   templates?: WaTemplate[];
   quickReplies?: MessageTemplate[];
+  responses?: KbItem[];
+  meName?: string;
 }) {
   if (!thread) {
     return (
@@ -106,6 +110,8 @@ export default function Thread({
         <Composer
           conversationId={conversation.id}
           quickReplies={quickReplies}
+          responses={responses}
+          meName={meName}
           vars={{
             name: lead?.name || conversation.contact_name,
             email: lead?.email,

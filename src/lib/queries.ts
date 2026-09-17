@@ -47,6 +47,16 @@ import type {
   Project,
   WorkTask,
   WorkOverview,
+  LeadProperty,
+  WorkMember,
+  KbKind,
+  KbItem,
+  BlogPost,
+  BlogPostSummary,
+  BlogPostInput,
+  BlogCategory,
+  BlogAnalytics,
+  BlogPostAnalytics,
 } from "./types";
 
 /**
@@ -364,6 +374,8 @@ export interface LeadUpdate {
   /** Only honoured by the server while the lead is in the Lost stage. */
   lost_reason?: string;
   company?: string;
+  /** Property values to set; a blank value clears one. Keys not sent are left alone. */
+  props?: Record<string, string>;
 }
 
 export async function updateLead(
@@ -413,6 +425,15 @@ export async function listTeam() {
 
 export async function allSubadmins() {
   const res = await api.get<{ users: DashUser[] }>("/users", { scope: "subadmins" });
+  return res.users;
+}
+
+/**
+ * Everyone a lead can be handed to by hand: sub-admins, and admins taking one
+ * themselves. Automatic assignment is separate and only ever uses sub-admins.
+ */
+export async function assignableStaff() {
+  const res = await api.get<{ users: DashUser[] }>("/users", { scope: "assignable" });
   return res.users;
 }
 
@@ -1006,6 +1027,156 @@ export async function deleteWorkTask(actor: DashUser, id: number) {
   return api.del<{ ok: true }>(`/work-tasks/${id}`, { actor_id: actor.id });
 }
 
-export async function workOverview(actor: DashUser) {
-  return api.get<WorkOverview>("/work/overview", { actor_id: actor.id });
+export async function workOverview(actor: DashUser, date?: string) {
+  return api.get<WorkOverview>("/work/overview", { actor_id: actor.id, date });
+}
+
+export async function workMember(actor: DashUser, id: number, days = 30) {
+  return api.get<WorkMember>(`/work/member/${id}`, { actor_id: actor.id, days });
+}
+
+/* ---------------- deleting many leads ---------------- */
+
+export async function bulkDeleteLeads(input: { ids: number[]; actor: DashUser; ownerId?: number | null }) {
+  return api.post<{ ok: true; deleted: number }>("/leads/bulk-delete", {
+    ids: input.ids,
+    actor_id: input.actor.id,
+    actor_name: input.actor.name,
+    owner: input.ownerId ?? undefined,
+  });
+}
+
+/* ---------------- lead properties ---------------- */
+
+/** Never throws: a lead page without its custom fields beats no lead page. */
+export const getLeadProperties = cache(async (): Promise<LeadProperty[]> => {
+  try {
+    const res = await api.get<{ properties: LeadProperty[] }>("/lead-properties");
+    return res.properties ?? [];
+  } catch {
+    return [];
+  }
+});
+
+export async function saveLeadProperties(actor: DashUser, properties: LeadProperty[]) {
+  return api.post<{ properties: LeadProperty[] }>("/lead-properties", {
+    properties,
+    actor_id: actor.id,
+  });
+}
+
+export async function appendLeadProperties(
+  actor: DashUser,
+  labels: string[],
+  items: { label: string; type: string; options?: string[] }[] = []
+) {
+  return api.post<{ properties: LeadProperty[] }>("/lead-properties/append", {
+    labels,
+    items,
+    actor_id: actor.id,
+  });
+}
+
+/* ---------------- response templates and FAQs ---------------- */
+
+export async function listKb(kind: KbKind) {
+  const res = await api.get<{ items: KbItem[] }>("/kb", { kind });
+  return res.items ?? [];
+}
+
+export async function createKb(
+  actor: DashUser,
+  input: { kind: KbKind; section: string; title: string; body: string }
+) {
+  return api.post<{ item: KbItem }>("/kb", { ...input, actor_id: actor.id, actor_name: actor.name });
+}
+
+export async function updateKb(
+  actor: DashUser,
+  id: number,
+  input: { section?: string; title?: string; body?: string; sort_order?: number }
+) {
+  return api.patch<{ item: KbItem }>(`/kb/${id}`, { ...input, actor_id: actor.id, actor_name: actor.name });
+}
+
+export async function deleteKb(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/kb/${id}`, { actor_id: actor.id });
+}
+
+/* ---------------- blog ---------------- */
+
+export async function listBlogPosts(
+  actor: DashUser,
+  f: { status?: string; search?: string; page?: number; category?: number }
+) {
+  return api.get<{
+    posts: BlogPostSummary[];
+    total: number;
+    pages: number;
+    page: number;
+    by_status: Record<string, number>;
+    site_url: string;
+  }>("/blog/posts", {
+    actor_id: actor.id,
+    status: f.status,
+    s: f.search,
+    page: f.page,
+    category: f.category,
+  });
+}
+
+export async function getBlogPost(actor: DashUser, id: number) {
+  return api.get<{ post: BlogPost }>(`/blog/posts/${id}`, { actor_id: actor.id });
+}
+
+export async function getBlogMeta(actor: DashUser) {
+  return api.get<{ used_keywords: string[]; site_url: string }>("/blog/meta", { actor_id: actor.id });
+}
+
+export async function saveBlogPost(actor: DashUser, id: number | null, input: BlogPostInput) {
+  const body = { ...input, actor_id: actor.id, actor_name: actor.name };
+  return id
+    ? api.patch<{ post: BlogPost }>(`/blog/posts/${id}`, body)
+    : api.post<{ post: BlogPost }>("/blog/posts", body);
+}
+
+export async function trashBlogPost(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/blog/posts/${id}`, { actor_id: actor.id });
+}
+
+export async function listBlogCategories(actor: DashUser) {
+  return api.get<{ categories: BlogCategory[]; default_id: number }>("/blog/categories", {
+    actor_id: actor.id,
+  });
+}
+
+export async function saveBlogCategory(
+  actor: DashUser,
+  id: number | null,
+  input: { name: string; slug?: string; description?: string; parent?: number }
+) {
+  const body = { ...input, actor_id: actor.id };
+  return id
+    ? api.patch<{ category: BlogCategory }>(`/blog/categories/${id}`, body)
+    : api.post<{ category: BlogCategory }>("/blog/categories", body);
+}
+
+export async function deleteBlogCategory(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/blog/categories/${id}`, { actor_id: actor.id });
+}
+
+export async function uploadBlogImage(actor: DashUser, file: File, alt = "") {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  form.append("actor_id", String(actor.id));
+  if (alt) form.append("alt", alt);
+  return api.upload<{ id: number; url: string }>("/blog/media", form);
+}
+
+export async function getBlogAnalytics(actor: DashUser, days = 30) {
+  return api.get<BlogAnalytics>("/blog/analytics", { actor_id: actor.id, days });
+}
+
+export async function getBlogPostAnalytics(actor: DashUser, id: number, days = 30) {
+  return api.get<BlogPostAnalytics>(`/blog/posts/${id}/analytics`, { actor_id: actor.id, days });
 }

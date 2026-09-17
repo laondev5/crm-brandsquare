@@ -7,6 +7,7 @@ import {
   Activity,
   ChevronDown,
   FileText,
+  PenSquare,
   LayoutDashboard,
   Megaphone,
   Settings2,
@@ -22,6 +23,10 @@ interface NavChild {
   adminOnly?: boolean;
   /** Only the top tier — connecting websites and managing admins. */
   superOnly?: boolean;
+  /** Authors, admins and super admins — not sub-admins. */
+  blog?: boolean;
+  /** Also shown to authors, who otherwise see only the blog. */
+  author?: boolean;
 }
 
 interface NavGroup {
@@ -60,6 +65,18 @@ const GROUPS: NavGroup[] = [
       { href: "/templates/whatsapp", label: "WhatsApp" },
       { href: "/templates/email", label: "Email" },
       { href: "/templates/notes", label: "Notes" },
+      { href: "/templates/responses", label: "Response templates" },
+      { href: "/templates/faq", label: "FAQs" },
+    ],
+  },
+  {
+    label: "Blog",
+    icon: PenSquare,
+    children: [
+      { href: "/blog", label: "All posts", blog: true },
+      { href: "/blog/new", label: "New post", blog: true },
+      { href: "/blog/categories", label: "Categories", blog: true },
+      { href: "/blog/analytics", label: "Analytics", blog: true },
     ],
   },
   {
@@ -84,10 +101,10 @@ const GROUPS: NavGroup[] = [
     label: "Team",
     icon: UsersRound,
     children: [
-      { href: "/work", label: "My work" },
-      { href: "/projects", label: "Projects" },
+      { href: "/work", label: "My work", author: true },
+      { href: "/projects", label: "Projects", author: true },
       { href: "/work/team", label: "Team overview", adminOnly: true },
-      { href: "/guide", label: "How this works" },
+      { href: "/guide", label: "How this works", author: true },
       { href: "/team", label: "Members", adminOnly: true },
     ],
   },
@@ -96,11 +113,24 @@ const GROUPS: NavGroup[] = [
   {
     label: "Settings",
     icon: Settings2,
-    children: [{ href: "/settings/stages", label: "Pipeline stages", adminOnly: true }],
+    children: [
+      { href: "/settings/stages", label: "Pipeline stages", adminOnly: true },
+      { href: "/settings/lead-properties", label: "Lead properties", adminOnly: true },
+      { href: "/settings/responses", label: "Response templates", adminOnly: true },
+      { href: "/settings/faq", label: "FAQs", adminOnly: true },
+    ],
   },
 ];
 
-export default function NavLinks({ isAdmin, isSuper }: { isAdmin: boolean; isSuper?: boolean }) {
+export default function NavLinks({
+  isAdmin,
+  isSuper,
+  isAuthor = false,
+}: {
+  isAdmin: boolean;
+  isSuper?: boolean;
+  isAuthor?: boolean;
+}) {
   const path = usePathname();
 
   // The most specific link wins: on /whatsapp/settings only "WhatsApp
@@ -112,10 +142,19 @@ export default function NavLinks({ isAdmin, isSuper }: { isAdmin: boolean; isSup
     .sort((a, b) => b.length - a.length)[0];
   const isActive = (href: string) => href === best;
 
-  const allowed = (x: { adminOnly?: boolean; superOnly?: boolean }) =>
-    (isAdmin || !x.adminOnly) && (isSuper || !x.superOnly);
+  // An author sees the blog and their own working day, nothing else. Everyone
+  // else sees what their rank allows, and the blog only if they are an admin.
+  const allowed = (x: { adminOnly?: boolean; superOnly?: boolean; blog?: boolean; author?: boolean }) =>
+    isAuthor
+      ? !!(x.blog || x.author)
+      : (isAdmin || !x.adminOnly) && (isSuper || !x.superOnly) && (isAdmin || !x.blog);
 
-  const visible = GROUPS.filter(allowed)
+  // A menu is judged by its links, not by itself: it has no blog or author
+  // flag of its own, so filtering it first would hide the Blog menu from an
+  // author before its links were ever looked at.
+  const visible = GROUPS.filter((g) =>
+    g.children ? (isAdmin || !g.adminOnly) && (isSuper || !g.superOnly) : allowed(g)
+  )
     .map((g) => ({ ...g, children: g.children?.filter(allowed) }))
     .filter((g) => g.href || (g.children && g.children.length > 0));
 

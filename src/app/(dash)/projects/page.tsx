@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import { allSubadmins, listProjects, listWorkTasks } from "@/lib/queries";
 import { isAdminRole } from "@/lib/types";
 import Board from "../work/board";
@@ -18,7 +18,7 @@ export default async function ProjectsPage({
 }: {
   searchParams: Promise<{ project?: string }>;
 }) {
-  const me = await requireUser();
+  const me = await requireMember();
   const manager = isAdminRole(me.role);
 
   const sp = await searchParams;

@@ -2,7 +2,7 @@
 
 import { useActionState, useRef, useState } from "react";
 import { sendLeadEmailAction, type LeadEmailState } from "../../../actions/leads";
-import type { EmailBlocks, LeadEmail, MessageTemplate } from "@/lib/types";
+import { fillResponse, groupBySection, type EmailBlocks, type KbItem, type LeadEmail, type MessageTemplate } from "@/lib/types";
 import TemplatePicker from "./template-picker";
 
 export default function EmailPanel({
@@ -14,6 +14,8 @@ export default function EmailPanel({
   fromLabel,
   canSend,
   templates = [],
+  responses = [],
+  meName = "",
   vars = {},
 }: {
   leadId: number;
@@ -26,6 +28,9 @@ export default function EmailPanel({
   /** Saved email templates, filled with this lead's details when picked. */
   templates?: MessageTemplate[];
   vars?: { name?: string; email?: string; phone?: string; company?: string };
+  /** The team's response templates, filled with this lead's name and yours. */
+  responses?: KbItem[];
+  meName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const subjectRef = useRef<HTMLInputElement>(null);
@@ -88,6 +93,31 @@ export default function EmailPanel({
                   }
                 }}
               />
+              {responses.length > 0 && (
+                <select
+                  value=""
+                  aria-label="Use a response template"
+                  style={{ marginBottom: 8 }}
+                  onChange={(e) => {
+                    const r = responses.find((x) => String(x.id) === e.target.value);
+                    if (r && bodyRef.current) {
+                      bodyRef.current.value = fillResponse(r.body, { name: vars.name?.split(" ")[0], yourName: meName });
+                      bodyRef.current.focus();
+                    }
+                  }}
+                >
+                  <option value="">Use a response template…</option>
+                  {groupBySection(responses).map((g) => (
+                    <optgroup key={g.section} label={g.section}>
+                      {g.items.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              )}
               <label className="f">
                 <span>Subject</span>
                 <input ref={subjectRef} type="text" name="subject" required autoFocus />

@@ -2,8 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { bulkUpdateAction } from "@/app/actions/bulk";
-import type { DashUser, Pipeline } from "@/lib/types";
+import { bulkDeleteAction, bulkUpdateAction } from "@/app/actions/bulk";
+import { ROLE_LABEL, type DashUser, type Pipeline } from "@/lib/types";
 
 /**
  * Selection and bulk edit for the leads table.
@@ -18,11 +18,15 @@ export default function BulkBar({
   subs,
   pipeline,
   isAdmin,
+  canDelete = false,
+  meId,
 }: {
   children: React.ReactNode;
   subs: DashUser[];
   pipeline: Pipeline;
   isAdmin: boolean;
+  canDelete?: boolean;
+  meId?: number;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -48,7 +52,30 @@ export default function BulkBar({
     boxes().forEach((b) => {
       b.checked = on;
     });
+    const head = box.current?.querySelector<HTMLInputElement>("input[data-select-all]");
+    if (head) head.checked = on;
     recount();
+  };
+
+  const remove = () => {
+    const ids = selected();
+    if (!ids.length) return;
+    const ok = window.confirm(
+      `Delete ${ids.length} lead${ids.length === 1 ? "" : "s"} for good?\n\nTheir notes and history go too. This cannot be undone.`
+    );
+    if (!ok) return;
+    setErr("");
+    setMsg("");
+    startTransition(async () => {
+      const res = await bulkDeleteAction(ids);
+      if ("error" in res) {
+        setErr(res.error);
+        return;
+      }
+      setMsg(`Deleted ${res.deleted} lead${res.deleted === 1 ? "" : "s"}.`);
+      setAll(false);
+      router.refresh();
+    });
   };
 
   const apply = () => {
@@ -82,7 +109,14 @@ export default function BulkBar({
     <>
       {/* One handler for every checkbox inside, so the rows themselves need no
           JavaScript of their own. */}
-      <div ref={box} onChange={recount}>
+      <div
+        ref={box}
+        onChange={(e) => {
+          const t = e.target as HTMLInputElement;
+          if (t.dataset && "selectAll" in t.dataset) setAll(t.checked);
+          else recount();
+        }}
+      >
         <div className="row" style={{ marginBottom: 8, gap: 10 }}>
           <button type="button" className="btn ghost sm" onClick={() => setAll(true)}>
             Select all on this page
@@ -121,7 +155,9 @@ export default function BulkBar({
               <option value="0">Unassigned</option>
               {subs.map((s) => (
                 <option key={s.id} value={s.id}>
+                  {s.id === meId ? "Me — " : ""}
                   {s.name || s.email}
+                  {s.role !== "subadmin" ? ` (${ROLE_LABEL[s.role]})` : ""}
                 </option>
               ))}
             </select>
@@ -135,6 +171,12 @@ export default function BulkBar({
           >
             {busy ? "Applying…" : "Apply"}
           </button>
+
+          {canDelete && (
+            <button type="button" className="btn danger" disabled={busy} onClick={remove}>
+              Delete {count}
+            </button>
+          )}
         </div>
       )}
     </>

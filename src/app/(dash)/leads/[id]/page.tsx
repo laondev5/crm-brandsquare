@@ -2,14 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import {
-  allSubadmins,
+  assignableStaff,
   getEmailSettings,
   getLeadEmails,
   getLeadFull,
   getPipeline,
   listTemplates,
   listWaTemplates,
+  getLeadProperties,
+  listKb,
 } from "@/lib/queries";
+import LeadProperties from "./properties";
 import TemplatePicker from "../../whatsapp/template-picker";
 import { daysQuiet, hasPermission, isClosed, isStale, parsePayload, isAdminRole } from "@/lib/types";
 
@@ -32,13 +35,15 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   if (!full) notFound();
 
   const { lead, notes, activity } = full;
-  const [subs, emailHistory, emailSettings, pipeline, noteTemplates, emailTemplates] = await Promise.all([
-    isAdminRole(me.role) ? allSubadmins() : Promise.resolve([]),
+  const [subs, emailHistory, emailSettings, pipeline, noteTemplates, emailTemplates, properties, responses] = await Promise.all([
+    isAdminRole(me.role) ? assignableStaff().catch(() => []) : Promise.resolve([]),
     getLeadEmails(id, scope),
     getEmailSettings().catch(() => null),
     getPipeline(),
     listTemplates("note").catch(() => []),
     listTemplates("email").catch(() => []),
+    getLeadProperties(),
+    listKb("response").catch(() => []),
   ]);
 
   // The way to open a WhatsApp conversation with a lead from inside the CRM:
@@ -155,6 +160,13 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
             </table>
           </div>
 
+          <LeadProperties
+            leadId={lead.id}
+            properties={properties}
+            values={(lead as { props?: Record<string, string> }).props ?? {}}
+            isAdmin={isAdminRole(me.role)}
+          />
+
           <Tasks leadId={lead.id} initial={full.tasks ?? []} />
 
           <Files leadId={lead.id} initial={full.files ?? []} />
@@ -174,6 +186,8 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
               fromLabel={`${emailSettings.from_name} <${emailSettings.from_email}>`}
               canSend={hasPermission(me, "send_email")}
               templates={emailTemplates}
+              responses={responses}
+              meName={me.name}
               vars={{ name: lead.name, email: lead.email, phone: lead.phone, company: lead.company }}
             />
           )}

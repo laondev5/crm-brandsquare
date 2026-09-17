@@ -46,7 +46,7 @@ export default function TeamRow({
    * The plugin checks the same thing and additionally refuses to remove the
    * last super admin, so this decides what to draw, not what is allowed.
    */
-  const canManage = !isSelf && (isSuper || u.role === "subadmin");
+  const canManage = !isSelf && (isSuper || u.role === "subadmin" || u.role === "author");
 
   if (editing) {
     return (
@@ -65,10 +65,12 @@ export default function TeamRow({
                 <input type="email" name="email" defaultValue={u.email} required />
               </label>
             </div>
-            <div className="f">
-              <span>What can they do?</span>
-              <PermissionCheckboxes defaultChecked={u.permissions} />
-            </div>
+            {u.role === "subadmin" && (
+              <div className="f">
+                <span>What can they do?</span>
+                <PermissionCheckboxes defaultChecked={u.permissions} />
+              </div>
+            )}
             <div className="row">
               <button className="btn" disabled={editPending}>
                 {editPending ? "Saving…" : "Save"}
@@ -94,7 +96,7 @@ export default function TeamRow({
         {/* A super admin can promote or demote anyone but themselves. The
             plugin refuses to demote the last super admin, so the CRM cannot
             be left with nobody able to manage it. */}
-        {isSuper && !isSelf ? (
+        {canManage ? (
           <form
             action={async (form) => {
               setRankErr("");
@@ -110,7 +112,7 @@ export default function TeamRow({
               onChange={(e) => e.currentTarget.form?.requestSubmit()}
               style={{ width: "100%" }}
             >
-              {ROLES.map((r) => (
+              {ROLES.filter((r) => isSuper || r.key === "subadmin" || r.key === "author").map((r) => (
                 <option key={r.key} value={r.key}>
                   {r.label}
                 </option>

@@ -1,4 +1,4 @@
-export type Role = "superadmin" | "admin" | "subadmin";
+export type Role = "superadmin" | "admin" | "subadmin" | "author";
 
 /** Both admin tiers see the whole CRM; only what they can administer differs. */
 export function isAdminRole(role: Role): boolean {
@@ -12,14 +12,20 @@ export function isAdminRole(role: Role): boolean {
  */
 export function canManageRole(actor: Role, target: Role): boolean {
   if (actor === "superadmin") return true;
-  if (actor === "admin") return target === "subadmin";
+  if (actor === "admin") return target === "subadmin" || target === "author";
   return false;
+}
+
+/** Who can work on the blog: authors, and both admin tiers. */
+export function isBlogRole(role: Role): boolean {
+  return role === "author" || isAdminRole(role);
 }
 
 export const ROLE_LABEL: Record<Role, string> = {
   superadmin: "Super admin",
   admin: "Admin",
   subadmin: "Sub-admin",
+  author: "Author",
 };
 
 /** A website whose enquiries land in this CRM. */
@@ -147,19 +153,49 @@ export interface WorkTask {
 /** The manager's one-screen answer to "what moved, and what is stuck". */
 export interface WorkOverview {
   date: string;
+  /** The server's today, so the date picker cannot step into the future. */
+  today?: string;
   blocked: WorkTask[];
   overdue: WorkTask[];
   team: {
     user_id: number;
     name: string;
+    role?: Role;
+    last_login_at?: string | null;
+    /** First time they opened the CRM on the chosen day. */
+    first_login_at?: string | null;
+    logins?: number;
+    /** Notes, stage moves, emails and the like on leads that day. */
+    lead_actions?: number;
     open_tasks: number;
     blocked_tasks: number;
     done_tasks: number;
     signed_in_at: string | null;
     signed_out_at: string | null;
     reported: boolean;
+    summary?: string;
+    plan_tomorrow?: string;
     blockers: string;
   }[];
+}
+
+/** One person, as a manager sees them. */
+export interface WorkMember {
+  user: DashUser;
+  open_leads: number;
+  workdays: Workday[];
+  logins: { at: string; ip: string; user_agent: string }[];
+  activity: {
+    id: number;
+    lead_id: number;
+    lead_name: string | null;
+    type: string;
+    from_value: string;
+    to_value: string;
+    created_at: string;
+  }[];
+  tasks: WorkTask[];
+  now: string;
 }
 
 /* ---------------- Meta Conversions API ---------------- */
@@ -210,7 +246,8 @@ export interface MetaEvent {
 /** The three ranks, with what each one actually means. */
 export const ROLES: { key: Role; label: string; note: string }[] = [
   { key: "subadmin", label: "Sub-admin", note: "Works their own leads only." },
-  { key: "admin", label: "Admin", note: "The whole CRM, and can manage sub-admins." },
+  { key: "author", label: "Author", note: "Writes and publishes blog posts, and sees how they perform." },
+  { key: "admin", label: "Admin", note: "The whole CRM, and can manage sub-admins and authors." },
   {
     key: "superadmin",
     label: "Super admin",
@@ -332,7 +369,8 @@ export interface DashUser {
 
 export function hasPermission(user: DashUser | null, key: Permission): boolean {
   if (!user) return false;
-  if (user.role === "admin") return true;
+  if (isAdminRole(user.role)) return true;
+  if (user.role === "author") return false;
   return user.permissions.includes(key);
 }
 
@@ -397,6 +435,8 @@ export function isStale(
 }
 
 export interface LeadRow extends Lead {
+  /** The business's own properties, keyed by property key. */
+  props?: Record<string, string>;
   owner: string | null;
   /** Null for a lead from the website the CRM itself runs on. */
   site_id: number | null;
@@ -579,6 +619,7 @@ export interface BulkLeadRow {
   unassigned?: boolean;
   note?: string;
   source?: string;
+  props?: Record<string, string>;
 }
 
 export interface BulkImportResult {
@@ -980,4 +1021,182 @@ export interface WaDiagnostics {
     our_app?: { id: string; name: string } | null;
   };
   log: { at: string; kind: "message" | "handshake"; ok: boolean; detail: string }[];
+}
+
+/* ---------------- lead properties ---------------- */
+
+export type LeadPropertyType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "date"
+  | "select"
+  | "email"
+  | "phone"
+  | "url";
+
+/** A field the business defines for its own leads — Role, State, Budget. */
+export interface LeadProperty {
+  key: string;
+  label: string;
+  type: LeadPropertyType;
+  /** The choices, for a dropdown. */
+  options: string[];
+  /** Shown as a column on the leads list. */
+  in_list: boolean;
+}
+
+export const LEAD_PROPERTY_TYPES: { key: LeadPropertyType; label: string }[] = [
+  { key: "text", label: "Short text" },
+  { key: "textarea", label: "Long text" },
+  { key: "select", label: "Dropdown" },
+  { key: "number", label: "Number" },
+  { key: "date", label: "Date" },
+  { key: "phone", label: "Phone" },
+  { key: "email", label: "Email" },
+  { key: "url", label: "Web address" },
+];
+
+/* ---------------- response templates and FAQs ---------------- */
+
+export type KbKind = "response" | "faq";
+
+export interface KbItem {
+  id: number;
+  kind: KbKind;
+  section: string;
+  title: string;
+  body: string;
+  sort_order: number;
+  updated_by_name: string;
+  updated_at: string;
+}
+
+/**
+ * Fills the square-bracket blanks a response template is written with.
+ * Anything not given stays as written, so an unfilled [Machine Name] is still
+ * visible in the text rather than silently vanishing.
+ */
+export function fillResponse(
+  body: string,
+  vals: { name?: string; yourName?: string; machine?: string }
+): string {
+  let out = body;
+  if (vals.name?.trim()) out = out.replace(/\[Name\]/g, vals.name.trim());
+  if (vals.yourName?.trim()) out = out.replace(/\[Your Name\]/g, vals.yourName.trim());
+  if (vals.machine?.trim()) out = out.replace(/\[Machine Name\]/g, vals.machine.trim());
+  return out;
+}
+
+/** Sections in the order they first appear, each with its items. */
+export function groupBySection<T extends { section: string }>(
+  items: T[]
+): { section: string; items: T[] }[] {
+  const out: { section: string; items: T[] }[] = [];
+  for (const it of items) {
+    let g = out.find((x) => x.section === it.section);
+    if (!g) {
+      g = { section: it.section, items: [] };
+      out.push(g);
+    }
+    g.items.push(it);
+  }
+  return out;
+}
+
+/* ---------------- blog ---------------- */
+
+export type BlogStatus = "publish" | "draft" | "future" | "pending" | "private";
+
+export const BLOG_STATUS_LABEL: Record<string, string> = {
+  publish: "Published",
+  draft: "Draft",
+  future: "Scheduled",
+  pending: "Pending review",
+  private: "Private",
+};
+
+export interface BlogPostSummary {
+  id: number;
+  title: string;
+  status: BlogStatus;
+  date: string;
+  modified: string;
+  slug: string;
+  link: string;
+  author_name: string;
+  categories: { id: number; name: string }[];
+  featured_url: string;
+  focus_keyword: string;
+  seo_score: number;
+  views: number | null;
+}
+
+export interface BlogPost extends BlogPostSummary {
+  content: string;
+  excerpt: string;
+  category_ids: number[];
+  tags: string[];
+  featured_id: number;
+  seo_title: string;
+  meta_description: string;
+  used_keywords: string[];
+}
+
+export interface BlogCategory {
+  id: number;
+  name: string;
+  slug: string;
+  parent: number;
+  count: number;
+  description: string;
+}
+
+export interface BlogPostInput {
+  title: string;
+  content: string;
+  excerpt: string;
+  slug: string;
+  status: "draft" | "publish" | "future" | "pending";
+  date: string;
+  category_ids: number[];
+  tags: string[];
+  featured_id: number;
+  focus_keyword: string;
+  seo_title: string;
+  meta_description: string;
+  seo_score: number;
+}
+
+export interface BlogTotals {
+  views: number;
+  visitors: number;
+  avg_seconds: number;
+  avg_scroll: number;
+  leads: number;
+}
+
+export type BlogPostStats = BlogPostSummary & {
+  views: number;
+  visitors: number;
+  avg_seconds: number;
+  avg_scroll: number;
+  leads: number;
+};
+
+export interface BlogAnalytics {
+  days: number;
+  totals: BlogTotals & { posts: number };
+  series: { date: string; views: number; visitors: number }[];
+  posts: BlogPostStats[];
+}
+
+export interface BlogPostAnalytics {
+  post: BlogPostSummary;
+  days: number;
+  totals: BlogTotals & { all_time_views: number };
+  series: { date: string; views: number; visitors: number }[];
+  sources: { label: string; views: number }[];
+  devices: { label: string; views: number }[];
+  leads: { id: number; name: string; email: string; created_at: string }[];
 }

@@ -240,6 +240,12 @@ export async function addLeadAction(_prev: AddLeadState, form: FormData): Promis
     answers,
     status: (await getPipeline()).stages.some((s) => s.key === status) ? status : "new",
     note: String(form.get("note") ?? "").trim() || undefined,
+    // Properties arrive as prop_<key>; the plugin keeps only defined ones.
+    props: Object.fromEntries(
+      [...form.entries()]
+        .filter(([k, v]) => k.startsWith("prop_") && String(v).trim())
+        .map(([k, v]) => [k.slice(5), String(v).trim()])
+    ),
   };
 
   // Admins choose who gets it (or leave it unassigned); a sub-admin only ever

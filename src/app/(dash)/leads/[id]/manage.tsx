@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { updateLeadAction } from "@/app/actions/leads";
 import type { FormState } from "@/app/actions/auth";
-import type { DashUser, LeadRow, MessageTemplate, Pipeline } from "@/lib/types";
+import { ROLE_LABEL, type DashUser, type LeadRow, type MessageTemplate, type Pipeline } from "@/lib/types";
 import TemplatePicker from "./template-picker";
 
 /**
@@ -69,6 +69,7 @@ export default function Manage({
             {subs.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name || s.email}
+                {s.role !== "subadmin" ? ` (${ROLE_LABEL[s.role]})` : ""}
                 {s.status !== "active" ? ` (${s.status})` : ""}
               </option>
             ))}

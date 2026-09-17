@@ -76,6 +76,23 @@ export async function destroySession() {
 export async function requireUser(): Promise<DashUser> {
   const u = await currentUser();
   if (!u) redirect("/login");
+  // Authors work on the blog and nothing else: every lead, inbox and settings
+  // screen goes through here, so this one line keeps them out of all of it.
+  if (u.role === "author") redirect("/blog");
+  return u;
+}
+
+/** Anyone signed in, authors included — the blog, the guide and the working day. */
+export async function requireMember(): Promise<DashUser> {
+  const u = await currentUser();
+  if (!u) redirect("/login");
+  return u;
+}
+
+/** Authors, admins and super admins. */
+export async function requireBlogger(): Promise<DashUser> {
+  const u = await requireMember();
+  if (u.role !== "author" && !isAdminRole(u.role)) redirect("/");
   return u;
 }
 

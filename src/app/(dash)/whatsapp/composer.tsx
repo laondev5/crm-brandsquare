@@ -2,12 +2,14 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { sendWaMessageAction, type SendWaState } from "@/app/actions/whatsapp";
-import { fillTemplate, type MessageTemplate } from "@/lib/types";
+import { fillResponse, fillTemplate, groupBySection, type KbItem, type MessageTemplate } from "@/lib/types";
 
 export default function Composer({
   conversationId,
   extra,
   quickReplies = [],
+  responses = [],
+  meName = "",
   vars = {},
 }: {
   conversationId: number;
@@ -15,6 +17,9 @@ export default function Composer({
   extra?: React.ReactNode;
   /** Saved WhatsApp wording, dropped into the box with this contact's details. */
   quickReplies?: MessageTemplate[];
+  /** The team's response templates, filled with this contact's name and yours. */
+  responses?: KbItem[];
+  meName?: string;
   vars?: { name?: string; email?: string; phone?: string; company?: string };
 }) {
   const [state, action, pending] = useActionState<SendWaState, FormData>(sendWaMessageAction, {});
@@ -29,14 +34,23 @@ export default function Composer({
 
   return (
     <div style={{ borderTop: "1px solid var(--line)" }}>
-      {quickReplies.length > 0 && (
+      {(quickReplies.length > 0 || responses.length > 0) && (
         <div style={{ padding: "8px 10px 0" }}>
           <select
             value=""
             aria-label="Quick reply"
             style={{ fontSize: 12.5 }}
             onChange={(e) => {
-              const t = quickReplies.find((x) => String(x.id) === e.target.value);
+              const v = e.target.value;
+              if (v.startsWith("r:") && ref.current) {
+                const r = responses.find((x) => `r:${x.id}` === v);
+                if (r) {
+                  ref.current.value = fillResponse(r.body, { name: vars.name?.split(" ")[0], yourName: meName });
+                  ref.current.focus();
+                }
+                return;
+              }
+              const t = quickReplies.find((x) => String(x.id) === v);
               if (t && ref.current) {
                 ref.current.value = fillTemplate(t.body, vars);
                 ref.current.focus();
@@ -44,10 +58,23 @@ export default function Composer({
             }}
           >
             <option value="">Quick reply…</option>
-            {quickReplies.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
+            {quickReplies.length > 0 && (
+              <optgroup label="Quick replies">
+                {quickReplies.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {groupBySection(responses).map((g) => (
+              <optgroup key={g.section} label={`Response templates — ${g.section}`}>
+                {g.items.map((r) => (
+                  <option key={r.id} value={`r:${r.id}`}>
+                    {r.title}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>

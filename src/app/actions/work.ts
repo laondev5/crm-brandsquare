@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser, requireAdmin } from "@/lib/auth";
+import { requireMember as requireUser, requireAdmin } from "@/lib/auth";
 import {
   deleteProject,
   deleteWorkTask,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
-import { getPipeline, listLeads } from "@/lib/queries";
+import { getLeadProperties, getPipeline, listLeads } from "@/lib/queries";
 import { isAdminRole, parsePayload, stageLabel } from "@/lib/types";
 
 /**
@@ -18,7 +18,10 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const scope = isAdminRole(me.role) ? null : me.id;
 
-  const pipeline = await getPipeline();
+  // Authors never see leads, here or anywhere else.
+  if (me.role === "author") return new NextResponse("Not allowed", { status: 403 });
+
+  const [pipeline, properties] = await Promise.all([getPipeline(), getLeadProperties()]);
 
   // Paged through rather than asked for in one go: the plugin caps a page, and
   // a silent truncation would produce a file that looks complete and is not.
@@ -46,7 +49,9 @@ export async function GET(req: Request) {
 
   const header = [
     "ID", "Name", "Email", "Phone", "Stage", "Owner", "Campaign", "Website",
-    "Received", "Last activity", "Next action", "Lost reason", "Answers",
+    "Received", "Last activity", "Next action", "Lost reason",
+    ...properties.map((p) => p.label),
+    "Answers",
   ];
 
   const body = rows.map((l) =>
@@ -63,6 +68,7 @@ export async function GET(req: Request) {
       l.last_activity_at ?? "",
       l.next_action_at ?? "",
       l.lost_reason ?? "",
+      ...properties.map((p) => l.props?.[p.key] ?? ""),
       parsePayload(l.payload)
         .map((a) => `${a.label}: ${a.value}`)
         .join(" | "),

@@ -4,14 +4,16 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { addLeadAction, type AddLeadState } from "../../../actions/leads";
 import Duplicates from "./duplicates";
+import PropInput from "../prop-input";
 
-import type { Campaign, DashUser, Pipeline } from "@/lib/types";
+import type { Campaign, DashUser, LeadProperty, Pipeline } from "@/lib/types";
 
 interface Props {
   campaigns: Campaign[];
   subs: DashUser[];
   isAdmin: boolean;
   pipeline: Pipeline;
+  properties?: LeadProperty[];
 }
 
 /**
@@ -37,6 +39,7 @@ function AddLeadFormInner({
   subs,
   isAdmin,
   pipeline,
+  properties = [],
   onAddAnother,
 }: Props & { onAddAnother: () => void }) {
   const [state, action, pending] = useActionState<AddLeadState, FormData>(addLeadAction, {});
@@ -122,6 +125,20 @@ function AddLeadFormInner({
 
             <Duplicates email={email} phone={phone} />
           </div>
+
+          {properties.length > 0 && (
+            <div className="card">
+              <h2>Properties</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                {properties.map((p) => (
+                  <label key={p.key} className="f" style={{ margin: 0 }}>
+                    <span>{p.label}</span>
+                    <PropInput prop={p} name={`prop_${p.key}`} defaultValue="" />
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="card">
             <h2>Additional details</h2>

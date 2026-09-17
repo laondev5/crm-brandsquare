@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
-import { bulkUpdateLeads, getPipeline } from "@/lib/queries";
+import { bulkDeleteLeads, bulkUpdateLeads, getPipeline } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
-import { isAdminRole } from "@/lib/types";
+import { hasPermission, isAdminRole } from "@/lib/types";
 
 type Result = { ok: true; updated: number } | { error: string };
 
@@ -65,5 +65,29 @@ export async function bulkUpdateAction(input: {
   } catch (e) {
     if (e instanceof ApiError) return { error: e.message };
     return { error: "Could not apply that change." };
+  }
+}
+
+/**
+ * Deleting many leads at once. Permanent, like the single delete, and scoped
+ * the same way: a sub-admin's id goes into the WHERE clause, so only their
+ * own leads can go.
+ */
+export async function bulkDeleteAction(ids: number[]): Promise<{ ok: true; deleted: number } | { error: string }> {
+  const me = await requireUser();
+  if (!hasPermission(me, "delete_leads")) return { error: "You do not have permission to delete leads." };
+
+  const clean = ids.filter((n) => Number.isInteger(n) && n > 0);
+  if (!clean.length) return { error: "Nothing was selected." };
+
+  try {
+    const res = await bulkDeleteLeads({ ids: clean, actor: me, ownerId: isAdminRole(me.role) ? null : me.id });
+    revalidatePath("/leads");
+    revalidatePath("/pipeline");
+    revalidatePath("/");
+    return { ok: true, deleted: res.deleted ?? 0 };
+  } catch (e) {
+    if (e instanceof ApiError) return { error: e.message };
+    return { error: "Could not delete those leads." };
   }
 }

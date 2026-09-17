@@ -3,9 +3,14 @@
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { importLeadsAction } from "../../../actions/leads";
-import type { BulkImportResult, BulkLeadRow, Campaign } from "@/lib/types";
+import { createPropertiesFromColumnsAction } from "../../../actions/lead-props";
+import type { BulkImportResult, BulkLeadRow, Campaign, LeadProperty } from "@/lib/types";
 
-type ColumnRole = "skip" | "name" | "email" | "phone" | "field";
+/**
+ * What a column becomes. `prop:<key>` fills one of the business's own lead
+ * properties; `newprop` creates a property from the column's header first.
+ */
+type ColumnRole = "skip" | "name" | "email" | "phone" | "company" | "field" | "newprop" | `prop:${string}`;
 
 interface ParsedFile {
   headers: string[];
@@ -17,10 +22,13 @@ const MAX_ROWS = 5000;
 export default function Importer({
   campaigns,
   isAdmin,
+  properties: initialProps = [],
 }: {
   campaigns: Campaign[];
   isAdmin: boolean;
+  properties?: LeadProperty[];
 }) {
+  const [properties, setProperties] = useState<LeadProperty[]>(initialProps);
   const fileRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -40,6 +48,11 @@ export default function Importer({
     if (/^(full ?name|name)$/.test(h)) return "name";
     if (/e-?mail/.test(h)) return "email";
     if (/phone|mobile|tel/.test(h)) return "phone";
+    if (/^(company|business|organi[sz]ation)( name)?$/.test(h)) return "company";
+    const prop = properties.find(
+      (p) => p.label.trim().toLowerCase() === h || p.key === h.replace(/[^a-z0-9]+/g, "_")
+    );
+    if (prop) return `prop:${prop.key}`;
     return "field";
   }
 
@@ -92,12 +105,13 @@ export default function Importer({
     }
   }
 
-  function buildRows(): BulkLeadRow[] {
+  function buildRows(props: LeadProperty[]): BulkLeadRow[] {
     if (!parsed) return [];
     const { headers, rows } = parsed;
+    const byLabel = new Map(props.map((p) => [p.label.trim().toLowerCase(), p.key]));
 
     return rows.map((cells) => {
-      const row: BulkLeadRow = { answers: [] };
+      const row: BulkLeadRow = { answers: [], props: {} };
       headers.forEach((h, i) => {
         const role = roles[i];
         const value = String(cells[i] ?? "").trim();
@@ -105,7 +119,13 @@ export default function Importer({
         if (role === "name") row.name = value;
         else if (role === "email") row.email = value;
         else if (role === "phone") row.phone = value;
-        else row.answers!.push({ label: h || `Column ${i + 1}`, value });
+        else if (role === "company") row.company = value;
+        else if (role.startsWith("prop:")) row.props![role.slice(5)] = value;
+        else if (role === "newprop") {
+          const key = byLabel.get((h || `Column ${i + 1}`).trim().toLowerCase());
+          if (key) row.props![key] = value;
+          else row.answers!.push({ label: h || `Column ${i + 1}`, value });
+        } else row.answers!.push({ label: h || `Column ${i + 1}`, value });
       });
       return row;
     });
@@ -115,21 +135,42 @@ export default function Importer({
     if (!parsed) return;
     setError(null);
     setBusy(true);
+    const headers = parsed.headers;
 
+    startTransition(async () => {
+      // Columns marked as new properties become properties first, so their
+      // values have somewhere to go.
+      let props = properties;
+      const newLabels = headers
+        .map((h, i) => (roles[i] === "newprop" ? (h || `Column ${i + 1}`).trim() : ""))
+        .filter(Boolean);
+      if (newLabels.length) {
+        const made = await createPropertiesFromColumnsAction(newLabels);
+        if ("error" in made) {
+          setBusy(false);
+          setError(made.error);
+          return;
+        }
+        props = made.properties;
+        setProperties(props);
+      }
+      await runImport(buildRows(props));
+    });
+  }
+
+  async function runImport(rows: BulkLeadRow[]) {
     const input = {
-      rows: buildRows(),
+      rows,
       formId: campaignChoice === "existing" ? (Number(campaignId) || null) : null,
       formName: campaignChoice === "new" ? campaignName.trim() : "",
       selfAssign: !isAdmin,
       unassigned: isAdmin && assignMode === "unassigned",
     };
 
-    startTransition(async () => {
-      const res = await importLeadsAction(input);
-      setBusy(false);
-      if (res.error) setError(res.error);
-      else if (res.result) setResult(res.result);
-    });
+    const res = await importLeadsAction(input);
+    setBusy(false);
+    if (res.error) setError(res.error);
+    else if (res.result) setResult(res.result);
   }
 
   if (result) {
@@ -195,8 +236,9 @@ export default function Importer({
               <h2>{fileName}</h2>
               <p style={{ marginTop: 0, fontSize: 13, color: "var(--muted)" }}>
                 {parsed.rows.length} row{parsed.rows.length === 1 ? "" : "s"} found. Tell us what
-                each column is — anything not mapped to name, email or phone is kept as a field
-                on the lead.
+                each column is. Map a column to one of your <strong>lead properties</strong> (like
+                Role), or choose <em>New property</em> to create one from that column. Anything
+                else is kept as a field on the lead.
               </p>
 
               <table className="tbl" style={{ marginTop: 4 }}>
@@ -226,6 +268,17 @@ export default function Importer({
                           <option value="name">Full name</option>
                           <option value="email">Email address</option>
                           <option value="phone">Phone number</option>
+                          <option value="company">Company</option>
+                          {properties.length > 0 && (
+                            <optgroup label="Lead properties">
+                              {properties.map((p) => (
+                                <option key={p.key} value={`prop:${p.key}`}>
+                                  {p.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          <option value="newprop">New property: {h || `Column ${i + 1}`}</option>
                           <option value="skip">Don&rsquo;t import</option>
                         </select>
                       </td>
@@ -397,6 +450,9 @@ function roleLabel(r: ColumnRole) {
   if (r === "name") return "Name";
   if (r === "email") return "Email";
   if (r === "phone") return "Phone";
+  if (r === "company") return "Company";
   if (r === "skip") return "Skipped";
+  if (r === "newprop") return "New property";
+  if (r.startsWith("prop:")) return "Property";
   return "Field";
 }
