@@ -180,6 +180,7 @@ export default async function TeamWorkPage({
                     <td data-l="Who">{t.assignee ?? "Unassigned"}</td>
                     <td data-l="Due" style={{ color: "var(--err)" }}>
                       {t.due_date}
+                      {t.due_time ? ` ${t.due_time}` : ""}
                     </td>
                     <td data-l="Stage">{t.stage}</td>
                   </tr>

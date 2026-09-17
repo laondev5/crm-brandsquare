@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import {
-  allSubadmins,
+  teamPeople,
   getToday,
   listLeads,
   listProjects,
@@ -36,7 +36,7 @@ type TabKey = (typeof TABS)[number]["key"];
 export default async function WorkPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; view?: string }>;
+  searchParams: Promise<{ tab?: string; view?: string; who?: string }>;
 }) {
   const me = await requireMember();
   const manager = isAdminRole(me.role);
@@ -45,25 +45,28 @@ export default async function WorkPage({
   const sp = await searchParams;
   const tab: TabKey = (TABS.find((t) => t.key === sp.tab)?.key ?? "today") as TabKey;
   const reportView = sp.view === "weekly" ? "weekly" : "daily";
+  // A manager can look at everyone's tasks here, not just their own.
+  const everyone = manager && sp.who === "all";
 
   const [today, mine, projects, history, people, dueToday] = await Promise.all([
     getToday(me).catch(() => ({ day: "", workday: null, now: "" })),
-    listWorkTasks(me, { assigned: "me" }).catch(() => ({ tasks: [], stages: [] })),
+    listWorkTasks(me, everyone ? {} : { assigned: "me" }).catch(() => ({ tasks: [], stages: [] })),
     listProjects(me)
       .then((r) => r.projects)
       .catch(() => []),
     workdayHistory(me, undefined, 30)
       .then((r) => r.history)
       .catch(() => []),
-    manager ? allSubadmins().catch(() => []) : Promise.resolve([]),
+    manager ? teamPeople().catch(() => []) : Promise.resolve([]),
     // Only what is actually late, for the nudge on the Today tab.
     listLeads({ status: "overdue", ownerId: scope, sort: "next", perPage: 10 })
       .then((r) => r.rows)
       .catch(() => []),
   ]);
 
-  const open = mine.tasks.filter((t) => t.stage !== "done").length;
-  const blocked = mine.tasks.filter((t) => t.stage === "blocked");
+  const own = everyone ? mine.tasks.filter((t) => t.assigned_to === me.id) : mine.tasks;
+  const open = own.filter((t) => t.stage !== "done").length;
+  const blocked = own.filter((t) => t.stage === "blocked");
 
   const href = (t: TabKey, view?: string) =>
     `/work?tab=${t}${view ? `&view=${view}` : ""}`;
@@ -150,6 +153,16 @@ export default async function WorkPage({
 
       {tab === "tasks" && (
         <>
+          {manager && (
+            <div className="tabs" style={{ marginBottom: 12 }}>
+              <Link href="/work?tab=tasks" className={everyone ? "" : "on"}>
+                Assigned to me
+              </Link>
+              <Link href="/work?tab=tasks&who=all" className={everyone ? "on" : ""}>
+                Everyone&rsquo;s tasks
+              </Link>
+            </div>
+          )}
           <p className="board-hint">
             Move a card as things change. Marking something blocked asks what is in the way, and
             that reason is what your manager sees — so it gets unblocked without a meeting.

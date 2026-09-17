@@ -141,6 +141,8 @@ export interface WorkTask {
   assigned_to: number | null;
   assignee: string | null;
   due_date: string | null;
+  /** "14:30", or blank for any time that day. */
+  due_time?: string;
   /** Why it is stuck. Carried with the move, not typed in afterwards. */
   blocker: string;
   blocked_at: string | null;

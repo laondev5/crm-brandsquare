@@ -186,7 +186,7 @@ export default async function MemberPage({
                     <small style={{ display: "block", color: t.stage === "blocked" ? "var(--err)" : "var(--muted)" }}>
                       {t.stage === "blocked" ? `Blocked: ${t.blocker || "no reason given"}` : cap(t.stage)}
                       {t.project && ` · ${t.project}`}
-                      {t.due_date && ` · due ${t.due_date}`}
+                      {t.due_date && ` · due ${t.due_date}${t.due_time ? ` ${t.due_time}` : ""}`}
                     </small>
                   </li>
                 ))}

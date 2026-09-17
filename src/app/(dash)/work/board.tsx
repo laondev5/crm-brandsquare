@@ -5,16 +5,25 @@ import { useRouter } from "next/navigation";
 import { deleteTaskAction, saveTaskAction } from "@/app/actions/work";
 import type { Project, WorkStage, WorkTask } from "@/lib/types";
 
-function dueLabel(d: string | null) {
+function dueLabel(d: string | null, time = "") {
   if (!d) return null;
   const due = new Date(d + "T00:00:00");
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const days = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+  const at = time ? ` at ${time}` : "";
   if (days < 0) return { text: `${Math.abs(days)}d overdue`, late: true };
-  if (days === 0) return { text: "Due today", late: false };
-  if (days === 1) return { text: "Due tomorrow", late: false };
-  return { text: `Due in ${days}d`, late: false };
+  if (days === 0) {
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    if (time && time < hhmm) return { text: `Was due at ${time}`, late: true };
+    return { text: `Due today${at}`, late: false };
+  }
+  if (days === 1) return { text: `Due tomorrow${at}`, late: false };
+  return {
+    text: `Due ${due.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}${at}`,
+    late: false,
+  };
 }
 
 /**
@@ -134,7 +143,7 @@ export default function Board({
                 {inColumn.length === 0 && <p className="board-msg">Nothing here.</p>}
 
                 {inColumn.map((t) => {
-                  const due = dueLabel(t.due_date);
+                  const due = dueLabel(t.due_date, t.due_time ?? "");
                   return (
                     <div
                       className={`board-card${due?.late ? " is-stale" : ""}`}
@@ -232,6 +241,7 @@ export default function Board({
                 assigned_to: Number(form.get("assigned_to")) || 0,
                 priority: String(form.get("priority") ?? "normal"),
                 due_date: String(form.get("due_date") ?? ""),
+                due_time: String(form.get("due_time") ?? ""),
                 stage: "todo",
               })
             )
@@ -286,8 +296,13 @@ export default function Board({
             </label>
 
             <label className="f">
-              <span>Due</span>
+              <span>Due date</span>
               <input type="date" name="due_date" />
+            </label>
+
+            <label className="f">
+              <span>Due time (optional)</span>
+              <input type="time" name="due_time" />
             </label>
           </div>
 

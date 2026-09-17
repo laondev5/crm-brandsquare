@@ -423,6 +423,12 @@ export async function listTeam() {
   return res.users;
 }
 
+/** Everyone a task can be handed to: the whole team, admins included. */
+export async function teamPeople() {
+  const res = await api.get<{ users: DashUser[] }>("/users");
+  return res.users.filter((u) => u.status !== "disabled");
+}
+
 export async function allSubadmins() {
   const res = await api.get<{ users: DashUser[] }>("/users", { scope: "subadmins" });
   return res.users;

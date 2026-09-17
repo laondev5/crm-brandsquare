@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
-import { allSubadmins, listProjects, listWorkTasks } from "@/lib/queries";
+import { teamPeople, listProjects, listWorkTasks } from "@/lib/queries";
 import { isAdminRole } from "@/lib/types";
 import Board from "../work/board";
 import ProjectBar from "./project-bar";
@@ -30,7 +30,7 @@ export default async function ProjectsPage({
       tasks: [],
       stages: [],
     })),
-    manager ? allSubadmins().catch(() => []) : Promise.resolve([]),
+    manager ? teamPeople().catch(() => []) : Promise.resolve([]),
   ]);
 
   const active = projects.find((p) => p.id === projectId) ?? null;
