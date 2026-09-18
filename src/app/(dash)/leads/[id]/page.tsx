@@ -53,6 +53,14 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
       ? ((await listWaTemplates().catch(() => null))?.templates ?? []).filter((t) => t.status === "APPROVED")
       : [];
 
+  // Everyone who has held this lead, oldest first, from the activity trail —
+  // the same record whatever screen the reassignment was made from.
+  const owners = [...activity]
+    .filter((a) => a.type === "assigned" && a.to_value && a.to_value !== "Unassigned")
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((a) => ({ name: a.to_value, since: a.created_at, by: a.actor_name }))
+    .filter((o, i, all) => i === 0 || all[i - 1].name !== o.name);
+
   const answers = parsePayload(lead.payload);
   // Same rule as the agenda: a follow-up that has been worked since its date
   // came round is not outstanding, whether or not the stage moved.
@@ -173,7 +181,14 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
 
           <div className="card">
             <h2>Notes</h2>
-            <Notes leadId={lead.id} notes={notes} meId={me.id} serverNow={full.now} />
+            <Notes
+              leadId={lead.id}
+              notes={notes}
+              meId={me.id}
+              serverNow={full.now}
+              owners={owners}
+              currentOwner={lead.owner ?? null}
+            />
           </div>
 
           {emailSettings && (

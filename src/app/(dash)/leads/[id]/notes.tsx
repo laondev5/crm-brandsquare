@@ -5,17 +5,31 @@ import { useRouter } from "next/navigation";
 import { deleteNoteAction, editNoteAction } from "@/app/actions/leads";
 import { noteColor, type Note } from "@/lib/types";
 
+export interface Ownership {
+  /** Who held the lead, as the activity trail named them. */
+  name: string;
+  /** When they took it. */
+  since: string;
+  /** Who handed it over — "Auto-assign" when the system did. */
+  by: string;
+}
+
 export default function Notes({
   leadId,
   notes,
   meId,
   serverNow,
+  owners = [],
+  currentOwner = null,
 }: {
   leadId: number;
   notes: Note[];
   meId: number;
   /** Server clock in unix seconds when this page was rendered. */
   serverNow: number;
+  /** Everyone who has held this lead, oldest first. */
+  owners?: Ownership[];
+  currentOwner?: string | null;
 }) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -79,12 +93,59 @@ export default function Notes({
     });
   }
 
+  // A lead that has changed hands: the new owner should read what the last
+  // person learned before picking up the phone.
+  const previous = owners.filter((o) => o.name !== currentOwner).map((o) => o.name);
+  const byPrevious = notes.filter((n) => n.author_name && n.author_name !== currentOwner && previous.includes(n.author_name));
+  const countBy = (name: string) => notes.filter((n) => n.author_name === name).length;
+
+  const history =
+    owners.length > 0 ? (
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 12, fontSize: 12.5 }}>
+        <span style={{ color: "var(--muted)", fontWeight: 600 }}>Handled by:</span>
+        {owners.map((o, i) => {
+          const now = i === owners.length - 1 && o.name === currentOwner;
+          return (
+            <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {i > 0 && <span style={{ color: "var(--muted)" }}>→</span>}
+              <span
+                title={`Since ${fmtDT(o.since)}${o.by ? ` · assigned by ${o.by}` : ""}`}
+                className="pill"
+                style={{
+                  background: now ? "var(--accent)" : "#f1efe8",
+                  color: now ? "var(--p)" : "#46434f",
+                  fontWeight: 600,
+                }}
+              >
+                {o.name} · {fmtDay(o.since)}
+                {countBy(o.name) > 0 && ` · ${countBy(o.name)} note${countBy(o.name) === 1 ? "" : "s"}`}
+                {now && " · now"}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    ) : null;
+
   if (notes.length === 0) {
-    return <p className="empty" style={{ padding: "18px 0" }}>No notes yet.</p>;
+    return (
+      <>
+        {history}
+        <p className="empty" style={{ padding: "18px 0" }}>No notes yet.</p>
+      </>
+    );
   }
 
   return (
     <>
+      {history}
+      {byPrevious.length > 0 && (
+        <div className="msg warn" style={{ fontSize: 12.5 }}>
+          This lead was handled by <strong>{[...new Set(byPrevious.map((n) => n.author_name))].join(", ")}</strong>{" "}
+          before{currentOwner ? ` ${currentOwner}` : ""}. Their {byPrevious.length} note
+          {byPrevious.length === 1 ? " is below — read it" : "s are below — read them"} before contacting the lead.
+        </div>
+      )}
       {error && (
         <div className="msg err" role="alert">
           {error}
@@ -134,14 +195,40 @@ export default function Notes({
                 </>
               ) : (
                 <>
-                  <p className="sticky__body">{n.body}</p>
-                  <footer className="sticky__foot">
-                    <span className="sticky__who">{n.author_name}</span>
-                    <span className="sticky__when">
-                      {fmtDT(n.created_at)}
-                      {n.updated_at && " · edited"}
+                  {/* Who wrote it, up front: when a lead changes hands, the
+                      first thing the new owner needs is whose words these are. */}
+                  <header style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        background: "rgba(0,0,0,.12)",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#46434f",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {(n.author_name || "?").trim().charAt(0).toUpperCase()}
                     </span>
-                  </footer>
+                    <span style={{ minWidth: 0 }}>
+                      <strong style={{ display: "block", fontSize: 12.5, color: "#2e2b38" }}>
+                        {n.author_name || "Unknown"}
+                        {mine && <span style={{ fontWeight: 400, color: "#6a6873" }}> (you)</span>}
+                      </strong>
+                      <span style={{ fontSize: 11, color: "#6a6873" }}>
+                        {fmtDT(n.created_at)}
+                        {n.updated_at && " · edited"}
+                        {n.author_name && currentOwner && n.author_name !== currentOwner && previous.includes(n.author_name) &&
+                          " · previous owner"}
+                      </span>
+                    </span>
+                  </header>
+                  <p className="sticky__body">{n.body}</p>
 
                   {canEdit && (
                     <div className="sticky__actions">
@@ -180,6 +267,11 @@ function fmtDT(d: string) {
         hour: "2-digit",
         minute: "2-digit",
       });
+}
+
+function fmtDay(d: string) {
+  const dt = new Date(d.replace(" ", "T"));
+  return isNaN(dt.getTime()) ? d : dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 /** Rounds up, so a note never reads "0m left" while it is still editable. */
