@@ -10,11 +10,13 @@ export default function SchedulePanel({
   meId,
   openAtStart = false,
   google,
+  canSetup = false,
 }: {
   people: PersonName[];
   meId: number;
   openAtStart?: boolean;
   google?: { connected: boolean; account: string };
+  canSetup?: boolean;
 }) {
   const [open, setOpen] = useState(openAtStart);
   const [perm, setPerm] = useState<string>("unsupported");
@@ -56,7 +58,7 @@ export default function SchedulePanel({
       {open && (
         <div className="card" style={{ maxWidth: 760, marginBottom: 20 }}>
           <h2>Schedule a meeting</h2>
-          <MeetingForm people={people} meId={meId} google={google} onDone={() => setOpen(false)} />
+          <MeetingForm people={people} meId={meId} google={google} canSetup={canSetup} onDone={() => setOpen(false)} />
         </div>
       )}
     </>

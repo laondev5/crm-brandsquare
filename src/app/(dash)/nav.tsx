@@ -109,6 +109,7 @@ const GROUPS: NavGroup[] = [
       { href: "/work", label: "My work", author: true, md: true },
       { href: "/projects", label: "Projects", author: true },
       { href: "/meetings", label: "Meetings", author: true, md: true },
+      { href: "/announcements", label: "Announcements", author: true, md: true },
       { href: "/work/team", label: "Team overview", adminOnly: true },
       { href: "/guide", label: "How this works", author: true, md: true },
       { href: "/team", label: "Members", adminOnly: true },

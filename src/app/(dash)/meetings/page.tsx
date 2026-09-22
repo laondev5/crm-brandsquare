@@ -79,7 +79,7 @@ export default async function MeetingsPage({
         </div>
       )}
 
-      {!past && <SchedulePanel people={people} meId={me.id} openAtStart={sp.new === "1"} google={data?.google} />}
+      {!past && <SchedulePanel people={people} meId={me.id} openAtStart={sp.new === "1"} google={data?.google} canSetup={isSuperRole(me.role)} />}
 
       {canOversee(me.role) && (
         <div className="tabs" style={{ marginBottom: 14 }}>

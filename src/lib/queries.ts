@@ -41,6 +41,9 @@ import type {
   PersonName,
   Meeting,
   GoogleSettings,
+  AppNotification,
+  Announcement,
+  Pulse,
   ExecutiveReport,
   WaDiagnostics,
   WaMessage,
@@ -1307,4 +1310,49 @@ export async function disconnectGoogle(actor: DashUser) {
 
 export async function testGoogle(actor: DashUser) {
   return api.post<{ ok: true; calendar: string }>("/google/test", { actor_id: actor.id });
+}
+
+/* ---------------- notifications and announcements ---------------- */
+
+export async function pulse(actor: DashUser) {
+  return api.get<Pulse>("/pulse", { actor_id: actor.id });
+}
+
+export async function listNotifications(actor: DashUser, limit = 40) {
+  return api.get<{ notifications: AppNotification[]; unread: number }>("/notifications", { actor_id: actor.id, limit });
+}
+
+export async function readNotifications(actor: DashUser, opts: { ids?: number[]; all?: boolean }) {
+  return api.post<{ ok: true; unread: number }>("/notifications/read", {
+    actor_id: actor.id,
+    ids: opts.ids ?? [],
+    all: opts.all ? 1 : 0,
+  });
+}
+
+export async function listAnnouncements(actor: DashUser) {
+  return api.get<{ published: Announcement[]; scheduled: Announcement[]; can_post: boolean }>("/announcements", {
+    actor_id: actor.id,
+  });
+}
+
+export interface AnnouncementInput {
+  title: string;
+  body: string;
+  audience: "all" | "people";
+  people?: number[];
+  /** Blank posts now. */
+  publish_at?: string;
+  send_email?: boolean;
+}
+
+export async function saveAnnouncement(actor: DashUser, id: number | null, body: AnnouncementInput) {
+  const payload = { ...body, send_email: body.send_email ? 1 : 0, actor_id: actor.id, crm_url: process.env.APP_URL ?? "" };
+  return id
+    ? api.patch<{ ok: true; announcement: Announcement; recipients: number }>(`/announcements/${id}`, payload)
+    : api.post<{ ok: true; announcement: Announcement; recipients: number }>("/announcements", payload);
+}
+
+export async function cancelAnnouncement(actor: DashUser, id: number) {
+  return api.post<{ ok: true }>(`/announcements/${id}/cancel`, { actor_id: actor.id });
 }

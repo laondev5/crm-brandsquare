@@ -140,9 +140,9 @@ export default async function GuidePage() {
         </Step>
 
         <Step n={2} title="The Google Meet room">
-          If a Google account is connected under Meeting settings, leave the link box empty — the room is made
-          for you and the meeting goes into everyone&rsquo;s Google Calendar. Otherwise press{" "}
-          <strong>Create a Meet link</strong>, copy the link from the Meet tab that opens and paste it in.
+          The CRM creates the Google Meet room itself through Google&rsquo;s API when you save, and puts the
+          meeting in everyone&rsquo;s Google Calendar — you never leave the CRM to set it up. This needs a Google
+          account connected once under <strong>Settings → Meeting settings</strong>; until then, paste a Meet link.
         </Step>
 
         <Step n={3} title="Everyone is told, and reminded">
@@ -154,6 +154,30 @@ export default async function GuidePage() {
         <Step n={4} title="Changing or cancelling">
           The organiser (or an admin) can <strong>Edit</strong> or <strong>Cancel meeting</strong> on its card;
           everyone in it is told. Today&rsquo;s meetings also show on <Link href="/work">My work</Link>.
+        </Step>
+      </div>
+
+      <div className="card">
+        <h2>Notifications and announcements</h2>
+
+        <Step n={1} title="The bell">
+          The bell at the top of the menu shows how many notifications you have not read — meeting invites, changes
+          and reminders, announcements, and blockers you were tagged on. Click it to go to{" "}
+          <Link href="/work">My work</Link>, where they are listed. Click one to open it; <strong>Mark all as read</strong>{" "}
+          clears the bell.
+        </Step>
+
+        <Step n={2} title="Announcements">
+          <Link href="/announcements">Team → Announcements</Link> shows everything posted for you, newest first.
+          {overseer && (
+            <>
+              {" "}
+              To post one, press <strong>+ New announcement</strong>, write it, then choose <strong>@all</strong> for
+              everyone on the CRM or <strong>Tag people</strong> for just some. Choose <strong>Post now</strong> or{" "}
+              <strong>Schedule</strong> and a time. Everyone it reaches gets it in their bell and as a pop-up, and by
+              email if <strong>Also email it to them</strong> is ticked. A scheduled one can be cancelled before it goes out.
+            </>
+          )}
         </Step>
       </div>
 

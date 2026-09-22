@@ -1389,3 +1389,41 @@ export interface GoogleSettings {
   connected_at: string;
   last_error: string;
 }
+
+/* ---------------- notifications and announcements ---------------- */
+
+/** One line behind the bell. */
+export interface AppNotification {
+  id: number;
+  kind: "meeting_invite" | "meeting_update" | "meeting_cancel" | "meeting_reminder" | "blocker" | "announcement" | string;
+  title: string;
+  body: string;
+  /** A CRM path, e.g. "/meetings". */
+  link: string;
+  ref_id: number;
+  created_at: string;
+  read: boolean;
+}
+
+export interface Announcement {
+  id: number;
+  title: string;
+  body: string;
+  audience: "all" | "people";
+  people: { id: number; name: string }[];
+  publish_at: string;
+  published_at: string | null;
+  status: "scheduled" | "published" | "cancelled";
+  send_email: boolean;
+  created_by: number;
+  author_name: string;
+  can_edit: boolean;
+}
+
+/** What every open CRM tab asks for every half minute. */
+export interface Pulse {
+  unread: number;
+  soon: Meeting[];
+  invites: Meeting[];
+  announcements: AppNotification[];
+}

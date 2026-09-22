@@ -7,6 +7,8 @@ import NavLinks from "./nav";
 import Palette from "./palette";
 import Shell from "./shell";
 import MeetingAlerts from "./meeting-alerts";
+import PulseProvider from "./pulse";
+import NotificationBell from "./bell";
 import { isAdminRole, isSuperRole, ROLE_LABEL } from "@/lib/types";
 
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
@@ -14,12 +16,17 @@ export default async function DashLayout({ children }: { children: React.ReactNo
   if (!me) redirect("/login");
 
   return (
+    <PulseProvider>
     <Shell
+      bell={<NotificationBell />}
       sidebar={
         <>
-          <Link href="/" className="brand">
-            <Image src="/logo-icon.webp" alt="" width={22} height={22} className="brand-mark" priority /> Brandsquare
-          </Link>
+          <div className="brand-row">
+            <Link href="/" className="brand">
+              <Image src="/logo-icon.webp" alt="" width={22} height={22} className="brand-mark" priority /> Brandsquare
+            </Link>
+            <NotificationBell />
+          </div>
 
           {me.role !== "author" && me.role !== "md" && <Palette isAdmin={isAdminRole(me.role)} />}
 
@@ -47,5 +54,6 @@ export default async function DashLayout({ children }: { children: React.ReactNo
       {children}
       <MeetingAlerts />
     </Shell>
+    </PulseProvider>
   );
 }

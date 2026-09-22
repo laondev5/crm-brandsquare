@@ -411,6 +411,47 @@
     .wa-desk.has-panel { grid-template-columns: 1fr; }
     .wa-desk__panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(330px, 92%); z-index: 5; box-shadow: -12px 0 30px rgba(10, 7, 48, .14); }
   }
+  /* ---------- notification bell ---------- */
+  .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .bell { position: relative; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: var(--txt); border: 1px solid var(--line); background: var(--card); transition: background .15s, color .15s; flex: none; }
+  .bell:hover { background: #fff3e9; color: var(--p); }
+  .bell.has-unread { color: var(--p); border-color: #f6cfa9; }
+  .bell.has-unread svg { animation: bell-ring 2.4s ease-in-out 1; transform-origin: top center; }
+  @keyframes bell-ring { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(14deg); } 20%, 40% { transform: rotate(-12deg); } }
+  .bell__count { position: absolute; top: -6px; right: -7px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 999px; background: var(--err); color: #fff; font-size: 11px; font-weight: 700; line-height: 19px; text-align: center; box-shadow: 0 0 0 2px var(--card); }
+  .topbar__bell { margin-left: auto; }
+  .notif-list { list-style: none; margin: 0; padding: 0; }
+  .notif { display: flex; gap: 12px; align-items: flex-start; padding: 11px 6px; border-bottom: 1px solid var(--line); }
+  .notif:last-child { border-bottom: 0; }
+  .notif.is-unread { background: #fffaf5; }
+  .notif__icon { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 14px; background: #f1f1f5; }
+  .notif__icon.k-announcement { background: #fff3e9; }
+  .notif__icon.k-blocker { background: #fcebeb; }
+  .notif__icon.k-meeting_reminder, .notif__icon.k-meeting_invite, .notif__icon.k-meeting_update { background: #eeedfe; }
+  .notif__main { flex: 1; min-width: 0; }
+  .notif__main a, .notif__main button.notif__title { color: var(--ink); font-weight: 600; background: none; border: 0; padding: 0; font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+  .notif__main a:hover, .notif__main button.notif__title:hover { color: var(--p); }
+  .notif__body { font-size: 12.5px; color: var(--txt); margin-top: 2px; white-space: pre-wrap; }
+  .notif__time { font-size: 11.5px; color: var(--muted); }
+  .notif__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--p); margin-top: 11px; flex: none; }
+  .mtg-alert.is-ann { border-left-color: var(--ok); }
+  .mtg-alert.is-ann .mtg-alert__top { color: var(--ok); }
+  .mtg-alert__body { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* ---------- announcements ---------- */
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .seg label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; font-size: 13px; background: var(--card); }
+  .seg label input { width: auto; margin: 0; }
+  .seg label.on { border-color: var(--p); background: #fff7f0; color: var(--ink); font-weight: 600; }
+  .seg label b { color: var(--p); }
+  .ann__head { display: flex; gap: 12px; align-items: flex-start; }
+  .ann__avatar { width: 36px; height: 36px; border-radius: 50%; background: #fff3e9; color: var(--pd); display: grid; place-items: center; font-weight: 700; flex: none; }
+  .ann__title { margin: 0 0 2px !important; font-size: 16px !important; }
+  .ann__tag { display: inline-block; background: #fff3e9; color: var(--pd); border-radius: 999px; padding: 0 8px; font-size: 11.5px; font-weight: 600; margin-right: 4px; }
+  .ann__body { margin: 12px 0 0 48px; white-space: pre-wrap; font-size: 14px; line-height: 1.65; color: var(--txt); }
+  .ann:target { border-color: var(--p); box-shadow: 0 0 0 3px rgba(248, 110, 6, .12); }
+  @media (max-width: 640px) { .ann__body { margin-left: 0; } }
+
   /* ---------- meetings ---------- */
   .mtg-day { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 6px 0 10px; }
   .mtg-card { display: grid; grid-template-columns: 78px 1fr auto; gap: 16px; align-items: start; }
@@ -429,6 +470,10 @@
   .mtg-chip.is-org { background: #fff3e9; border-color: #f6cfa9; color: var(--pd); font-weight: 600; }
   .mtg-card__actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; min-width: 190px; }
   .mtg-join { justify-content: center; }
+  .mtg-auto { display: flex; align-items: center; gap: 12px; border: 1px solid #cfe3d3; background: #f1f9f3; border-radius: 10px; padding: 10px 12px; }
+  .mtg-auto__icon { font-size: 20px; }
+  .mtg-auto b { display: block; color: var(--ink); font-size: 13.5px; }
+  .mtg-auto small { display: block; color: var(--muted); font-size: 12px; word-break: break-all; }
   .mtg-form__row { display: grid; grid-template-columns: 1fr 200px; gap: 14px; }
   .mtg-form__link { display: flex; gap: 8px; }
   .mtg-form__link input { flex: 1; }

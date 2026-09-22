@@ -29,15 +29,21 @@ export default function MeetingForm({
   meeting,
   onDone,
   google,
+  canSetup = false,
 }: {
   people: PersonName[];
   meId: number;
   meeting?: Meeting;
   onDone?: () => void;
-  /** With a Google account connected, the link is optional: Google makes the room. */
+  /** With a Google account connected, the room is made by the Google API. */
   google?: { connected: boolean; account: string };
+  /** Super admin / IT: can connect Google from Meeting settings. */
+  canSetup?: boolean;
 }) {
   const auto = !!google?.connected;
+  // With Google connected the link box is not needed at all; it only opens
+  // for someone who deliberately wants a different room.
+  const [ownLink, setOwnLink] = useState(false);
   const router = useRouter();
   const [state, action, pending] = useActionState(saveMeetingAction, null);
   const [picked, setPicked] = useState<number[]>(
@@ -54,6 +60,7 @@ export default function MeetingForm({
         // Ready for the next one.
         setPicked([]);
         setUrl("");
+        setOwnLink(false);
       }
     }
   }, [state, meeting, onDone, router]);
@@ -101,29 +108,59 @@ export default function MeetingForm({
       </div>
 
       <div className="f">
-        <span>Google Meet link</span>
-        <div className="mtg-form__link">
-          <input
-            type="url"
-            name="meet_url"
-            required={!auto}
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder={auto ? (meeting ? "Leave as it is to keep the same room" : "Leave empty — a Meet room is made automatically") : "https://meet.google.com/abc-defg-hij"}
-          />
-          {!auto && (
-            <a href="https://meet.google.com/new" target="_blank" rel="noopener noreferrer" className="btn ghost">
-              Create a Meet link
-            </a>
-          )}
-        </div>
-        <small style={{ color: looksLikeMeet ? "var(--muted)" : "#8a5a00", fontSize: 12 }}>
-          {auto
-            ? `Leave it empty and ${google?.account || "the connected Google account"} creates the Meet room and puts the meeting in everyone's Google Calendar. Paste a link only to use a different room.`
-            : looksLikeMeet
-              ? "Create a Meet link opens Google Meet in a new tab with a fresh room. Copy its link and paste it here."
-              : "That is not a Google Meet link. It will still work if it is a video call link people can open."}
-        </small>
+        <span>Google Meet</span>
+        {auto && !ownLink ? (
+          <div className="mtg-auto">
+            <span className="mtg-auto__icon" aria-hidden="true">🎥</span>
+            <div style={{ flex: 1 }}>
+              <b>{meeting ? "Keeps its Google Meet room" : "A Google Meet room is created for this meeting"}</b>
+              <small>
+                {meeting
+                  ? meeting.meet_url
+                  : `Made by ${google?.account || "the connected Google account"} when you save, and added to everyone's Google Calendar.`}
+              </small>
+            </div>
+            <button type="button" className="btn ghost sm" onClick={() => setOwnLink(true)}>
+              Use a different link
+            </button>
+            <input type="hidden" name="meet_url" value={meeting ? meeting.meet_url : ""} />
+          </div>
+        ) : (
+          <>
+            <div className="mtg-form__link">
+              <input
+                type="url"
+                name="meet_url"
+                required={!auto}
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://meet.google.com/abc-defg-hij"
+              />
+              {auto && (
+                <button type="button" className="btn ghost" onClick={() => { setOwnLink(false); setUrl(meeting?.meet_url ?? ""); }}>
+                  Let Google make it
+                </button>
+              )}
+            </div>
+            {!auto && (
+              <div className="msg warn" style={{ margin: "8px 0 0", fontSize: 12.5 }}>
+                Meet rooms are not being created in the CRM yet because no Google account is connected.{" "}
+                {canSetup ? (
+                  <>
+                    <a href="/meetings/settings">Connect one in Meeting settings</a> and this box goes away.
+                  </>
+                ) : (
+                  "Ask the super admin to connect one in Meeting settings. Until then, paste a Meet link here."
+                )}
+              </div>
+            )}
+            {url && !looksLikeMeet && (
+              <small style={{ color: "#8a5a00", fontSize: 12 }}>
+                That is not a Google Meet link. It still works if it is a video call link people can open.
+              </small>
+            )}
+          </>
+        )}
       </div>
 
       <div className="f">

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { seenMeetingAction } from "@/app/actions/meetings";
+import { readNotificationsAction } from "@/app/actions/notifications";
 import type { Meeting } from "@/lib/types";
+import { usePulse } from "./pulse";
 
-const POLL_MS = 30_000;
 const KEY = "bsq-meeting-dismissed";
 
 function readDismissed(): string[] {
@@ -42,83 +43,59 @@ function desktop(title: string, body: string, url?: string) {
 }
 
 /**
- * The in-app half of meeting notifications, on every page of the CRM.
- *
- * Asks every half minute for meetings about to start and invites not yet
- * seen. A meeting inside ten minutes shows a countdown card with Join; a new
- * invite shows a card that opens the Meetings page. Each shows once per tab
- * until dismissed.
+ * The pop-ups, on every page of the CRM: a meeting inside ten minutes (with
+ * a countdown and Join), a new meeting invite, and a new announcement. Fed by
+ * the shared live check; each shows once per tab until dismissed.
  */
 export default function MeetingAlerts() {
-  const [soon, setSoon] = useState<Meeting[]>([]);
-  const [invites, setInvites] = useState<Meeting[]>([]);
+  const { soon, invites, announcements, fetchedAt, refresh } = usePulse();
   const [dismissed, setDismissed] = useState<string[]>([]);
-  const [fetchedAt, setFetchedAt] = useState(0);
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   const rung = useRef<Set<string>>(new Set());
-
-  const load = useCallback(async () => {
-    try {
-      const r = await fetch("/api/meetings/soon", { cache: "no-store" });
-      if (!r.ok) return;
-      const d = (await r.json()) as { soon: Meeting[]; invites: Meeting[] };
-      setSoon(d.soon ?? []);
-      setInvites(d.invites ?? []);
-      setFetchedAt(Date.now());
-    } catch {
-      // Offline for a moment; the next check will catch up.
-    }
-  }, []);
 
   useEffect(() => {
     setDismissed(readDismissed());
-    load();
-    const t = setInterval(load, POLL_MS);
     const c = setInterval(() => setTick((n) => n + 1), 15_000);
-    const onFocus = () => load();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      clearInterval(t);
-      clearInterval(c);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [load]);
+    return () => clearInterval(c);
+  }, []);
 
-  // Minutes to go, counted down locally between checks.
   const minsLeft = (m: Meeting) => m.starts_in_min - Math.floor((Date.now() - fetchedAt) / 60000);
 
   const showSoon = soon.filter((m) => !dismissed.includes(`s${m.id}`));
   const showInv = invites.filter((m) => !dismissed.includes(`i${m.id}`) && !soon.some((s) => s.id === m.id));
+  const showAnn = announcements.filter((a) => !dismissed.includes(`a${a.id}`));
 
   useEffect(() => {
     for (const m of showSoon) {
-      const k = `s${m.id}`;
-      if (rung.current.has(k)) continue;
-      rung.current.add(k);
+      if (rung.current.has(`s${m.id}`)) continue;
+      rung.current.add(`s${m.id}`);
       const left = minsLeft(m);
       desktop(left > 0 ? `Starts in ${left} min: ${m.title}` : `Happening now: ${m.title}`, "Click to join on Google Meet.", m.meet_url);
     }
     for (const m of showInv) {
-      const k = `i${m.id}`;
-      if (rung.current.has(k)) continue;
-      rung.current.add(k);
+      if (rung.current.has(`i${m.id}`)) continue;
+      rung.current.add(`i${m.id}`);
       desktop(`Meeting invite: ${m.title}`, `${when(m.start_at)} · from ${m.organizer_name}`);
     }
+    for (const a of showAnn) {
+      if (rung.current.has(`a${a.id}`)) continue;
+      rung.current.add(`a${a.id}`);
+      desktop(`Announcement: ${a.title}`, a.body);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [soon, invites, dismissed]);
+  }, [soon, invites, announcements, dismissed]);
 
-  const dismiss = (key: string, seenId?: number) => {
+  const dismiss = (key: string, after?: () => Promise<unknown>) => {
     const next = [...dismissed, key];
     setDismissed(next);
     writeDismissed(next);
-    if (seenId) seenMeetingAction(seenId);
+    if (after) after().then(refresh);
   };
 
-  if (showSoon.length === 0 && showInv.length === 0) return null;
-  void tick;
+  if (showSoon.length === 0 && showInv.length === 0 && showAnn.length === 0) return null;
 
   return (
-    <div className="mtg-alerts" role="region" aria-label="Meeting notifications">
+    <div className="mtg-alerts" role="region" aria-label="Notifications">
       {showSoon.map((m) => {
         const left = minsLeft(m);
         return (
@@ -144,7 +121,7 @@ export default function MeetingAlerts() {
         <div key={`i${m.id}`} className="mtg-alert">
           <div className="mtg-alert__top">
             <strong>New meeting invite</strong>
-            <button type="button" className="mtg-alert__x" aria-label="Dismiss" onClick={() => dismiss(`i${m.id}`, m.id)}>
+            <button type="button" className="mtg-alert__x" aria-label="Dismiss" onClick={() => dismiss(`i${m.id}`, () => seenMeetingAction(m.id))}>
               ×
             </button>
           </div>
@@ -152,8 +129,32 @@ export default function MeetingAlerts() {
           <div className="mtg-alert__meta">
             {when(m.start_at)} · {m.duration_min} min · from {m.organizer_name}
           </div>
-          <Link href="/meetings" className="btn ghost sm" onClick={() => dismiss(`i${m.id}`, m.id)}>
+          <Link href="/meetings" className="btn ghost sm" onClick={() => dismiss(`i${m.id}`, () => seenMeetingAction(m.id))}>
             View meeting
+          </Link>
+        </div>
+      ))}
+      {showAnn.map((a) => (
+        <div key={`a${a.id}`} className="mtg-alert is-ann">
+          <div className="mtg-alert__top">
+            <strong>Announcement</strong>
+            <button
+              type="button"
+              className="mtg-alert__x"
+              aria-label="Dismiss"
+              onClick={() => dismiss(`a${a.id}`, () => readNotificationsAction({ ids: [a.id] }))}
+            >
+              ×
+            </button>
+          </div>
+          <div className="mtg-alert__title">{a.title}</div>
+          {a.body && <div className="mtg-alert__meta mtg-alert__body">{a.body}</div>}
+          <Link
+            href={a.link || "/announcements"}
+            className="btn ghost sm"
+            onClick={() => dismiss(`a${a.id}`, () => readNotificationsAction({ ids: [a.id] }))}
+          >
+            Read it
           </Link>
         </div>
       ))}

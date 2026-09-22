@@ -5,6 +5,7 @@ import {
   listPeopleNames,
   myBlockers,
   listMeetings,
+  listNotifications,
   getToday,
   listLeads,
   listProjects,
@@ -18,6 +19,7 @@ import Board from "./board";
 import FollowUps from "./follow-ups";
 import Reports from "./reports";
 import TaggedBlockers from "./tagged-blockers";
+import NotificationsCard from "./notifications";
 
 const TABS = [
   { key: "today", label: "Today" },
@@ -52,7 +54,7 @@ export default async function WorkPage({
   // A manager can look at everyone's tasks here, not just their own.
   const everyone = manager && sp.who === "all";
 
-  const [today, mine, projects, history, people, dueToday, names, tagged, meetings] = await Promise.all([
+  const [today, mine, projects, history, people, dueToday, names, tagged, meetings, notes] = await Promise.all([
     getToday(me).catch(() => ({ day: "", workday: null, now: "" })),
     listWorkTasks(me, everyone ? {} : { assigned: "me" }).catch(() => ({ tasks: [], stages: [] })),
     listProjects(me)
@@ -69,6 +71,7 @@ export default async function WorkPage({
     listPeopleNames().catch(() => []),
     myBlockers(me).catch(() => []),
     listMeetings(me).then((r) => r.meetings).catch(() => []),
+    listNotifications(me).catch(() => ({ notifications: [], unread: 0 })),
   ]);
   // The meetings still to come today, for the Today tab.
   const todayKey = (today.now || "").slice(0, 10);
@@ -107,6 +110,8 @@ export default async function WorkPage({
 
       {/* Blockers teammates have tagged this person on -- above the tabs, so
           it is seen whichever tab the page opens on. */}
+      <NotificationsCard items={notes.notifications} unread={notes.unread} />
+
       <TaggedBlockers blockers={tagged} />
 
       <div className="tabs">

@@ -12,9 +12,12 @@ import { usePathname } from "next/navigation";
  */
 export default function Shell({
   sidebar,
+  bell,
   children,
 }: {
   sidebar: React.ReactNode;
+  /** The notification bell, repeated in the phone top bar where the sidebar is hidden. */
+  bell?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -67,6 +70,7 @@ export default function Shell({
           <span aria-hidden="true" />
         </button>
         <span className="topbar__title">Brandsquare</span>
+        {bell && <span className="topbar__bell">{bell}</span>}
       </header>
 
       <aside id="dash-side" className="side" ref={asideRef} aria-hidden={undefined}>
