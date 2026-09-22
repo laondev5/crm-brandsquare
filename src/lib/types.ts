@@ -1335,3 +1335,57 @@ export interface ExecutiveReport {
   reports: Workday[];
   activity: ExecActivity[];
 }
+
+/* ---------------- meetings ---------------- */
+
+/** A meeting held on Google Meet and organised in the CRM. */
+export interface Meeting {
+  id: number;
+  title: string;
+  agenda: string;
+  /** Site-local "Y-m-d H:i:s". */
+  start_at: string;
+  end_at: string;
+  duration_min: number;
+  meet_url: string;
+  status: "scheduled" | "cancelled";
+  /** On the connected Google account's calendar (Google sent the invites). */
+  on_google?: boolean;
+  created_by: number;
+  organizer_name: string;
+  people: { id: number; name: string; role: Role }[];
+  /** Minutes until it starts, by the server's clock; negative once running. */
+  starts_in_min: number;
+  is_organizer: boolean;
+  can_edit: boolean;
+  /** An invite this person has not looked at yet. */
+  unseen: boolean;
+  reminded_at: string | null;
+}
+
+/** Google Calendar's own "add event" link, for people who want it there too. */
+export function googleCalendarLink(m: Pick<Meeting, "title" | "agenda" | "start_at" | "end_at" | "meet_url">) {
+  // The times are the site's (Lagos, UTC+1); Google wants UTC.
+  const utc = (s: string) => {
+    const d = new Date(s.replace(" ", "T") + "+01:00");
+    return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  };
+  const p = new URLSearchParams({
+    action: "TEMPLATE",
+    text: m.title,
+    dates: `${utc(m.start_at)}/${utc(m.end_at)}`,
+    details: `${m.agenda ? m.agenda + "\n\n" : ""}Join: ${m.meet_url}`,
+    location: m.meet_url,
+  });
+  return `https://calendar.google.com/calendar/render?${p}`;
+}
+
+/** The Google account meetings are held on. Secrets never come back to the browser. */
+export interface GoogleSettings {
+  client_id: string;
+  has_secret: boolean;
+  connected: boolean;
+  account_email: string;
+  connected_at: string;
+  last_error: string;
+}

@@ -4,6 +4,7 @@ import {
   teamPeople,
   listPeopleNames,
   myBlockers,
+  listMeetings,
   getToday,
   listLeads,
   listProjects,
@@ -51,7 +52,7 @@ export default async function WorkPage({
   // A manager can look at everyone's tasks here, not just their own.
   const everyone = manager && sp.who === "all";
 
-  const [today, mine, projects, history, people, dueToday, names, tagged] = await Promise.all([
+  const [today, mine, projects, history, people, dueToday, names, tagged, meetings] = await Promise.all([
     getToday(me).catch(() => ({ day: "", workday: null, now: "" })),
     listWorkTasks(me, everyone ? {} : { assigned: "me" }).catch(() => ({ tasks: [], stages: [] })),
     listProjects(me)
@@ -67,7 +68,11 @@ export default async function WorkPage({
       .catch(() => []),
     listPeopleNames().catch(() => []),
     myBlockers(me).catch(() => []),
+    listMeetings(me).then((r) => r.meetings).catch(() => []),
   ]);
+  // The meetings still to come today, for the Today tab.
+  const todayKey = (today.now || "").slice(0, 10);
+  const meetingsToday = meetings.filter((m) => todayKey && m.start_at.slice(0, 10) === todayKey);
 
   const own = everyone ? mine.tasks.filter((t) => t.assigned_to === me.id) : mine.tasks;
   const open = own.filter((t) => t.stage !== "done").length;
@@ -118,6 +123,37 @@ export default async function WorkPage({
       {tab === "today" && (
         <>
           <DayCard workday={today.workday} serverNow={today.now} people={names} meId={me.id} />
+
+          {meetingsToday.length > 0 && (
+            <div className="card">
+              <h2>Your meetings today</h2>
+              <table className="tbl">
+                <tbody>
+                  {meetingsToday.map((m) => (
+                    <tr key={m.id}>
+                      <td data-l="Time" style={{ width: 90, fontWeight: 700, color: "var(--ink)" }}>
+                        {m.start_at.slice(11, 16)}
+                      </td>
+                      <td data-l="Meeting">
+                        <strong style={{ color: "var(--ink)" }}>{m.title}</strong>
+                        <small style={{ display: "block", color: "var(--muted)" }}>
+                          {m.duration_min} min · {m.people.length} people · {m.organizer_name}
+                        </small>
+                      </td>
+                      <td data-l="" style={{ width: 170, textAlign: "right" }}>
+                        <a className={`btn sm${m.starts_in_min <= 10 ? "" : " ghost"}`} href={m.meet_url} target="_blank" rel="noopener noreferrer">
+                          Join Google Meet
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p style={{ margin: "10px 0 0" }}>
+                <Link href="/meetings">All meetings</Link>
+              </p>
+            </div>
+          )}
 
           {/* The two things that would otherwise bite you today, surfaced
               here rather than left on a tab you might not open. */}

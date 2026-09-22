@@ -411,6 +411,56 @@
     .wa-desk.has-panel { grid-template-columns: 1fr; }
     .wa-desk__panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(330px, 92%); z-index: 5; box-shadow: -12px 0 30px rgba(10, 7, 48, .14); }
   }
+  /* ---------- meetings ---------- */
+  .mtg-day { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 6px 0 10px; }
+  .mtg-card { display: grid; grid-template-columns: 78px 1fr auto; gap: 16px; align-items: start; }
+  .mtg-card.is-live { border-color: var(--p); box-shadow: 0 0 0 3px rgba(248, 110, 6, .12); }
+  .mtg-card.is-cancelled { opacity: .6; }
+  .mtg-card.is-cancelled strong { text-decoration: line-through; }
+  .mtg-card__time { border-right: 1px solid var(--line); padding-right: 12px; }
+  .mtg-card__time b { display: block; font-size: 20px; color: var(--ink); line-height: 1.1; }
+  .mtg-card__time span { font-size: 12px; color: var(--muted); }
+  .mtg-card__head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .mtg-card__head strong { font-size: 15px; color: var(--ink); }
+  .mtg-card__meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .mtg-card__agenda { margin: 8px 0 0; white-space: pre-wrap; font-size: 13.5px; }
+  .mtg-card__people { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .mtg-chip { background: #f4f4f8; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--txt); }
+  .mtg-chip.is-org { background: #fff3e9; border-color: #f6cfa9; color: var(--pd); font-weight: 600; }
+  .mtg-card__actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; min-width: 190px; }
+  .mtg-join { justify-content: center; }
+  .mtg-form__row { display: grid; grid-template-columns: 1fr 200px; gap: 14px; }
+  .mtg-form__link { display: flex; gap: 8px; }
+  .mtg-form__link input { flex: 1; }
+  .mtg-people { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .mtg-people__bar { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid var(--line); background: #fafafc; }
+  .mtg-people__bar input { flex: 1; }
+  .mtg-people__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; padding: 8px; max-height: 240px; overflow-y: auto; }
+  .mtg-person { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; cursor: pointer; }
+  .mtg-person input { width: auto; margin: 0; }
+  .mtg-person.is-on { border-color: var(--p); background: #fff7f0; }
+  .mtg-person b { display: block; font-size: 13px; color: var(--ink); font-weight: 600; line-height: 1.2; }
+  .mtg-person small { font-size: 11px; color: var(--muted); }
+  .mtg-person__avatar { width: 26px; height: 26px; border-radius: 50%; background: #eeedfe; color: var(--st-contacted); display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
+  .mtg-alerts { position: fixed; right: 18px; bottom: 18px; z-index: 60; display: grid; gap: 10px; width: min(340px, calc(100vw - 36px)); }
+  .mtg-alert { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--st-contacted); border-radius: 12px; padding: 12px 14px; box-shadow: 0 12px 32px rgba(7, 0, 58, .16); display: grid; gap: 4px; }
+  .mtg-alert.is-soon { border-left-color: var(--p); }
+  .mtg-alert__top { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--pd); }
+  .mtg-alert:not(.is-soon) .mtg-alert__top { color: var(--st-contacted); }
+  .mtg-alert__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--p); animation: mtg-pulse 1.4s infinite; }
+  @keyframes mtg-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  .mtg-alert__x { margin-left: auto; background: none; border: 0; font-size: 18px; line-height: 1; color: var(--muted); cursor: pointer; }
+  .mtg-alert__title { font-weight: 700; color: var(--ink); font-size: 14px; }
+  .mtg-alert__meta { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .steps { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 10px; font-size: 13.5px; }
+  .steps input { margin-top: 6px; }
+  @media (max-width: 760px) {
+    .mtg-card { grid-template-columns: 1fr; }
+    .mtg-card__time { border-right: 0; padding-right: 0; display: flex; gap: 8px; align-items: baseline; }
+    .mtg-form__row { grid-template-columns: 1fr; }
+    .mtg-form__link { flex-direction: column; }
+  }
+
   /* ---------- executive report ---------- */
   .exec-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
   .exec-kpi { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 15px 17px; display: flex; flex-direction: column; gap: 3px; }

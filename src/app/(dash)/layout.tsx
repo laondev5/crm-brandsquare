@@ -6,6 +6,7 @@ import { logoutAction } from "../actions/auth";
 import NavLinks from "./nav";
 import Palette from "./palette";
 import Shell from "./shell";
+import MeetingAlerts from "./meeting-alerts";
 import { isAdminRole, isSuperRole, ROLE_LABEL } from "@/lib/types";
 
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
@@ -44,6 +45,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
       }
     >
       {children}
+      <MeetingAlerts />
     </Shell>
   );
 }

@@ -130,6 +130,33 @@ export default async function GuidePage() {
       </div>
       )}
 
+      <div className="card">
+        <h2>Meetings</h2>
+
+        <Step n={1} title="Schedule one and tag the people">
+          <Link href="/meetings">Team → Meetings</Link> → <strong>+ Schedule a meeting</strong>. Give it a title,
+          the date and time and how long, then tick everyone who should be there (or press{" "}
+          <strong>Everyone</strong>). An agenda is optional.
+        </Step>
+
+        <Step n={2} title="The Google Meet room">
+          If a Google account is connected under Meeting settings, leave the link box empty — the room is made
+          for you and the meeting goes into everyone&rsquo;s Google Calendar. Otherwise press{" "}
+          <strong>Create a Meet link</strong>, copy the link from the Meet tab that opens and paste it in.
+        </Step>
+
+        <Step n={3} title="Everyone is told, and reminded">
+          The people you tag get an email invite and a pop-up in the CRM. Ten minutes before it starts, everyone
+          gets a reminder email and a pop-up with a <strong>Join Google Meet</strong> button. Press{" "}
+          <strong>Turn on desktop reminders</strong> on the Meetings page to get it even when the CRM is in another tab.
+        </Step>
+
+        <Step n={4} title="Changing or cancelling">
+          The organiser (or an admin) can <strong>Edit</strong> or <strong>Cancel meeting</strong> on its card;
+          everyone in it is told. Today&rsquo;s meetings also show on <Link href="/work">My work</Link>.
+        </Step>
+      </div>
+
       {!md && (
       <div className="card">
         <h2>Projects</h2>

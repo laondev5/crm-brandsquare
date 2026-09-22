@@ -39,6 +39,8 @@ import type {
   MetaEvent,
   Workday,
   PersonName,
+  Meeting,
+  GoogleSettings,
   ExecutiveReport,
   WaDiagnostics,
   WaMessage,
@@ -1222,4 +1224,87 @@ export async function getBlogAnalytics(actor: DashUser, days = 30) {
 
 export async function getBlogPostAnalytics(actor: DashUser, id: number, days = 30) {
   return api.get<BlogPostAnalytics>(`/blog/posts/${id}/analytics`, { actor_id: actor.id, days });
+}
+
+/* ---------------- meetings ---------------- */
+
+export async function listMeetings(
+  actor: DashUser,
+  opts: { when?: "upcoming" | "past"; all?: boolean; markSeen?: boolean } = {}
+) {
+  return api.get<{
+    meetings: Meeting[];
+    now: string;
+    google?: { connected: boolean; account: string };
+  }>("/meetings", {
+    actor_id: actor.id,
+    when: opts.when ?? "upcoming",
+    all: opts.all ? 1 : undefined,
+    mark_seen: opts.markSeen ? 1 : undefined,
+  });
+}
+
+export interface MeetingInput {
+  title?: string;
+  agenda?: string;
+  start_at?: string;
+  duration_min?: number;
+  meet_url?: string;
+  people?: number[];
+}
+
+/** The CRM's own address rides along, so the plugin's reminder emails can link back. */
+const crmUrl = () => process.env.APP_URL ?? "";
+
+export async function createMeeting(actor: DashUser, body: MeetingInput) {
+  return api.post<{ ok: true; meeting: Meeting; emailed: number }>("/meetings", {
+    ...body,
+    actor_id: actor.id,
+    crm_url: crmUrl(),
+  });
+}
+
+export async function updateMeeting(actor: DashUser, id: number, body: MeetingInput) {
+  return api.patch<{ ok: true; meeting: Meeting }>(`/meetings/${id}`, {
+    ...body,
+    actor_id: actor.id,
+    crm_url: crmUrl(),
+  });
+}
+
+export async function cancelMeeting(actor: DashUser, id: number) {
+  return api.post<{ ok: true }>(`/meetings/${id}/cancel`, { actor_id: actor.id });
+}
+
+/** About to start or running, plus unseen invites. Also nudges the reminder sender. */
+export async function meetingsSoon(actor: DashUser) {
+  return api.get<{ soon: Meeting[]; invites: Meeting[]; now: string }>("/meetings/soon", {
+    actor_id: actor.id,
+  });
+}
+
+export async function markMeetingSeen(actor: DashUser, id: number) {
+  return api.post<{ ok: true }>(`/meetings/${id}/seen`, { actor_id: actor.id });
+}
+
+/* ---------------- the Google account for meetings (super admin / IT) ---------------- */
+
+export async function getGoogleSettings(actor: DashUser) {
+  return api.get<GoogleSettings>("/google/settings", { actor_id: actor.id });
+}
+
+export async function saveGoogleSettings(actor: DashUser, body: { client_id: string; client_secret?: string }) {
+  return api.post<GoogleSettings>("/google/settings", { ...body, actor_id: actor.id });
+}
+
+export async function exchangeGoogleCode(actor: DashUser, code: string, redirectUri: string) {
+  return api.post<GoogleSettings>("/google/exchange", { code, redirect_uri: redirectUri, actor_id: actor.id });
+}
+
+export async function disconnectGoogle(actor: DashUser) {
+  return api.post<GoogleSettings>("/google/disconnect", { actor_id: actor.id });
+}
+
+export async function testGoogle(actor: DashUser) {
+  return api.post<{ ok: true; calendar: string }>("/google/test", { actor_id: actor.id });
 }

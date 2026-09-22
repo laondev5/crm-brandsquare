@@ -108,6 +108,7 @@ const GROUPS: NavGroup[] = [
     children: [
       { href: "/work", label: "My work", author: true, md: true },
       { href: "/projects", label: "Projects", author: true },
+      { href: "/meetings", label: "Meetings", author: true, md: true },
       { href: "/work/team", label: "Team overview", adminOnly: true },
       { href: "/guide", label: "How this works", author: true, md: true },
       { href: "/team", label: "Members", adminOnly: true },
@@ -123,6 +124,7 @@ const GROUPS: NavGroup[] = [
       { href: "/settings/lead-properties", label: "Lead properties", adminOnly: true },
       { href: "/settings/responses", label: "Response templates", adminOnly: true },
       { href: "/settings/faq", label: "FAQs", adminOnly: true },
+      { href: "/meetings/settings", label: "Meeting settings", superOnly: true },
     ],
   },
 ];
