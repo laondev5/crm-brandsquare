@@ -181,8 +181,7 @@ export default async function GuidePage() {
         </div>
       )}
 
-      {(author || superAdmin) && (
-        <div className="card">
+      <div className="card">
           <h2>Daily ads report</h2>
 
           <Step n={1} title="Check the website traffic">
@@ -192,31 +191,33 @@ export default async function GuidePage() {
             name (for example facebook / machines-sept).
           </Step>
 
-          <Step n={2} title="See how each campaign is doing">
-            <Link href="/campaigns">Leads → Campaigns</Link> lists every form with its leads, deals
-            won and conversion rate. Open one to see how many of its leads are at each stage.
-          </Step>
+          {(manager || author) && (
+            <Step n={2} title="See how each campaign is doing">
+              <Link href="/campaigns">Leads → Campaigns</Link> lists every form with its leads, deals
+              won and conversion rate. Open one to see how many of its leads are at each stage.
+            </Step>
+          )}
 
-          <Step n={3} title="Check what was reported to Meta">
+          <Step n={manager || author ? 3 : 2} title="See who the ads brought in">
             <Link href="/settings/meta">Meta → Ads</Link> shows how many lead and sale events Meta
-            accepted, how many are waiting and how many it refused, with a 14-day chart. If
-            anything is refused, tell the super admin.
+            accepted, how many are waiting and how many it refused, with a 14-day chart. The table
+            under it lists each person: name, phone, email, company, campaign, who owns the lead
+            and the stage reported. If anything is refused, tell the super admin.
           </Step>
 
-          <Step n={4} title="Write the report">
+          <Step n={manager || author ? 4 : 3} title="Write the report">
             Put the 24-hour numbers in your daily report: visitors, enquiries, the top ad source and
             campaign, and anything refused by Meta. Spend, reach and cost per result are in Meta
             Ads Manager, not the CRM.
           </Step>
 
-          {author && (
+          {!superAdmin && (
             <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "8px 0 0" }}>
-              These screens are read-only for you. Lead contact details and ad settings stay with the
-              sales team and the super admin.
+              The Ads page is read-only for you. Connecting or changing ad datasets stays with the
+              super admin.
             </p>
           )}
-        </div>
-      )}
+      </div>
 
       {!author && (
         <div className="card">

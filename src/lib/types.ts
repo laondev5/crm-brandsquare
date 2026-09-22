@@ -235,6 +235,16 @@ export interface MetaEvent {
   id: number;
   dataset: string | null;
   lead_id: number | null;
+  /** The person behind the event. Phone and email are blank for authors. */
+  lead?: {
+    name: string;
+    phone: string;
+    email: string;
+    company: string;
+    stage: string;
+    campaign: string;
+    owner: string;
+  } | null;
   event_name: string;
   event_time: number;
   status: "pending" | "sent" | "failed" | "cancelled";

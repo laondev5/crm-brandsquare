@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
+import { isAdminRole } from "@/lib/types";
 import { listMetaDatasets, listMetaEvents } from "@/lib/queries";
 import EventsChart from "./events-chart";
 import EventsTable from "./events-table";
@@ -17,11 +17,10 @@ import EventsTable from "./events-table";
  * the credentials should not be sitting above them every time you look.
  */
 export default async function MetaAdsPage() {
-  // Reads which ad accounts exist and what has been sent to them. The author
-  // writes the daily report on running ads, so she reads this too - read
-  // only: connecting or changing a dataset stays with the super admin.
+  // Reads which ad accounts exist and what has been sent to them, and who
+  // each event was about. Every member reads it; connecting or changing a
+  // dataset stays with the super admin.
   const me = await requireMember();
-  if (me.role !== "superadmin" && me.role !== "author") redirect("/");
   const canManage = me.role === "superadmin";
 
   const [meta, log] = await Promise.all([
@@ -118,7 +117,7 @@ export default async function MetaAdsPage() {
             Every stage change reported, and what Meta said back. A refusal keeps its message,
             which names the field that was wrong.
           </p>
-          <EventsTable events={log} datasets={datasetNames} linkLeads={canManage} />
+          <EventsTable events={log} datasets={datasetNames} linkLeads={isAdminRole(me.role)} />
         </>
       )}
     </>

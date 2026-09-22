@@ -93,7 +93,7 @@ const GROUPS: NavGroup[] = [
     children: [
       { href: "/whatsapp", label: "WhatsApp inbox" },
       { href: "/whatsapp/settings", label: "WhatsApp settings", superOnly: true },
-      { href: "/settings/meta", label: "Ads", superOnly: true, author: true },
+      { href: "/settings/meta", label: "Ads", author: true },
       { href: "/settings/meta/datasets", label: "Ad datasets", superOnly: true },
     ],
   },

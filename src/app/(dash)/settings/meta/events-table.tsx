@@ -126,68 +126,77 @@ export default function EventsTable({
         </div>
       ) : (
         <div className="card" style={{ padding: "6px 8px", marginTop: 12, overflowX: "auto" }}>
-          <table className="tbl">
+          {/* One column per detail, and a table on a phone too (it scrolls
+              sideways), so the log can be read and copied like a sheet. */}
+          <table className="tbl tbl-keep" style={{ minWidth: 900 }}>
             <thead>
               <tr>
-                <th style={{ width: 110 }}>Status</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Company</th>
+                <th>Campaign</th>
+                <th>Owner</th>
                 <th>Stage reported</th>
-                <th style={{ width: 90 }}>Lead</th>
-                {datasets.length > 1 && <th style={{ width: 160 }}>Dataset</th>}
-                <th style={{ width: 150 }}>When</th>
+                <th style={{ width: 100 }}>Meta</th>
+                {datasets.length > 1 && <th>Dataset</th>}
+                <th style={{ width: 130 }}>When</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((e) => (
-                <tr key={e.id}>
-                  <td data-l="Status">
-                    <span
-                      className={`pill ${
-                        e.status === "sent"
-                          ? "s-active"
-                          : e.status === "failed"
-                            ? "s-disabled"
-                            : ""
-                      }`}
-                    >
-                      {STATUS_LABEL[e.status]}
-                    </span>
-                  </td>
-
-                  <td data-l="Stage">
-                    <strong style={{ color: "var(--ink)" }}>{e.event_name}</strong>
-                    {/* The reason lives under the row, in full. Truncated into
-                        a column it says "Invalid parameter:" and nothing more. */}
-                    {e.error && (
-                      <>
-                        <br />
-                        <small style={{ color: "var(--err)" }}>{e.error}</small>
-                      </>
-                    )}
-                    {!e.error && e.trace && (
-                      <>
-                        <br />
-                        <small style={{ color: "var(--muted)" }}>trace {e.trace}</small>
-                      </>
-                    )}
-                  </td>
-
-                  <td data-l="Lead">
-                    {e.lead_id && !linkLeads ? (
-                      `#${e.lead_id}`
-                    ) : e.lead_id ? (
-                      <Link href={`/leads/${e.lead_id}`} className="name">
-                        #{e.lead_id}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-
-                  {datasets.length > 1 && <td data-l="Dataset">{e.dataset ?? "—"}</td>}
-
-                  <td data-l="When">{fmt(e.sent_at ?? e.created_at)}</td>
-                </tr>
-              ))}
+              {visible.map((e) => {
+                const l = e.lead;
+                const label = l ? l.name || "(no name)" : e.lead_id ? `Lead #${e.lead_id}` : "—";
+                return (
+                  <tr key={e.id}>
+                    <td data-l="Name">
+                      {e.lead_id && linkLeads ? (
+                        <Link href={`/leads/${e.lead_id}`} className="name">
+                          {label}
+                        </Link>
+                      ) : (
+                        <strong style={{ color: "var(--ink)" }}>{label}</strong>
+                      )}
+                      {e.lead_id && (
+                        <small style={{ color: "var(--muted)", display: "block" }}>
+                          #{e.lead_id}
+                          {e.lead === null && " · deleted"}
+                        </small>
+                      )}
+                    </td>
+                    <td data-l="Phone" style={{ whiteSpace: "nowrap" }}>
+                      {l?.phone ? <a href={`tel:${l.phone}`}>{l.phone}</a> : "—"}
+                    </td>
+                    <td data-l="Email">
+                      {l?.email ? <a href={`mailto:${l.email}`}>{l.email}</a> : "—"}
+                    </td>
+                    <td data-l="Company">{l?.company || "—"}</td>
+                    <td data-l="Campaign">{l?.campaign || "—"}</td>
+                    <td data-l="Owner">{l?.owner || "Unassigned"}</td>
+                    <td data-l="Stage">
+                      <strong style={{ color: "var(--ink)" }}>{e.event_name}</strong>
+                      {/* The reason is shown in full: Meta's message names the
+                          field that is wrong, and half of it is no use. */}
+                      {e.error && (
+                        <small style={{ color: "var(--err)", display: "block" }}>{e.error}</small>
+                      )}
+                    </td>
+                    <td data-l="Meta">
+                      <span
+                        className={`pill ${
+                          e.status === "sent" ? "s-active" : e.status === "failed" ? "s-disabled" : ""
+                        }`}
+                      >
+                        {STATUS_LABEL[e.status]}
+                      </span>
+                    </td>
+                    {datasets.length > 1 && <td data-l="Dataset">{e.dataset ?? "—"}</td>}
+                    <td data-l="When" style={{ whiteSpace: "nowrap" }}>
+                      {fmt(e.sent_at ?? e.created_at)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

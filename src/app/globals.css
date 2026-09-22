@@ -472,6 +472,11 @@
     .tbl tr { display: block; border-bottom: 1px solid var(--line); padding: 10px 0; }
     .tbl td { display: flex; justify-content: space-between; gap: 12px; border: 0; padding: 5px 12px; }
     .tbl td::before { content: attr(data-l); font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+    /* A table that stays a table on a phone, scrolling sideways instead. */
+    .tbl.tbl-keep thead { display: table-header-group; }
+    .tbl.tbl-keep tr { display: table-row; padding: 0; }
+    .tbl.tbl-keep td { display: table-cell; padding: 11px 12px; border-bottom: 1px solid var(--line); }
+    .tbl.tbl-keep td::before { content: none; }
   }
   
   /* ---------- team row editing ---------- */
