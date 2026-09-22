@@ -54,7 +54,7 @@ const GROUPS: NavGroup[] = [
     children: [
       { href: "/leads", label: "All leads" },
       { href: "/pipeline", label: "Pipeline" },
-      { href: "/campaigns", label: "Campaigns", adminOnly: true },
+      { href: "/campaigns", label: "Campaigns", adminOnly: true, author: true },
       { href: "/email", label: "Email" },
     ],
   },
@@ -83,7 +83,7 @@ const GROUPS: NavGroup[] = [
     label: "Traffic",
     icon: Activity,
     children: [
-      { href: "/analytics", label: "Overview" },
+      { href: "/analytics", label: "Overview", author: true },
       { href: "/sites", label: "Websites", superOnly: true },
     ],
   },
@@ -93,7 +93,7 @@ const GROUPS: NavGroup[] = [
     children: [
       { href: "/whatsapp", label: "WhatsApp inbox" },
       { href: "/whatsapp/settings", label: "WhatsApp settings", superOnly: true },
-      { href: "/settings/meta", label: "Ads", superOnly: true },
+      { href: "/settings/meta", label: "Ads", superOnly: true, author: true },
       { href: "/settings/meta/datasets", label: "Ad datasets", superOnly: true },
     ],
   },

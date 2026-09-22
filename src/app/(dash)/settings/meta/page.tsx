@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireSuperAdmin } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { requireMember } from "@/lib/auth";
 import { listMetaDatasets, listMetaEvents } from "@/lib/queries";
 import EventsChart from "./events-chart";
 import EventsTable from "./events-table";
@@ -16,8 +17,12 @@ import EventsTable from "./events-table";
  * the credentials should not be sitting above them every time you look.
  */
 export default async function MetaAdsPage() {
-  // Reads which ad accounts exist and what has been sent to them.
-  const me = await requireSuperAdmin();
+  // Reads which ad accounts exist and what has been sent to them. The author
+  // writes the daily report on running ads, so she reads this too - read
+  // only: connecting or changing a dataset stays with the super admin.
+  const me = await requireMember();
+  if (me.role !== "superadmin" && me.role !== "author") redirect("/");
+  const canManage = me.role === "superadmin";
 
   const [meta, log] = await Promise.all([
     listMetaDatasets(me).catch(() => ({
@@ -49,9 +54,11 @@ export default async function MetaAdsPage() {
             <b>{live}</b> dataset{live === 1 ? "" : "s"} reporting
           </span>
         )}
-        <Link href="/settings/meta/datasets" className="btn ghost">
-          Manage datasets
-        </Link>
+        {canManage && (
+          <Link href="/settings/meta/datasets" className="btn ghost">
+            Manage datasets
+          </Link>
+        )}
       </div>
 
       {meta.datasets.length === 0 ? (
@@ -59,11 +66,13 @@ export default async function MetaAdsPage() {
           <p className="empty">
             No datasets connected yet, so nothing is being reported to Meta.
           </p>
-          <div style={{ textAlign: "center", paddingBottom: 18 }}>
-            <Link href="/settings/meta/datasets" className="btn">
-              Connect a dataset
-            </Link>
-          </div>
+          {canManage && (
+            <div style={{ textAlign: "center", paddingBottom: 18 }}>
+              <Link href="/settings/meta/datasets" className="btn">
+                Connect a dataset
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -73,7 +82,11 @@ export default async function MetaAdsPage() {
                 {broken} dataset{broken === 1 ? "" : "s"}
               </strong>{" "}
               last had an error from Meta.{" "}
-              <Link href="/settings/meta/datasets">See what it said</Link>
+              {canManage ? (
+                <Link href="/settings/meta/datasets">See what it said</Link>
+              ) : (
+                "Let the super admin know."
+              )}
             </div>
           )}
 
@@ -105,7 +118,7 @@ export default async function MetaAdsPage() {
             Every stage change reported, and what Meta said back. A refusal keeps its message,
             which names the field that was wrong.
           </p>
-          <EventsTable events={log} datasets={datasetNames} />
+          <EventsTable events={log} datasets={datasetNames} linkLeads={canManage} />
         </>
       )}
     </>

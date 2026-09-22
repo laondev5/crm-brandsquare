@@ -700,6 +700,8 @@ export interface DeviceStat {
 
 export interface Analytics {
   days: number;
+  /** "hour" for the 24-hour view, where each point of `daily` is one hour. */
+  bucket?: "hour" | "day";
   /** Which website these figures cover: "all", "this", or a site id. */
   site: string | number;
   /** Every website, whichever one is selected — the counts behind the picker. */

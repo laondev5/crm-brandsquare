@@ -181,6 +181,43 @@ export default async function GuidePage() {
         </div>
       )}
 
+      {(author || superAdmin) && (
+        <div className="card">
+          <h2>Daily ads report</h2>
+
+          <Step n={1} title="Check the website traffic">
+            <Link href="/analytics">Traffic → Overview</Link>. Press <strong>24 hours</strong> for
+            the last day, hour by hour: visitors, enquiries, the pages people landed on and{" "}
+            <strong>where they came from</strong>. Ad visits show under their source and campaign
+            name (for example facebook / machines-sept).
+          </Step>
+
+          <Step n={2} title="See how each campaign is doing">
+            <Link href="/campaigns">Leads → Campaigns</Link> lists every form with its leads, deals
+            won and conversion rate. Open one to see how many of its leads are at each stage.
+          </Step>
+
+          <Step n={3} title="Check what was reported to Meta">
+            <Link href="/settings/meta">Meta → Ads</Link> shows how many lead and sale events Meta
+            accepted, how many are waiting and how many it refused, with a 14-day chart. If
+            anything is refused, tell the super admin.
+          </Step>
+
+          <Step n={4} title="Write the report">
+            Put the 24-hour numbers in your daily report: visitors, enquiries, the top ad source and
+            campaign, and anything refused by Meta. Spend, reach and cost per result are in Meta
+            Ads Manager, not the CRM.
+          </Step>
+
+          {author && (
+            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "8px 0 0" }}>
+              These screens are read-only for you. Lead contact details and ad settings stay with the
+              sales team and the super admin.
+            </p>
+          )}
+        </div>
+      )}
+
       {!author && (
         <div className="card">
           <h2>Response templates, FAQs and lead properties</h2>

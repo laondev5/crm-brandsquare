@@ -37,11 +37,14 @@ export default function LineChart({
   series,
   height = 190,
   emptyNote = "Not enough days yet to draw a trend.",
+  unit = "days",
 }: {
   points: ChartPoint[];
   series: ChartSeries[];
   height?: number;
   emptyNote?: string;
+  /** What one point is, for screen readers: "days" or "hours". */
+  unit?: string;
 }) {
   const [at, setAt] = useState<number | null>(null);
 
@@ -92,7 +95,7 @@ export default function LineChart({
         width="100%"
         height={H}
         role="img"
-        aria-label={`${series.map((s) => s.label).join(" and ")} over ${points.length} days`}
+        aria-label={`${series.map((s) => s.label).join(" and ")} over ${points.length} ${unit}`}
         onMouseLeave={() => setAt(null)}
       >
         {ticks.map((t) => (

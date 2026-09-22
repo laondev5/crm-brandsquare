@@ -37,9 +37,12 @@ function fmt(d: string | null) {
 export default function EventsTable({
   events,
   datasets,
+  linkLeads = true,
 }: {
   events: MetaEvent[];
   datasets: string[];
+  /** Off for authors, who read the report but have no access to leads. */
+  linkLeads?: boolean;
 }) {
   const failedCount = events.filter((e) => e.status === "failed").length;
 
@@ -169,7 +172,9 @@ export default function EventsTable({
                   </td>
 
                   <td data-l="Lead">
-                    {e.lead_id ? (
+                    {e.lead_id && !linkLeads ? (
+                      `#${e.lead_id}`
+                    ) : e.lead_id ? (
                       <Link href={`/leads/${e.lead_id}`} className="name">
                         #{e.lead_id}
                       </Link>

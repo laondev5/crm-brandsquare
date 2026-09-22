@@ -12,8 +12,10 @@ export default async function CampaignsPage({
   const me = await currentUser();
   if (!me) redirect("/login");
   // Campaign totals span every lead, including ones a sub-admin doesn't own,
-  // so this stays admin-only. They still see the campaign on their own leads.
-  if (!isAdminRole(me.role)) redirect("/leads");
+  // so this stays with admins - and the author, who reports on how campaigns
+  // are running. She reads the totals; she does not add or import leads.
+  const isAuthor = me.role === "author";
+  if (!isAdminRole(me.role) && !isAuthor) redirect("/leads");
 
   const sp = await searchParams;
   const page = Number(sp.page) || 1;
@@ -26,12 +28,16 @@ export default async function CampaignsPage({
       <div className="head">
         <h1>Campaigns</h1>
         <div className="spacer" />
-        <Link href="/leads/new" className="btn ghost">
-          Add lead
-        </Link>
-        <Link href="/leads/import" className="btn">
-          Import leads
-        </Link>
+        {!isAuthor && (
+          <>
+            <Link href="/leads/new" className="btn ghost">
+              Add lead
+            </Link>
+            <Link href="/leads/import" className="btn">
+              Import leads
+            </Link>
+          </>
+        )}
       </div>
 
       <div className="stats">

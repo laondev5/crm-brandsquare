@@ -15,7 +15,9 @@ export default async function CampaignDetail({
 }) {
   const me = await currentUser();
   if (!me) redirect("/login");
-  if (!isAdminRole(me.role)) redirect("/leads");
+  // The author sees how the campaign is doing, not who the people are.
+  const isAuthor = me.role === "author";
+  if (!isAdminRole(me.role) && !isAuthor) redirect("/leads");
 
   const { id: raw } = await params;
   const id = Number(raw);
@@ -26,7 +28,9 @@ export default async function CampaignDetail({
   if (!campaign) notFound();
 
   const [{ rows, total, pages }, pipeline] = await Promise.all([
-    listLeads({ formId: id, page }),
+    isAuthor
+      ? Promise.resolve({ rows: [], total: campaign.leads, pages: 1 })
+      : listLeads({ formId: id, page }),
     getPipeline(),
   ]);
 
@@ -66,7 +70,12 @@ export default async function CampaignDetail({
 
       <div className="grid2">
         <div className="card" style={{ padding: "6px 8px" }}>
-          {rows.length === 0 ? (
+          {isAuthor ? (
+            <p className="empty">
+              {campaign.leads} lead{campaign.leads === 1 ? "" : "s"} captured. Contact details stay
+              with the sales team; the stage totals are on the right.
+            </p>
+          ) : rows.length === 0 ? (
             <p className="empty">No leads from this campaign yet.</p>
           ) : (
             <table className="tbl">
@@ -155,9 +164,11 @@ export default async function CampaignDetail({
 
       <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 16 }}>
         {total} lead{total === 1 ? "" : "s"} from this campaign.{" "}
-        <Link href={`/leads?form=${id}`} style={{ color: "var(--p)", fontWeight: 600 }}>
-          Open in Leads
-        </Link>
+        {!isAuthor && (
+          <Link href={`/leads?form=${id}`} style={{ color: "var(--p)", fontWeight: 600 }}>
+            Open in Leads
+          </Link>
+        )}
       </p>
     </>
   );

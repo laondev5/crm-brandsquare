@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import { getHeatmap, getSnapshot } from "@/lib/queries";
 import ClickMap from "./click-map";
 import PageMap from "./page-map";
@@ -9,7 +9,7 @@ export default async function PageDetail({
 }: {
   searchParams: Promise<{ path?: string; days?: string; site?: string; screen?: string }>;
 }) {
-  await requireUser();
+  await requireMember();
 
   const sp = await searchParams;
   const path = (sp.path ?? "").trim();
@@ -87,7 +87,7 @@ export default async function PageDetail({
       {totalVisits === 0 ? (
         <div className="card">
           <p className="empty">
-            No visits recorded for {path} in the last {days} days
+            No visits recorded for {path} in the last {days === 1 ? "24 hours" : `${days} days`}
             {site !== "all" ? ` on ${data.site_name}` : ""}.
           </p>
         </div>

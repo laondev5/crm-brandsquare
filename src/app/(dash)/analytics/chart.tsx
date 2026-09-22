@@ -10,16 +10,19 @@ import LineChart, { type ChartPoint } from "../line-chart";
  * Hovering a day gives the numbers behind that point plus the conversion rate
  * for it, which is the figure you would otherwise go and work out by hand.
  */
-export default function TrafficChart({ daily }: { daily: DayStat[] }) {
+export default function TrafficChart({ daily, hourly = false }: { daily: DayStat[]; hourly?: boolean }) {
   const points: ChartPoint[] = daily.map((d) => {
     const rate = d.views > 0 ? (d.conversions / d.views) * 100 : 0;
+    // Hourly points arrive as "2026-09-22 14:00" in the site's own time.
+    const [date, time] = d.day.split(" ");
     return {
-      label: d.day.slice(5),
-      title: new Date(d.day + "T00:00:00").toLocaleDateString("en-GB", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      }),
+      label: hourly && time ? time : d.day.slice(5),
+      title:
+        new Date(date + "T00:00:00").toLocaleDateString("en-GB", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        }) + (hourly && time ? `, ${time} to ${time.slice(0, 2)}:59` : ""),
       values: { visitors: d.visitors, conversions: d.conversions, views: d.views },
       extra: [
         { label: "Page views", value: d.views.toLocaleString() },
@@ -38,7 +41,8 @@ export default function TrafficChart({ daily }: { daily: DayStat[] }) {
         { key: "visitors", label: "Visitors", colour: "var(--st-new)", area: true },
         { key: "conversions", label: "Enquiries", colour: "var(--ok)" },
       ]}
-      emptyNote="Not enough days yet to draw a trend."
+      unit={hourly ? "hours" : "days"}
+      emptyNote={hourly ? "No visits in the last 24 hours." : "Not enough days yet to draw a trend."}
     />
   );
 }

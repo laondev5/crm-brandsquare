@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import { getAnalytics } from "@/lib/queries";
 import { humanSeconds } from "@/lib/types";
 import TrafficChart from "./chart";
 
-const RANGES = [7, 30, 90];
+// 1 is the rolling last 24 hours, charted by the hour.
+const RANGES = [1, 7, 30, 90];
+const rangeLabel = (d: number) => (d === 1 ? "24 hours" : `${d} days`);
 
 export default async function AnalyticsPage({
   searchParams,
@@ -12,8 +14,9 @@ export default async function AnalyticsPage({
   searchParams: Promise<{ days?: string; site?: string }>;
 }) {
   // Traffic is everyone's business — knowing which landing page works is not
-  // an admin secret. Only the connection settings are restricted.
-  await requireUser();
+  // an admin secret. Only the connection settings are restricted. Authors
+  // included: they report daily on how the ads are bringing people in.
+  await requireMember();
 
   const sp = await searchParams;
   const days = RANGES.includes(Number(sp.days)) ? Number(sp.days) : 30;
@@ -61,7 +64,7 @@ export default async function AnalyticsPage({
         <div className="tabs" style={{ marginBottom: 0 }}>
           {RANGES.map((d) => (
             <Link key={d} href={href({ days: d })} className={d === days ? "on" : ""}>
-              {d} days
+              {rangeLabel(d)}
             </Link>
           ))}
         </div>
@@ -94,7 +97,7 @@ export default async function AnalyticsPage({
 
       {selected && selected.views === 0 && (
         <div className="msg warn">
-          <strong>{selected.name}</strong> has sent no traffic in the last {days} days. On that
+          <strong>{selected.name}</strong> has sent no traffic in the last {rangeLabel(days)}. On that
           website, open <strong>Brandsquare → Settings</strong>, check that visitor tracking is on
           and that it is set to send to this CRM, then press{" "}
           <strong>Send everything to the CRM now</strong>. Traffic is sent every 15 minutes, and
@@ -141,7 +144,7 @@ export default async function AnalyticsPage({
 
           <div className="card" style={{ marginBottom: 20 }}>
             <h2>Visitors and enquiries{selected ? ` — ${selected.name}` : ""}</h2>
-            <TrafficChart daily={data.daily} />
+            <TrafficChart daily={data.daily} hourly={data.bucket === "hour"} />
           </div>
 
           <div className="grid2">
