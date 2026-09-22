@@ -154,8 +154,9 @@ export default async function WhatsAppTemplatesPage({
               title: "Use it in the inbox",
               body: (
                 <>
-                  Open the chat and choose it from <strong>Quick reply…</strong> above the message
-                  box. It drops in with their details filled; change anything, then press Send.
+                  Open the chat and click it in the <strong>Ready-made replies</strong> panel on the
+                  right (press <strong>Replies</strong> beside their name if the panel is closed). It drops into the
+                  message box with their details filled; change anything, then press Send.
                 </>
               ),
             },

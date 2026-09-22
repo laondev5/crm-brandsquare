@@ -39,7 +39,7 @@ export default async function ResponseTemplatesPage() {
             body: (
               <>
                 Press <strong>Copy</strong> and paste into WhatsApp, email or a comment reply. They are
-                also in the <strong>Quick reply…</strong> list in the WhatsApp inbox and{" "}
+                also in the <strong>Ready-made replies</strong> panel in the WhatsApp inbox and{" "}
                 <strong>Use a template…</strong> when emailing a lead, filled with that lead&rsquo;s name.
               </>
             ),

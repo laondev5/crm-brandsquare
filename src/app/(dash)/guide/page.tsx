@@ -227,7 +227,7 @@ export default async function GuidePage() {
             <Link href="/templates/responses">Templates → Response templates</Link> has a ready
             message for each situation. Type the customer&rsquo;s name and machine at the top, then
             press <strong>Copy</strong>. They are also in the WhatsApp inbox&rsquo;s{" "}
-            <strong>Quick reply…</strong> list and a lead&rsquo;s email box.
+            <strong>Ready-made replies</strong> panel and a lead&rsquo;s email box.
           </Step>
 
           <Step n={2} title="Look up an answer">

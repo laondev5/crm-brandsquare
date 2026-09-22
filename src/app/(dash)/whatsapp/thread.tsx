@@ -48,18 +48,10 @@ export default function Thread({
   const windowClosed = !lastIn || Date.now() - lastInAt > DAY_MS;
   const hasTemplates = templates.some((t) => t.status === "APPROVED");
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: 0, background: "#f3f3f6" }}>
-      <div
-        style={{
-          padding: "12px 16px",
-          borderBottom: "1px solid var(--line)",
-          background: "#fff",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
+  // Who this is, and whose lead. The composer adds its Replies button to the
+  // end of this row, so it is passed separately from the messages.
+  const header = (
+    <>
         <div style={{ minWidth: 0 }}>
           <strong style={{ fontSize: 14, color: "var(--ink)" }}>{conversation.display_name}</strong>
           <br />
@@ -84,8 +76,11 @@ export default function Thread({
         ) : (
           <span className="pill s-disabled">No lead linked</span>
         )}
-      </div>
+    </>
+  );
 
+  const conversationView = (
+    <>
       {conversation.unread_count > 0 && <MarkRead id={conversation.id} />}
 
       <MessageList conversationId={conversation.id} messages={messages} />
@@ -106,9 +101,16 @@ export default function Thread({
         </div>
       )}
 
+    </>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", minHeight: 0, background: "#f3f3f6" }}>
       {canSend ? (
         <Composer
+          key={conversation.id}
           conversationId={conversation.id}
+          header={header}
           quickReplies={quickReplies}
           responses={responses}
           meName={meName}
@@ -130,13 +132,19 @@ export default function Thread({
               />
             ) : null
           }
-        />
+        >
+          {conversationView}
+        </Composer>
       ) : (
+        <>
+        <div className="wa-thread-head">{header}</div>
+        {conversationView}
         <div style={{ borderTop: "1px solid var(--line)", padding: 14, textAlign: "center" }}>
           <small style={{ color: "var(--muted)" }}>
             You do not have permission to send WhatsApp messages.
           </small>
         </div>
+        </>
       )}
     </div>
   );
