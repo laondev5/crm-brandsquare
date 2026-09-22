@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireMember as requireUser, requireAdmin } from "@/lib/auth";
 import {
   deleteProject,
@@ -9,7 +10,9 @@ import {
   saveWorkTask,
   signIn,
   signOut,
+  resolveBlocker,
 } from "@/lib/queries";
+import { sendBlockerTag } from "@/lib/mailer";
 import { ApiError } from "@/lib/api";
 
 type Result<T = unknown> = ({ ok: true } & T) | { error: string };
@@ -42,19 +45,59 @@ export async function signOutAction(form: FormData): Promise<Result> {
   const summary = String(form.get("summary") ?? "").trim();
   if (!summary) return { error: "Write a line about what you got done before signing out." };
 
+  const blockers = String(form.get("blockers") ?? "").trim();
+  const owner = Number(form.get("blocker_owner_id")) || null;
+
+  let res;
   try {
-    await signOut(me, {
+    res = await signOut(me, {
       summary,
-      blockers: String(form.get("blockers") ?? "").trim(),
+      blockers,
       plan_tomorrow: String(form.get("plan_tomorrow") ?? "").trim(),
       mood: String(form.get("mood") ?? ""),
+      blocker_owner_id: blockers ? owner : null,
     });
   } catch (e) {
     return fail(e, "Could not save your day.");
   }
 
+  // The person tagged hears about it by email as well as on their My work
+  // page. Sent after the response, so a slow mail server never keeps anyone
+  // waiting to sign out, and a mail problem never undoes the saved day.
+  const tagged = res.tagged;
+  if (tagged?.email) {
+    after(async () => {
+      try {
+        await sendBlockerTag({
+          to: tagged.email,
+          name: tagged.name,
+          fromName: me.name,
+          blocker: blockers,
+          date: res.day,
+          link: `${process.env.APP_URL ?? "http://localhost:3000"}/work`,
+        });
+      } catch (e) {
+        console.error("Blocker email failed", e);
+      }
+    });
+  }
+
   revalidatePath("/work");
   revalidatePath("/work/team");
+  revalidatePath("/executive");
+  return { ok: true };
+}
+
+/** The person tagged (or the writer, or a manager) marks a blocker cleared or reopens it. */
+export async function resolveBlockerAction(workdayId: number, reopen = false): Promise<Result> {
+  const me = await requireUser();
+  try {
+    await resolveBlocker(me, workdayId, reopen);
+  } catch (e) {
+    return fail(e, "Could not update that blocker.");
+  }
+  revalidatePath("/work");
+  revalidatePath("/executive");
   return { ok: true };
 }
 

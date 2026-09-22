@@ -3,13 +3,23 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signInAction, signOutAction } from "@/app/actions/work";
-import type { Workday } from "@/lib/types";
+import type { PersonName, Workday } from "@/lib/types";
 
 const MOODS = [
   { key: "good", label: "Good day", icon: "🙂" },
   { key: "ok", label: "Steady", icon: "😐" },
   { key: "rough", label: "Rough one", icon: "😕" },
 ];
+
+/** "Waiting on Grace" under a blocker, or "cleared by" once it is done. */
+export function BlockerOwner({ day }: { day: Pick<Workday, "blocker_owner_name" | "blocker_resolved_at"> }) {
+  if (!day.blocker_owner_name) return null;
+  return (
+    <small style={{ display: "block", marginTop: 4, color: day.blocker_resolved_at ? "var(--ok)" : "#8a5a00", fontWeight: 600 }}>
+      {day.blocker_resolved_at ? `✓ Cleared by ${day.blocker_owner_name}` : `→ Waiting on ${day.blocker_owner_name}`}
+    </small>
+  );
+}
 
 function clock(iso: string | null) {
   if (!iso) return null;
@@ -44,16 +54,22 @@ function words(mins: number | null) {
 export default function DayCard({
   workday,
   serverNow,
+  people = [],
+  meId = 0,
 }: {
   workday: Workday | null;
   /** The server's clock at the time this page was rendered. */
   serverNow: string;
+  /** Teammates who can be tagged on a blocker. */
+  people?: PersonName[];
+  meId?: number;
 }) {
   const router = useRouter();
   const [busy, start] = useTransition();
   const [err, setErr] = useState("");
   const [leaving, setLeaving] = useState(false);
   const [mood, setMood] = useState("ok");
+  const [blockerText, setBlockerText] = useState("");
 
   const signedIn = !!workday?.signed_in_at;
   const signedOut = !!workday?.signed_out_at;
@@ -160,9 +176,34 @@ export default function DayCard({
             <textarea
               name="blockers"
               rows={2}
+              value={blockerText}
+              onChange={(e) => setBlockerText(e.target.value)}
               placeholder="Still waiting on the customs agent to confirm duty rates."
             />
           </label>
+
+          {/* Optional: the person who can clear it gets an email and sees it on
+              their My work page. Only offered once there is a blocker. */}
+          {blockerText.trim() && people.length > 0 && (
+            <label className="f">
+              <span>
+                Who can fix this? <small style={{ fontWeight: 400, color: "var(--muted)" }}>(optional)</small>
+              </span>
+              <select name="blocker_owner_id" defaultValue="">
+                <option value="">Nobody in particular</option>
+                {people
+                  .filter((p) => p.id !== meId)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+              </select>
+              <small style={{ color: "var(--muted)", fontSize: 12 }}>
+                They get an email and see it on their My work page.
+              </small>
+            </label>
+          )}
 
           <label className="f">
             <span>What is first tomorrow?</span>
@@ -225,7 +266,10 @@ export default function DayCard({
               {workday.blockers && (
                 <tr>
                   <th>Blocked by</th>
-                  <td style={{ whiteSpace: "pre-wrap", color: "var(--err)" }}>{workday.blockers}</td>
+                  <td style={{ whiteSpace: "pre-wrap", color: "var(--err)" }}>
+                    {workday.blockers}
+                    <BlockerOwner day={workday} />
+                  </td>
                 </tr>
               )}
               {workday.plan_tomorrow && (

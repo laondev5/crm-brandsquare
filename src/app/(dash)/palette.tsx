@@ -35,7 +35,7 @@ export default function Palette({ isAdmin }: { isAdmin: boolean }) {
     ...(isAdmin
       ? [
           { id: "p-camp", label: "Campaigns", hint: "Forms and conversion", href: "/campaigns", group: "Go to" },
-          { id: "p-team", label: "Team", hint: "Sub-admins and permissions", href: "/team", group: "Go to" },
+          { id: "p-team", label: "Team", hint: "Team members, ranks and permissions", href: "/team", group: "Go to" },
         ]
       : []),
     { id: "a-new", label: "Add lead", hint: "Enter a lead by hand", href: "/leads/new", group: "Actions" },

@@ -203,7 +203,7 @@ export default async function Overview({
               <h2>Team load</h2>
               {load.length === 0 ? (
                 <p className="empty" style={{ padding: "18px 0" }}>
-                  No active sub-admins yet.
+                  No active sales reps yet.
                 </p>
               ) : (
                 <table className="kv">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import NewSubadmin from "./new";
+import type { Role } from "@/lib/types";
 
 /**
  * The add form, folded away until it is wanted.
@@ -12,20 +13,20 @@ import NewSubadmin from "./new";
  * other. Adding someone happens a few times a year; reading the table happens
  * every time the page is opened, so the table gets the width.
  */
-export default function AddPanel({ isSuper }: { isSuper: boolean }) {
+export default function AddPanel({ meRole }: { meRole: Role }) {
   const [open, setOpen] = useState(false);
 
   if (!open) {
     return (
       <button className="btn" onClick={() => setOpen(true)}>
-        + {isSuper ? "Add a team member" : "Add a sub-admin"}
+        + Add a team member
       </button>
     );
   }
 
   return (
     <div style={{ maxWidth: 560 }}>
-      <NewSubadmin isSuper={isSuper} />
+      <NewSubadmin meRole={meRole} />
       <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => setOpen(false)}>
         Cancel
       </button>

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import {
   teamPeople,
+  listPeopleNames,
+  myBlockers,
   getToday,
   listLeads,
   listProjects,
@@ -14,6 +16,7 @@ import DayCard from "./day-card";
 import Board from "./board";
 import FollowUps from "./follow-ups";
 import Reports from "./reports";
+import TaggedBlockers from "./tagged-blockers";
 
 const TABS = [
   { key: "today", label: "Today" },
@@ -48,7 +51,7 @@ export default async function WorkPage({
   // A manager can look at everyone's tasks here, not just their own.
   const everyone = manager && sp.who === "all";
 
-  const [today, mine, projects, history, people, dueToday] = await Promise.all([
+  const [today, mine, projects, history, people, dueToday, names, tagged] = await Promise.all([
     getToday(me).catch(() => ({ day: "", workday: null, now: "" })),
     listWorkTasks(me, everyone ? {} : { assigned: "me" }).catch(() => ({ tasks: [], stages: [] })),
     listProjects(me)
@@ -62,6 +65,8 @@ export default async function WorkPage({
     listLeads({ status: "overdue", ownerId: scope, sort: "next", perPage: 10 })
       .then((r) => r.rows)
       .catch(() => []),
+    listPeopleNames().catch(() => []),
+    myBlockers(me).catch(() => []),
   ]);
 
   const own = everyone ? mine.tasks.filter((t) => t.assigned_to === me.id) : mine.tasks;
@@ -95,6 +100,10 @@ export default async function WorkPage({
         </Link>
       </div>
 
+      {/* Blockers teammates have tagged this person on -- above the tabs, so
+          it is seen whichever tab the page opens on. */}
+      <TaggedBlockers blockers={tagged} />
+
       <div className="tabs">
         {TABS.map((t) => (
           <Link key={t.key} href={href(t.key)} className={tab === t.key ? "on" : ""}>
@@ -108,7 +117,7 @@ export default async function WorkPage({
 
       {tab === "today" && (
         <>
-          <DayCard workday={today.workday} serverNow={today.now} />
+          <DayCard workday={today.workday} serverNow={today.now} people={names} meId={me.id} />
 
           {/* The two things that would otherwise bite you today, surfaced
               here rather than left on a tab you might not open. */}

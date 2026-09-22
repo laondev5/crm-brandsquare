@@ -5,7 +5,7 @@ import { requireAdmin, requireSuperAdmin } from "@/lib/auth";
 import { createMember, setUserStatus, updateMember, deleteSubadmin } from "@/lib/queries";
 import { sendInvite } from "@/lib/mailer";
 import { ApiError } from "@/lib/api";
-import { PERMISSIONS, ROLES, type Permission, type Role } from "@/lib/types";
+import { PERMISSIONS, ROLES, canManageRole, type Permission, type Role } from "@/lib/types";
 import type { FormState } from "./auth";
 
 function readPermissions(form: FormData): Permission[] {
@@ -20,15 +20,11 @@ export async function createSubadminAction(_prev: FormState, form: FormData): Pr
   const name = String(form.get("name") ?? "").trim();
   const permissions = readPermissions(form);
 
-  // Only a super admin may create anything above a sub-admin, and the plugin
-  // checks it again — this just stops the request being made at all.
+  // Only a rank this person may hand out, and the plugin checks it again —
+  // this just stops the request being made at all.
   const wanted = String(form.get("role") ?? "subadmin") as Role;
   const role: Role =
-    admin.role === "superadmin" && ROLES.some((r) => r.key === wanted)
-      ? wanted
-      : wanted === "author"
-        ? "author"
-        : "subadmin";
+    ROLES.some((r) => r.key === wanted) && canManageRole(admin.role, wanted) ? wanted : "subadmin";
 
   if (!name) return { error: "Enter a name." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { error: "Enter a valid email address." };
@@ -111,7 +107,7 @@ export async function deleteSubadminAction(_prev: FormState, form: FormData): Pr
   revalidatePath("/");
 
   const where = res.heirs
-    ? `shared evenly across the remaining ${res.heirs} sub-admin${res.heirs === 1 ? "" : "s"}`
+    ? `shared evenly across the remaining ${res.heirs} sales rep${res.heirs === 1 ? "" : "s"}`
     : "moved to Unassigned — nobody else is active";
 
   return {
@@ -135,10 +131,10 @@ export async function setRoleAction(form: FormData): Promise<{ ok?: string; erro
   const role = String(form.get("role")) as Role;
 
   if (!ROLES.some((r) => r.key === role)) return { error: "Unknown role." };
-  // An admin may move people between sub-admin and author only; the plugin
-  // re-checks both the person's current rank and the new one.
-  if (me.role !== "superadmin" && role !== "subadmin" && role !== "author") {
-    return { error: "Only a super admin can grant that rank." };
+  // Only a rank this person may hand out; the plugin re-checks both the
+  // person's current rank and the new one.
+  if (!canManageRole(me.role, role)) {
+    return { error: "You cannot grant that rank." };
   }
   if (id === me.id) return { error: "You cannot change your own rank." };
 

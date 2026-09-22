@@ -1,17 +1,33 @@
-export type Role = "superadmin" | "admin" | "subadmin" | "author";
+/**
+ * The ranks, as stored. "subadmin" is shown as Sales rep everywhere people
+ * read it; the stored key stays so existing accounts keep working.
+ */
+export type Role = "superadmin" | "it" | "admin" | "md" | "subadmin" | "author";
 
-/** Both admin tiers see the whole CRM; only what they can administer differs. */
+/** The admin tiers see and change the whole CRM; only what they can administer differs. */
 export function isAdminRole(role: Role): boolean {
-  return role === "superadmin" || role === "admin";
+  return role === "superadmin" || role === "it" || role === "admin";
+}
+
+/** The top tier: websites, WhatsApp and ad credentials, and admin accounts. */
+export function isSuperRole(role: Role): boolean {
+  return role === "superadmin" || role === "it";
+}
+
+/** Who can read across the whole team: management and the MD. */
+export function canOversee(role: Role): boolean {
+  return isAdminRole(role) || role === "md";
 }
 
 /**
  * Who may create, change or delete an account at a given level. A super admin
- * manages anyone; an admin manages sub-admins only. The plugin enforces this
- * too — hiding a button is convenience, not the check.
+ * manages anyone; the IT officer anyone but a super admin; an admin sales reps
+ * and authors only. The plugin enforces this too — hiding a button is
+ * convenience, not the check.
  */
 export function canManageRole(actor: Role, target: Role): boolean {
   if (actor === "superadmin") return true;
+  if (actor === "it") return target !== "superadmin";
   if (actor === "admin") return target === "subadmin" || target === "author";
   return false;
 }
@@ -23,8 +39,10 @@ export function isBlogRole(role: Role): boolean {
 
 export const ROLE_LABEL: Record<Role, string> = {
   superadmin: "Super admin",
+  it: "IT officer",
   admin: "Admin",
-  subadmin: "Sub-admin",
+  md: "MD",
+  subadmin: "Sales rep",
   author: "Author",
 };
 
@@ -91,6 +109,17 @@ export interface Workday {
   blockers: string;
   plan_tomorrow: string;
   mood: string;
+  /** Who the writer said can clear their blocker, if anyone. */
+  blocker_owner_id?: number | null;
+  blocker_owner_name?: string;
+  blocker_resolved_at?: string | null;
+}
+
+/** A teammate by name, for pickers anyone may use. */
+export interface PersonName {
+  id: number;
+  name: string;
+  role: Role;
 }
 
 /** A row on the manager's board — everyone, including people who never
@@ -257,9 +286,19 @@ export interface MetaEvent {
 
 /** The three ranks, with what each one actually means. */
 export const ROLES: { key: Role; label: string; note: string }[] = [
-  { key: "subadmin", label: "Sub-admin", note: "Works their own leads only." },
+  { key: "subadmin", label: "Sales rep", note: "Works their own leads only." },
   { key: "author", label: "Author", note: "Writes and publishes blog posts, and sees how they perform." },
-  { key: "admin", label: "Admin", note: "The whole CRM, and can manage sub-admins and authors." },
+  {
+    key: "md",
+    label: "MD",
+    note: "Reads the executive report, traffic, campaigns and ads across everyone. Changes nothing.",
+  },
+  { key: "admin", label: "Admin", note: "The whole CRM, and can manage sales reps and authors." },
+  {
+    key: "it",
+    label: "IT officer",
+    note: "Everything a super admin can do, except change or remove a super admin.",
+  },
   {
     key: "superadmin",
     label: "Super admin",
@@ -1213,4 +1252,86 @@ export interface BlogPostAnalytics {
   sources: { label: string; views: number }[];
   devices: { label: string; views: number }[];
   leads: { id: number; name: string; email: string; created_at: string }[];
+}
+
+/* ---------------- executive report ---------------- */
+
+export interface ExecPeriod {
+  new_leads: number;
+  won: number;
+  lost: number;
+  win_rate: number;
+  visitors: number;
+  views: number;
+  wa_in: number;
+  wa_out: number;
+  emails: number;
+  meta_sent: number;
+  meta_failed: number;
+  actions: number;
+  notes: number;
+  tasks_done: number;
+}
+
+export interface ExecPerson {
+  user_id: number;
+  name: string;
+  role: Role;
+  last_login_at: string | null;
+  days_signed_in: number;
+  reports: number;
+  avg_sign_in: string | null;
+  today_in: string | null;
+  today_out: string | null;
+  open_leads: number;
+  overdue_followups: number;
+  new_leads: number;
+  actions: number;
+  stage_moves: number;
+  won: number;
+  notes: number;
+  wa_sent: number;
+  tasks_done: number;
+  tasks_open: number;
+  tasks_overdue: number;
+  last_report: Workday | null;
+}
+
+export interface ExecActivity {
+  id: number;
+  lead_id: number;
+  lead_name: string;
+  actor_id: number;
+  actor_name: string;
+  type: string;
+  from_value: string;
+  to_value: string;
+  created_at: string;
+}
+
+/** Everything the MD's report shows, from one request. */
+export interface ExecutiveReport {
+  days: number;
+  bucket: "hour" | "day";
+  since: string;
+  now: string;
+  current: ExecPeriod;
+  previous: ExecPeriod;
+  snapshot: {
+    open_leads: number;
+    unassigned: number;
+    overdue_followups: number;
+    overdue_tasks: number;
+    blocked_tasks: number;
+    open_blockers: number;
+    signed_in_today: number;
+    team_size: number;
+  };
+  series: { day: string; leads: number; won: number; visitors: number; wa_in: number; actions: number }[];
+  stages: { key: string; label: string; type: string; count: number }[];
+  campaigns: { name: string; leads: number; won: number }[];
+  sources: { source: string; visitors: number; conversions: number }[];
+  team: ExecPerson[];
+  reports: Workday[];
+  activity: ExecActivity[];
 }

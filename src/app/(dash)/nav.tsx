@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  BarChart3,
   ChevronDown,
   FileText,
   PenSquare,
@@ -27,6 +28,8 @@ interface NavChild {
   blog?: boolean;
   /** Also shown to authors, who otherwise see only the blog. */
   author?: boolean;
+  /** Shown to the MD, who sees only the reports. */
+  md?: boolean;
 }
 
 interface NavGroup {
@@ -39,6 +42,7 @@ interface NavGroup {
    *  it disappears once nothing inside it is visible. */
   adminOnly?: boolean;
   superOnly?: boolean;
+  md?: boolean;
 }
 
 /**
@@ -48,13 +52,14 @@ interface NavGroup {
  */
 const GROUPS: NavGroup[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
+  { label: "Executive report", icon: BarChart3, href: "/executive", adminOnly: true, md: true },
   {
     label: "Leads",
     icon: Target,
     children: [
       { href: "/leads", label: "All leads" },
       { href: "/pipeline", label: "Pipeline" },
-      { href: "/campaigns", label: "Campaigns", adminOnly: true, author: true },
+      { href: "/campaigns", label: "Campaigns", adminOnly: true, author: true, md: true },
       { href: "/email", label: "Email" },
     ],
   },
@@ -83,7 +88,7 @@ const GROUPS: NavGroup[] = [
     label: "Traffic",
     icon: Activity,
     children: [
-      { href: "/analytics", label: "Overview", author: true },
+      { href: "/analytics", label: "Overview", author: true, md: true },
       { href: "/sites", label: "Websites", superOnly: true },
     ],
   },
@@ -93,7 +98,7 @@ const GROUPS: NavGroup[] = [
     children: [
       { href: "/whatsapp", label: "WhatsApp inbox" },
       { href: "/whatsapp/settings", label: "WhatsApp settings", superOnly: true },
-      { href: "/settings/meta", label: "Ads", author: true },
+      { href: "/settings/meta", label: "Ads", author: true, md: true },
       { href: "/settings/meta/datasets", label: "Ad datasets", superOnly: true },
     ],
   },
@@ -101,10 +106,10 @@ const GROUPS: NavGroup[] = [
     label: "Team",
     icon: UsersRound,
     children: [
-      { href: "/work", label: "My work", author: true },
+      { href: "/work", label: "My work", author: true, md: true },
       { href: "/projects", label: "Projects", author: true },
       { href: "/work/team", label: "Team overview", adminOnly: true },
-      { href: "/guide", label: "How this works", author: true },
+      { href: "/guide", label: "How this works", author: true, md: true },
       { href: "/team", label: "Members", adminOnly: true },
     ],
   },
@@ -126,10 +131,12 @@ export default function NavLinks({
   isAdmin,
   isSuper,
   isAuthor = false,
+  isMd = false,
 }: {
   isAdmin: boolean;
   isSuper?: boolean;
   isAuthor?: boolean;
+  isMd?: boolean;
 }) {
   const path = usePathname();
 
@@ -144,16 +151,19 @@ export default function NavLinks({
 
   // An author sees the blog and their own working day, nothing else. Everyone
   // else sees what their rank allows, and the blog only if they are an admin.
-  const allowed = (x: { adminOnly?: boolean; superOnly?: boolean; blog?: boolean; author?: boolean }) =>
-    isAuthor
-      ? !!(x.blog || x.author)
-      : (isAdmin || !x.adminOnly) && (isSuper || !x.superOnly) && (isAdmin || !x.blog);
+  // The MD sees the reports and nothing else.
+  const allowed = (x: { adminOnly?: boolean; superOnly?: boolean; blog?: boolean; author?: boolean; md?: boolean }) =>
+    isMd
+      ? !!x.md
+      : isAuthor
+        ? !!(x.blog || x.author)
+        : (isAdmin || !x.adminOnly) && (isSuper || !x.superOnly) && (isAdmin || !x.blog);
 
   // A menu is judged by its links, not by itself: it has no blog or author
   // flag of its own, so filtering it first would hide the Blog menu from an
   // author before its links were ever looked at.
   const visible = GROUPS.filter((g) =>
-    g.children ? (isAdmin || !g.adminOnly) && (isSuper || !g.superOnly) : allowed(g)
+    g.children ? isMd || ((isAdmin || !g.adminOnly) && (isSuper || !g.superOnly)) : allowed(g)
   )
     .map((g) => ({ ...g, children: g.children?.filter(allowed) }))
     .filter((g) => g.href || (g.children && g.children.length > 0));

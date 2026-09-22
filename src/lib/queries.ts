@@ -38,6 +38,8 @@ import type {
   MetaDataset,
   MetaEvent,
   Workday,
+  PersonName,
+  ExecutiveReport,
   WaDiagnostics,
   WaMessage,
   WaTemplate,
@@ -960,12 +962,47 @@ export async function signIn(actor: DashUser) {
 /** Signing out is what records the day; the summary is required server-side. */
 export async function signOut(
   actor: DashUser,
-  body: { summary: string; blockers?: string; plan_tomorrow?: string; mood?: string }
+  body: {
+    summary: string;
+    blockers?: string;
+    plan_tomorrow?: string;
+    mood?: string;
+    blocker_owner_id?: number | null;
+  }
 ) {
-  return api.post<{ day: string; workday: Workday | null }>("/workday/sign-out", {
+  return api.post<{
+    day: string;
+    workday: Workday | null;
+    /** Set when someone was newly tagged on the blocker, so they can be emailed. */
+    tagged?: { name: string; email: string };
+  }>("/workday/sign-out", {
     ...body,
     actor_id: actor.id,
   });
+}
+
+/** Everyone active, names only — for "who can fix this?". */
+export async function listPeopleNames() {
+  const res = await api.get<{ users: PersonName[] }>("/users", { scope: "people" });
+  return res.users;
+}
+
+/** Blockers teammates have tagged this person on, open ones first. */
+export async function myBlockers(actor: DashUser) {
+  const res = await api.get<{ blockers: Workday[] }>("/work/blockers", { actor_id: actor.id });
+  return res.blockers;
+}
+
+export async function resolveBlocker(actor: DashUser, workdayId: number, reopen = false) {
+  return api.post<{ ok: true }>(`/work/blockers/${workdayId}/resolve`, {
+    actor_id: actor.id,
+    reopen: reopen ? 1 : 0,
+  });
+}
+
+/** The MD's report: everything, everyone, one request. */
+export async function getExecutive(actor: DashUser, days: number) {
+  return api.get<ExecutiveReport>("/executive", { actor_id: actor.id, days });
 }
 
 export async function listWorkdays(actor: DashUser, date?: string) {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
-import { isAdminRole } from "@/lib/types";
+import { isAdminRole, isSuperRole } from "@/lib/types";
 import { listMetaDatasets, listMetaEvents } from "@/lib/queries";
 import EventsChart from "./events-chart";
 import EventsTable from "./events-table";
@@ -21,7 +21,7 @@ export default async function MetaAdsPage() {
   // each event was about. Every member reads it; connecting or changing a
   // dataset stays with the super admin.
   const me = await requireMember();
-  const canManage = me.role === "superadmin";
+  const canManage = isSuperRole(me.role);
 
   const [meta, log] = await Promise.all([
     listMetaDatasets(me).catch(() => ({

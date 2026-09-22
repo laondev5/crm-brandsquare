@@ -9,17 +9,17 @@ import {
 } from "../../actions/team";
 import type { FormState } from "../../actions/auth";
 import type { TeamMember } from "@/lib/queries";
-import { ROLES } from "@/lib/types";
+import { ROLES, canManageRole, type Role } from "@/lib/types";
 import PermissionCheckboxes from "./permissions";
 
 export default function TeamRow({
   u,
   meId,
-  isSuper = false,
+  meRole,
 }: {
   u: TeamMember;
   meId: number;
-  isSuper?: boolean;
+  meRole: Role;
 }) {
   const [editing, setEditing] = useState(false);
   const [rankErr, setRankErr] = useState("");
@@ -39,14 +39,14 @@ export default function TeamRow({
   /*
    * Who this viewer may act on.
    *
-   * An admin manages sub-admins only. A super admin manages anyone but
-   * themselves — which is the point of the rank, and without it promoting
-   * someone to admin quietly put them beyond editing or disabling.
+   * An admin manages sales reps and authors. The IT officer manages anyone
+   * but a super admin; a super admin manages anyone but themselves — without
+   * that, promoting someone to admin quietly put them beyond editing.
    *
    * The plugin checks the same thing and additionally refuses to remove the
    * last super admin, so this decides what to draw, not what is allowed.
    */
-  const canManage = !isSelf && (isSuper || u.role === "subadmin" || u.role === "author");
+  const canManage = !isSelf && canManageRole(meRole, u.role);
 
   if (editing) {
     return (
@@ -112,7 +112,7 @@ export default function TeamRow({
               onChange={(e) => e.currentTarget.form?.requestSubmit()}
               style={{ width: "100%" }}
             >
-              {ROLES.filter((r) => isSuper || r.key === "subadmin" || r.key === "author").map((r) => (
+              {ROLES.filter((r) => canManageRole(meRole, r.key)).map((r) => (
                 <option key={r.key} value={r.key}>
                   {r.label}
                 </option>
@@ -173,7 +173,7 @@ export default function TeamRow({
           <p style={{ fontSize: 12, color: "var(--muted)", margin: "6px 0 0" }}>
             Their {Number(u.open_leads) || 0} open lead
             {Number(u.open_leads) === 1 ? "" : "s"} will be shared evenly among the other
-            active sub-admins. Nothing is lost.
+            active sales reps. Nothing is lost.
           </p>
         )}
       </td>

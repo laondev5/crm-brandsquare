@@ -93,6 +93,66 @@ export async function sendInvite(opts: {
   return { sent: true as const };
 }
 
+/**
+ * Someone has said this person can clear what is blocking them. Sent once,
+ * when they are tagged; the same notice waits on their My work page.
+ */
+export async function sendBlockerTag(opts: {
+  to: string;
+  name: string;
+  fromName: string;
+  blocker: string;
+  date: string;
+  link: string;
+}) {
+  const subject = `${opts.fromName} needs your help with a blocker`;
+  const text = [
+    `Hi ${opts.name},`,
+    ``,
+    `${opts.fromName} said you can help with something blocking their work (${opts.date}):`,
+    ``,
+    opts.blocker,
+    ``,
+    `See it and mark it as cleared on your My work page:`,
+    opts.link,
+  ].join("\n");
+
+  const html = `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(subject)}</title></head>
+  <body style="margin:0;padding:0;background:#F7F7F9">
+  <div style="font-family:Arial,Helvetica,sans-serif;color:#2c2c33;max-width:520px;margin:0 auto;padding:24px 20px">
+    <p>Hi ${escapeHtml(opts.name)},</p>
+    <p><strong>${escapeHtml(opts.fromName)}</strong> said you can help with something blocking their work (${escapeHtml(opts.date)}):</p>
+    <div style="background:#FFF4EA;border-left:4px solid #F86E06;border-radius:0 8px 8px 0;padding:14px 16px;margin:16px 0;white-space:pre-wrap">${escapeHtml(opts.blocker)}</div>
+    <p>
+      <a href="${opts.link}" target="_blank" rel="noopener noreferrer"
+         style="display:inline-block;background:#F86E06;color:#fff;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px">Open My work</a>
+    </p>
+    <p style="color:#7A7A7A;font-size:13px">Once it is sorted, press <strong>Mark as cleared</strong> so ${escapeHtml(opts.fromName)} knows.</p>
+  </div>
+  </body>
+</html>`;
+
+  const t = transport();
+  if (!t) {
+    console.log("\n--- BLOCKER TAG (no SMTP configured, not sent) ---");
+    console.log(`To: ${opts.to}`);
+    console.log(text);
+    console.log("--------------------------------------------------\n");
+    return { sent: false as const };
+  }
+
+  await t.sendMail({
+    from: process.env.MAIL_FROM || "Brandsquare <no-reply@localhost>",
+    to: opts.to,
+    subject,
+    text,
+    html,
+  });
+  return { sent: true as const };
+}
+
 function escapeHtml(s: string) {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 }

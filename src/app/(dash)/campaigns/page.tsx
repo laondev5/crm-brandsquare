@@ -14,7 +14,8 @@ export default async function CampaignsPage({
   // Campaign totals span every lead, including ones a sub-admin doesn't own,
   // so this stays with admins - and the author, who reports on how campaigns
   // are running. She reads the totals; she does not add or import leads.
-  const isAuthor = me.role === "author";
+  // Authors and the MD read how campaigns are doing; neither works the leads.
+  const isAuthor = me.role === "author" || me.role === "md";
   if (!isAdminRole(me.role) && !isAuthor) redirect("/leads");
 
   const sp = await searchParams;

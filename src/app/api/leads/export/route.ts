@@ -18,8 +18,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const scope = isAdminRole(me.role) ? null : me.id;
 
-  // Authors never see leads, here or anywhere else.
-  if (me.role === "author") return new NextResponse("Not allowed", { status: 403 });
+  // Authors never see leads, and the MD reads reports rather than the list.
+  if (me.role === "author" || me.role === "md") return new NextResponse("Not allowed", { status: 403 });
 
   const [pipeline, properties] = await Promise.all([getPipeline(), getLeadProperties()]);
 

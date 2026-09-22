@@ -3,14 +3,15 @@
 import { useActionState, useState } from "react";
 import { createSubadminAction } from "../../actions/team";
 import type { FormState } from "../../actions/auth";
-import { DESTRUCTIVE_PERMISSIONS, PERMISSIONS, ROLES } from "@/lib/types";
+import { DESTRUCTIVE_PERMISSIONS, PERMISSIONS, ROLES, canManageRole, type Role } from "@/lib/types";
 import PermissionCheckboxes from "./permissions";
 
-export default function NewSubadmin({ isSuper = false }: { isSuper?: boolean }) {
+export default function NewSubadmin({ meRole }: { meRole: Role }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createSubadminAction, {});
   const [role, setRole] = useState("subadmin");
-  // An admin can add sub-admins and authors; a super admin can add any rank.
-  const ranks = isSuper ? ROLES : ROLES.filter((r) => r.key === "subadmin" || r.key === "author");
+  // Only the ranks this person may hand out: an admin adds sales reps and
+  // authors, the IT officer anything but a super admin.
+  const ranks = ROLES.filter((r) => canManageRole(meRole, r.key));
 
   return (
     <form className="card" action={action}>
@@ -51,6 +52,18 @@ export default function NewSubadmin({ isSuper = false }: { isSuper?: boolean }) 
             )}
           />
         </div>
+      )}
+      {role === "md" && (
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>
+          The MD sees the executive report — every person&rsquo;s work, the pipeline, traffic,
+          campaigns and ads — and changes nothing.
+        </p>
+      )}
+      {role === "it" && (
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>
+          The IT officer has full control, including websites, WhatsApp and ad settings, but cannot
+          change or remove a super admin.
+        </p>
       )}
       {role === "author" && (
         <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>

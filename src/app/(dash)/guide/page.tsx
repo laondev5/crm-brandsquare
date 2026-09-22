@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
-import { isAdminRole } from "@/lib/types";
+import { canOversee, isAdminRole, isSuperRole } from "@/lib/types";
 
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
@@ -42,8 +42,10 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 export default async function GuidePage() {
   const me = await requireMember();
   const manager = isAdminRole(me.role);
-  const superAdmin = me.role === "superadmin";
+  const superAdmin = isSuperRole(me.role);
   const author = me.role === "author";
+  const md = me.role === "md";
+  const overseer = canOversee(me.role);
   const blogger = author || manager;
 
   return (
@@ -57,6 +59,36 @@ export default async function GuidePage() {
         version of how a day goes.
       </p>
 
+      {overseer && (
+        <div className="card">
+          <h2>Executive report</h2>
+
+          <Step n={1} title="Everything on one page">
+            <Link href="/executive">Executive report</Link> opens on the last 7 days. Press{" "}
+            <strong>24 hours</strong>, <strong>30 days</strong> or <strong>90 days</strong> to change
+            the period; every number is compared with the period before it.
+          </Step>
+
+          <Step n={2} title="Read the headline numbers and charts">
+            New leads, deals won, win rate, website visitors and WhatsApp messages across the top, then
+            the trend, the pipeline, which campaigns brought leads in and where visitors came from.
+          </Step>
+
+          <Step n={3} title="See every person side by side">
+            <strong>Team performance</strong> is one table with a row per person: when they signed
+            in, their leads, follow-ups that are late, deals won, notes, WhatsApp messages and tasks.
+            Click the column names to sort. Nobody has to be opened one at a time.
+          </Step>
+
+          <Step n={4} title="Read the daily reports and the activity">
+            <strong>Daily reports</strong> lists what everyone wrote when they signed out, newest
+            first, with blockers highlighted and who was asked to fix them. Pick a person to see only
+            theirs. <strong>Activity</strong> is every change made on a lead, by whom and when.
+          </Step>
+        </div>
+      )}
+
+      {!md && (
       <div className="card">
         <h2>Your day, start to finish</h2>
 
@@ -80,15 +112,25 @@ export default async function GuidePage() {
         <Step n={4} title="Sign out with a report">
           Press <strong>Sign out</strong> and answer three things: what you got done, anything
           blocking you, and what is first tomorrow. The first one is required. This is the part
-          that replaces being asked for an update.
+          that replaces being asked for an update. If someone else can clear your blocker, pick
+          them under <strong>Who can fix this?</strong> — they get an email and see it on their My
+          work page. It is optional.
         </Step>
 
         <Step n={5} title="Your history stays on the page">
           The <strong>Reports</strong> tab keeps what you wrote, day by day or rolled up by week. The
           weekly view is built from your daily ones, so there is nothing extra to write.
         </Step>
-      </div>
 
+        <Step n={6} title="When someone tags you on a blocker">
+          It appears at the top of <Link href="/work">My work</Link> under{" "}
+          <strong>Blockers waiting on you</strong>, and you get an email. Sort it out, then press{" "}
+          <strong>Mark as cleared</strong> so they know.
+        </Step>
+      </div>
+      )}
+
+      {!md && (
       <div className="card">
         <h2>Projects</h2>
 
@@ -110,6 +152,7 @@ export default async function GuidePage() {
           </Step>
         )}
       </div>
+      )}
 
       {manager && (
         <div className="card">
@@ -191,21 +234,21 @@ export default async function GuidePage() {
             name (for example facebook / machines-sept).
           </Step>
 
-          {(manager || author) && (
+          {(manager || author || md) && (
             <Step n={2} title="See how each campaign is doing">
               <Link href="/campaigns">Leads → Campaigns</Link> lists every form with its leads, deals
               won and conversion rate. Open one to see how many of its leads are at each stage.
             </Step>
           )}
 
-          <Step n={manager || author ? 3 : 2} title="See who the ads brought in">
+          <Step n={manager || author || md ? 3 : 2} title="See who the ads brought in">
             <Link href="/settings/meta">Meta → Ads</Link> shows how many lead and sale events Meta
             accepted, how many are waiting and how many it refused, with a 14-day chart. The table
             under it lists each person: name, phone, email, company, campaign, who owns the lead
             and the stage reported. If anything is refused, tell the super admin.
           </Step>
 
-          <Step n={manager || author ? 4 : 3} title="Write the report">
+          <Step n={manager || author || md ? 4 : 3} title="Write the report">
             Put the 24-hour numbers in your daily report: visitors, enquiries, the top ad source and
             campaign, and anything refused by Meta. Spend, reach and cost per result are in Meta
             Ads Manager, not the CRM.
@@ -219,7 +262,7 @@ export default async function GuidePage() {
           )}
       </div>
 
-      {!author && (
+      {!author && !md && (
         <div className="card">
           <h2>Response templates, FAQs and lead properties</h2>
 
@@ -251,7 +294,7 @@ export default async function GuidePage() {
         </div>
       )}
 
-      {!author && (
+      {!author && !md && (
       <div className="card">
         <h2>WhatsApp</h2>
 
@@ -292,7 +335,7 @@ export default async function GuidePage() {
 
       {superAdmin && (
         <div className="card">
-          <h2>Meta settings (super admin only)</h2>
+          <h2>Meta settings (super admin and IT officer)</h2>
 
           <Step n={1} title="WhatsApp settings — the connection">
             <Link href="/whatsapp/settings">WhatsApp settings</Link> holds the business number&rsquo;s

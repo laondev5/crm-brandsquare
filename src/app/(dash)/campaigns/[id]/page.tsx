@@ -16,7 +16,8 @@ export default async function CampaignDetail({
   const me = await currentUser();
   if (!me) redirect("/login");
   // The author sees how the campaign is doing, not who the people are.
-  const isAuthor = me.role === "author";
+  // Authors and the MD read how campaigns are doing; neither works the leads.
+  const isAuthor = me.role === "author" || me.role === "md";
   if (!isAdminRole(me.role) && !isAuthor) redirect("/leads");
 
   const { id: raw } = await params;

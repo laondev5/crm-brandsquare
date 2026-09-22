@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { workMember } from "@/lib/queries";
 import { ROLE_LABEL } from "@/lib/types";
+import { BlockerOwner } from "../../day-card";
 
 const RANGES = [7, 30, 90];
 
@@ -124,7 +125,10 @@ export default async function MemberPage({
                     <td data-l="Done" style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>
                       {d.summary || <span style={{ color: "var(--muted)" }}>No report</span>}
                     </td>
-                    <td data-l="Blocked" style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--err)" }}>{d.blockers}</td>
+                    <td data-l="Blocked" style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--err)" }}>
+                      {d.blockers}
+                      {d.blockers && <BlockerOwner day={d} />}
+                    </td>
                     <td data-l="Tomorrow" style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{d.plan_tomorrow}</td>
                   </tr>
                 );

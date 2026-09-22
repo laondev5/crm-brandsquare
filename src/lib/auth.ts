@@ -2,7 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { api, ApiError } from "./api";
-import { isAdminRole } from "./types";
+import { canOversee, isAdminRole, isSuperRole } from "./types";
 import type { DashUser, Role } from "./types";
 
 export const SESSION_COOKIE = "bsq_session";
@@ -79,6 +79,15 @@ export async function requireUser(): Promise<DashUser> {
   // Authors work on the blog and nothing else: every lead, inbox and settings
   // screen goes through here, so this one line keeps them out of all of it.
   if (u.role === "author") redirect("/blog");
+  // The MD reads reports; the working screens behind them are not theirs.
+  if (u.role === "md") redirect("/executive");
+  return u;
+}
+
+/** Management and the MD: the screens that read across everyone. */
+export async function requireOverseer(): Promise<DashUser> {
+  const u = await requireMember();
+  if (!canOversee(u.role)) redirect("/");
   return u;
 }
 
@@ -113,10 +122,10 @@ export async function requireAdmin(): Promise<DashUser> {
   return u;
 }
 
-/** The top tier: manages admins and the connected websites. */
+/** The top tier (super admin or IT officer): admins, websites and credentials. */
 export async function requireSuperAdmin(): Promise<DashUser> {
   const u = await requireUser();
-  if (u.role !== "superadmin") redirect("/");
+  if (!isSuperRole(u.role)) redirect("/");
   return u;
 }
 

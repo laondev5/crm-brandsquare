@@ -1,4 +1,5 @@
 import type { Workday } from "@/lib/types";
+import { BlockerOwner } from "./day-card";
 
 /** Monday-based week key, so a week reads the way a working week does. */
 function weekOf(dateStr: string) {
@@ -114,6 +115,7 @@ export default function Reports({
                 </td>
                 <td data-l="Blocked" style={{ whiteSpace: "pre-wrap", color: "var(--err)" }}>
                   {d.blockers || ""}
+                  {d.blockers && <BlockerOwner day={d} />}
                 </td>
               </tr>
             ))}

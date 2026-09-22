@@ -6,7 +6,7 @@ import { logoutAction } from "../actions/auth";
 import NavLinks from "./nav";
 import Palette from "./palette";
 import Shell from "./shell";
-import { isAdminRole, ROLE_LABEL } from "@/lib/types";
+import { isAdminRole, isSuperRole, ROLE_LABEL } from "@/lib/types";
 
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
   const me = await currentUser();
@@ -20,12 +20,13 @@ export default async function DashLayout({ children }: { children: React.ReactNo
             <Image src="/logo-icon.webp" alt="" width={22} height={22} className="brand-mark" priority /> Brandsquare
           </Link>
 
-          {me.role !== "author" && <Palette isAdmin={isAdminRole(me.role)} />}
+          {me.role !== "author" && me.role !== "md" && <Palette isAdmin={isAdminRole(me.role)} />}
 
           <NavLinks
             isAdmin={isAdminRole(me.role)}
-            isSuper={me.role === "superadmin"}
+            isSuper={isSuperRole(me.role)}
             isAuthor={me.role === "author"}
+            isMd={me.role === "md"}
           />
 
           <div className="side-foot">
