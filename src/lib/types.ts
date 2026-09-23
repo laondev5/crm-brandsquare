@@ -1427,3 +1427,86 @@ export interface Pulse {
   invites: Meeting[];
   announcements: AppNotification[];
 }
+
+/* ---------------- machine requests ---------------- */
+
+/** Where a request is in procurement's workflow. */
+export const MR_STATUSES = [
+  { key: "new", label: "New request", tone: "new" },
+  { key: "sourcing", label: "Sourcing", tone: "assigned" },
+  { key: "breakdown_pending", label: "Breakdown pending", tone: "contacted" },
+  { key: "breakdown_ready", label: "Breakdown ready", tone: "qualified" },
+  { key: "sent_to_sales", label: "Sent to sales", tone: "won" },
+  { key: "completed", label: "Completed", tone: "won" },
+] as const;
+
+export const MR_BREAKDOWNS = [
+  { key: "pending", label: "Pending" },
+  { key: "in_progress", label: "In progress" },
+  { key: "provided", label: "Provided" },
+] as const;
+
+export const MR_SOURCES = [
+  { key: "whatsapp", label: "WhatsApp" },
+  { key: "phone", label: "Phone call" },
+  { key: "website", label: "Website form" },
+  { key: "email", label: "Email" },
+  { key: "instagram", label: "Instagram" },
+  { key: "facebook", label: "Facebook" },
+  { key: "referral", label: "Referral" },
+  { key: "walk_in", label: "Walk-in" },
+  { key: "other", label: "Other" },
+] as const;
+
+/** One machinery enquiry as procurement works it. Only the phone is ever required. */
+export interface MachineRequest {
+  id: number;
+  /** MR-001 */
+  ref: string;
+  phone: string;
+  name: string;
+  company: string;
+  email: string;
+  country: string;
+  source: string;
+  source_label: string;
+  machine: string;
+  requirements: string;
+  capacity: string;
+  notes: string;
+  status: string;
+  status_label: string;
+  breakdown_status: string;
+  breakdown_label: string;
+  breakdown_link: string;
+  assigned_procurement: number | null;
+  procurement_name: string;
+  assigned_sales: number | null;
+  sales_name: string;
+  last_update: string;
+  next_action: string;
+  lead_id: number | null;
+  request_date: string | null;
+  created_by: number;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MachineRequestEvent {
+  id: number;
+  actor_name: string;
+  type: string;
+  from_value: string;
+  to_value: string;
+  note: string;
+  created_at: string;
+}
+
+/** How many requests sit in each view, for the counts beside the tabs. */
+export type MachineRequestCounts = Record<string, number>;
+
+/** "Not provided", said the same way everywhere a blank field shows. */
+export function orBlank(v: string | null | undefined) {
+  return v && v.trim() ? v : "Not provided";
+}

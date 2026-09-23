@@ -2,7 +2,14 @@ import "server-only";
 
 /** Where Google sends people back to after they approve the connection. */
 export function googleRedirectUri() {
-  return `${(process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}/api/google/callback`;
+  let base = (process.env.APP_URL ?? "http://localhost:3000").trim().replace(/\/+$/, "");
+  // Google refuses a plain-http return address for any real domain (Error 400
+  // invalid_request, "doesn't comply with OAuth 2.0 policy"). Only localhost
+  // may stay on http.
+  if (/^http:\/\//i.test(base) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(base)) {
+    base = base.replace(/^http:/i, "https:");
+  }
+  return `${base}/api/google/callback`;
 }
 
 /**

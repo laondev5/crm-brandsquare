@@ -44,6 +44,9 @@ import type {
   AppNotification,
   Announcement,
   Pulse,
+  MachineRequest,
+  MachineRequestEvent,
+  MachineRequestCounts,
   ExecutiveReport,
   WaDiagnostics,
   WaMessage,
@@ -1355,4 +1358,80 @@ export async function saveAnnouncement(actor: DashUser, id: number | null, body:
 
 export async function cancelAnnouncement(actor: DashUser, id: number) {
   return api.post<{ ok: true }>(`/announcements/${id}/cancel`, { actor_id: actor.id });
+}
+
+/* ---------------- machine requests ---------------- */
+
+export interface MachineRequestFilters {
+  view?: string;
+  q?: string;
+  mine?: boolean;
+  page?: number;
+}
+
+export async function listMachineRequests(actor: DashUser, f: MachineRequestFilters = {}) {
+  return api.get<{
+    requests: MachineRequest[];
+    total: number;
+    pages: number;
+    page: number;
+    counts: MachineRequestCounts;
+    can_edit: boolean;
+  }>("/machine-requests", {
+    actor_id: actor.id,
+    view: f.view || undefined,
+    q: f.q || undefined,
+    mine: f.mine ? 1 : undefined,
+    page: f.page && f.page > 1 ? f.page : undefined,
+  });
+}
+
+export async function getMachineRequest(actor: DashUser, id: number) {
+  return api.get<{ request: MachineRequest; log: MachineRequestEvent[]; can_edit: boolean }>(
+    `/machine-requests/${id}`,
+    { actor_id: actor.id }
+  );
+}
+
+export type MachineRequestInput = Partial<
+  Pick<
+    MachineRequest,
+    | "phone"
+    | "name"
+    | "company"
+    | "email"
+    | "country"
+    | "source"
+    | "machine"
+    | "requirements"
+    | "capacity"
+    | "notes"
+    | "status"
+    | "breakdown_status"
+    | "breakdown_link"
+    | "last_update"
+    | "next_action"
+  >
+> & {
+  assigned_procurement?: number | null;
+  assigned_sales?: number | null;
+  request_date?: string;
+};
+
+export async function saveMachineRequest(actor: DashUser, id: number | null, body: MachineRequestInput) {
+  const payload = { ...body, actor_id: actor.id };
+  return id
+    ? api.patch<{ ok: true; request: MachineRequest }>(`/machine-requests/${id}`, payload)
+    : api.post<{ ok: true; request: MachineRequest }>("/machine-requests", payload);
+}
+
+export async function addMachineRequestNote(actor: DashUser, id: number, note: string) {
+  return api.post<{ request: MachineRequest; log: MachineRequestEvent[] }>(
+    `/machine-requests/${id}/note`,
+    { actor_id: actor.id, note }
+  );
+}
+
+export async function deleteMachineRequest(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/machine-requests/${id}`, { actor_id: actor.id });
 }

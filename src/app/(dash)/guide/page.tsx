@@ -130,6 +130,47 @@ export default async function GuidePage() {
       </div>
       )}
 
+      {!md && (
+      <div className="card">
+        <h2>Machine requests</h2>
+
+        <Step n={1} title="Log the enquiry the moment it lands">
+          <Link href="/requests">Machine requests</Link> → <strong>+ New machine request</strong>. The only
+          thing you must type is the <strong>phone number</strong> — a WhatsApp enquiry usually has nothing
+          else. Add the machine and capacity if you know them.
+        </Step>
+
+        <Step n={2} title="Fill in the rest when the customer gives it">
+          Name, company and email show as <em>Not provided</em> until someone adds them. Open the request and
+          press <strong>Edit details</strong> when the customer tells you.
+        </Step>
+
+        <Step n={3} title="Move it along">
+          Two statuses run side by side. The request goes New → Sourcing → Breakdown pending → Breakdown
+          ready → Sent to sales → Completed, and the <strong>breakdown</strong> is separately Pending, In
+          progress or Provided. Both can be changed straight from the list.
+        </Step>
+
+        <Step n={4} title="Say what happened">
+          On a request, write in <strong>What just happened?</strong> and press <strong>Add update</strong>.
+          That line becomes its Last update on the list, and the history keeps every change with who made it.
+          Set <strong>Next action</strong> so the next person knows what is outstanding.
+        </Step>
+
+        <Step n={5} title="Work from the queues">
+          The menu lists every view: Open, New, Currently sourcing, Breakdown pending,{" "}
+          <strong>Breakdown ready</strong> and <strong>Sent to sales</strong>, each with a count.
+          <strong> Mine only</strong> narrows a view to the requests assigned to you. Nobody has to ask which
+          WhatsApp conversation a request was in.
+        </Step>
+
+        <Step n={6} title="Being assigned tells you">
+          Whoever is put on a request as procurement or sales gets it in their bell, and so does the sales
+          person when a breakdown becomes ready.
+        </Step>
+      </div>
+      )}
+
       <div className="card">
         <h2>Meetings</h2>
 

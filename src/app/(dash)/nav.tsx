@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Activity,
   BarChart3,
+  Cog,
   ChevronDown,
   FileText,
   PenSquare,
@@ -61,6 +62,22 @@ const GROUPS: NavGroup[] = [
       { href: "/pipeline", label: "Pipeline" },
       { href: "/campaigns", label: "Campaigns", adminOnly: true, author: true, md: true },
       { href: "/email", label: "Email" },
+    ],
+  },
+  // Machinery enquiries as procurement works them: the views are the queues,
+  // so "what is waiting on me" is a menu item rather than a search.
+  {
+    label: "Machine requests",
+    icon: Cog,
+    children: [
+      { href: "/requests?view=open", label: "Open requests", md: true },
+      { href: "/requests?view=", label: "All requests", md: true },
+      { href: "/requests?view=new", label: "New requests" },
+      { href: "/requests?view=sourcing", label: "Currently sourcing" },
+      { href: "/requests?view=breakdown_pending", label: "Breakdown pending" },
+      { href: "/requests?view=breakdown_ready", label: "Breakdown ready", md: true },
+      { href: "/requests?view=sent_to_sales", label: "Sent to sales", md: true },
+      { href: "/requests?new=1", label: "+ New request" },
     ],
   },
   {
@@ -142,11 +159,24 @@ export default function NavLinks({
   isMd?: boolean;
 }) {
   const path = usePathname();
+  const params = useSearchParams();
 
   // The most specific link wins: on /whatsapp/settings only "WhatsApp
   // settings" is lit, not the inbox at /whatsapp as well.
-  const matches = (href: string) =>
-    href === "/" ? path === "/" : path === href || path.startsWith(href + "/");
+  const view = params.get("view");
+  const matches = (href: string) => {
+    if (href === "/") return path === "/";
+    // Several menu items point at one page with a different view; the lit one
+    // is the view actually being shown.
+    const [base, query] = href.split("?");
+    if (query) {
+      if (path !== base) return false;
+      const want = new URLSearchParams(query).get("view");
+      if (want === null) return false;
+      return (view ?? (base === "/requests" ? "open" : "")) === want;
+    }
+    return path === base || path.startsWith(base + "/");
+  };
   const best = GROUPS.flatMap((g) => [g.href, ...(g.children ?? []).map((c) => c.href)])
     .filter((h): h is string => !!h && matches(h))
     .sort((a, b) => b.length - a.length)[0];
