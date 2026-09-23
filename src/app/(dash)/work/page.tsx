@@ -19,7 +19,7 @@ import Board from "./board";
 import FollowUps from "./follow-ups";
 import Reports from "./reports";
 import TaggedBlockers from "./tagged-blockers";
-import NotificationsCard from "./notifications";
+import NotificationsPeek from "./notifications";
 
 const TABS = [
   { key: "today", label: "Today" },
@@ -110,8 +110,6 @@ export default async function WorkPage({
 
       {/* Blockers teammates have tagged this person on -- above the tabs, so
           it is seen whichever tab the page opens on. */}
-      <NotificationsCard items={notes.notifications} unread={notes.unread} />
-
       <TaggedBlockers blockers={tagged} />
 
       <div className="tabs">
@@ -126,7 +124,8 @@ export default async function WorkPage({
       </div>
 
       {tab === "today" && (
-        <>
+        <div className="work-today">
+          <div className="work-today__main">
           <DayCard workday={today.workday} serverNow={today.now} people={names} meId={me.id} />
 
           {meetingsToday.length > 0 && (
@@ -198,7 +197,14 @@ export default async function WorkPage({
               </p>
             </div>
           )}
-        </>
+          </div>
+
+          {/* The live notifications sit beside the day. Everything older is on
+              the Notifications page, so this never pushes the work down. */}
+          <aside className="work-today__side">
+            <NotificationsPeek items={notes.notifications} unread={notes.unread} />
+          </aside>
+        </div>
       )}
 
       {tab === "tasks" && (

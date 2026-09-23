@@ -412,6 +412,13 @@
     .wa-desk__panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(330px, 92%); z-index: 5; box-shadow: -12px 0 30px rgba(10, 7, 48, .14); }
   }
   /* ---------- notification bell ---------- */
+  .work-today { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; align-items: start; }
+  .work-today__main { display: grid; gap: 18px; min-width: 0; }
+  .work-today__side { display: grid; gap: 18px; position: sticky; top: 18px; }
+  @media (max-width: 1100px) {
+    .work-today { grid-template-columns: 1fr; }
+    .work-today__side { position: static; }
+  }
   .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .bell { position: relative; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: var(--txt); border: 1px solid var(--line); background: var(--card); transition: background .15s, color .15s; flex: none; }
   .bell:hover { background: #fff3e9; color: var(--p); }
@@ -435,6 +442,9 @@
   .notif__time { font-size: 11.5px; color: var(--muted); }
   .notif__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--p); margin-top: 11px; flex: none; }
   .mtg-alert.is-ann { border-left-color: var(--ok); }
+  .mtg-alert.is-more { display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 12.5px; border-left-color: var(--muted); }
+  .mtg-alert.is-more a { font-weight: 600; color: var(--ink); }
+  .mtg-alert.is-more a:hover { color: var(--p); }
   .mtg-alert.is-ann .mtg-alert__top { color: var(--ok); }
   .mtg-alert__body { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 

@@ -124,6 +124,7 @@ const GROUPS: NavGroup[] = [
     icon: UsersRound,
     children: [
       { href: "/work", label: "My work", author: true, md: true },
+      { href: "/notifications", label: "Notifications", author: true, md: true },
       { href: "/projects", label: "Projects", author: true },
       { href: "/meetings", label: "Meetings", author: true, md: true },
       { href: "/announcements", label: "Announcements", author: true, md: true },

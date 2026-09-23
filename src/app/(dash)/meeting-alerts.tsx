@@ -8,6 +8,9 @@ import type { Meeting } from "@/lib/types";
 import { usePulse } from "./pulse";
 
 const KEY = "bsq-meeting-dismissed";
+/** Never more than this on screen at once; the rest roll up into one line. */
+const MAX_SOON = 2;
+const MAX_REST = 2;
 
 function readDismissed(): string[] {
   try {
@@ -61,9 +64,17 @@ export default function MeetingAlerts() {
 
   const minsLeft = (m: Meeting) => m.starts_in_min - Math.floor((Date.now() - fetchedAt) / 60000);
 
-  const showSoon = soon.filter((m) => !dismissed.includes(`s${m.id}`));
-  const showInv = invites.filter((m) => !dismissed.includes(`i${m.id}`) && !soon.some((s) => s.id === m.id));
-  const showAnn = announcements.filter((a) => !dismissed.includes(`a${a.id}`));
+  const allSoon = soon.filter((m) => !dismissed.includes(`s${m.id}`));
+  const allInv = invites.filter((m) => !dismissed.includes(`i${m.id}`) && !soon.some((s) => s.id === m.id));
+  const allAnn = announcements.filter((a) => !dismissed.includes(`a${a.id}`));
+
+  // A quiet week and a busy one should look the same size on screen: a wall of
+  // cards covers the page it is trying to interrupt.
+  const showSoon = allSoon.slice(0, MAX_SOON);
+  const rest = [...allAnn, ...allInv];
+  const showAnn = allAnn.slice(0, MAX_REST);
+  const showInv = allInv.slice(0, Math.max(0, MAX_REST - showAnn.length));
+  const hidden = allSoon.length - showSoon.length + rest.length - showAnn.length - showInv.length;
 
   useEffect(() => {
     for (const m of showSoon) {
@@ -93,6 +104,17 @@ export default function MeetingAlerts() {
   };
 
   if (showSoon.length === 0 && showInv.length === 0 && showAnn.length === 0) return null;
+
+  const dismissAll = () => {
+    const keys = [
+      ...allSoon.map((m) => `s${m.id}`),
+      ...allInv.map((m) => `i${m.id}`),
+      ...allAnn.map((a) => `a${a.id}`),
+    ];
+    const next = [...dismissed, ...keys];
+    setDismissed(next);
+    writeDismissed(next);
+  };
 
   return (
     <div className="mtg-alerts" role="region" aria-label="Notifications">
@@ -158,6 +180,16 @@ export default function MeetingAlerts() {
           </Link>
         </div>
       ))}
+      {hidden > 0 && (
+        <div className="mtg-alert is-more">
+          <Link href="/notifications" onClick={dismissAll}>
+            {hidden} more notification{hidden === 1 ? "" : "s"}
+          </Link>
+          <button type="button" className="mtg-alert__x" aria-label="Dismiss all" onClick={dismissAll}>
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }

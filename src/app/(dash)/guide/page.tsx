@@ -203,12 +203,17 @@ export default async function GuidePage() {
 
         <Step n={1} title="The bell">
           The bell at the top of the menu shows how many notifications you have not read — meeting invites, changes
-          and reminders, announcements, and blockers you were tagged on. Click it to go to{" "}
-          <Link href="/work">My work</Link>, where they are listed. Click one to open it; <strong>Mark all as read</strong>{" "}
-          clears the bell.
+          and reminders, announcements, machine requests assigned to you, and blockers you were tagged on. Click it
+          for <Link href="/notifications">Notifications</Link>, where they all live. Click one to open what it is
+          about; <strong>Mark all as read</strong> clears the bell.
         </Step>
 
-        <Step n={2} title="Announcements">
+        <Step n={2} title="On My work">
+          <Link href="/work">My work</Link> shows only what is still waiting on you, in the column on the right.
+          Everything older is on the Notifications page.
+        </Step>
+
+        <Step n={3} title="Announcements">
           <Link href="/announcements">Team → Announcements</Link> shows everything posted for you, newest first.
           {overseer && (
             <>

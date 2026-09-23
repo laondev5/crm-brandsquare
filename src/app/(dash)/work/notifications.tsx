@@ -1,38 +1,35 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import Link from "next/link";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { readNotificationsAction } from "@/app/actions/notifications";
 import type { AppNotification } from "@/lib/types";
 import { usePulse } from "../pulse";
+import { NotificationRow } from "../notifications/list";
 
-const ICON: Record<string, string> = {
-  announcement: "📣",
-  blocker: "🚧",
-  meeting_invite: "📅",
-  meeting_update: "🔁",
-  meeting_cancel: "✖",
-  meeting_reminder: "⏰",
-};
-
-function ago(s: string) {
-  const d = new Date(s.replace(" ", "T"));
-  if (isNaN(d.getTime())) return s;
-  return d.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-}
+/** How many live notifications the side panel shows before "see all". */
+const PEEK = 3;
 
 /**
- * What the bell counts, listed at the top of My work: unread first, each one
- * opening what it is about. Opening one marks it read; "Mark all as read"
- * clears the bell in one go.
+ * The live end of the notification list, beside the working day rather than
+ * above it.
+ *
+ * Only what is still unread shows here (and the newest one if everything has
+ * been read), because a week of invites and reminders stacked on top of My
+ * work pushed the actual work off the screen. The rest is on the
+ * Notifications page.
  */
-export default function NotificationsCard({ items, unread }: { items: AppNotification[]; unread: number }) {
+export default function NotificationsPeek({ items, unread }: { items: AppNotification[]; unread: number }) {
   const router = useRouter();
   const { refresh } = usePulse();
   const [busy, start] = useTransition();
-  const [showAll, setShowAll] = useState(false);
 
-  const mark = (opts: { ids?: number[]; all?: boolean }, then?: string) =>
+  const live = items.filter((n) => !n.read).slice(0, PEEK);
+  const shown = live.length > 0 ? live : items.slice(0, 1);
+  const more = items.length - shown.length;
+
+  const act = (opts: { ids?: number[]; all?: boolean }, then?: string) =>
     start(async () => {
       await readNotificationsAction(opts);
       refresh();
@@ -40,51 +37,35 @@ export default function NotificationsCard({ items, unread }: { items: AppNotific
       else router.refresh();
     });
 
-  const shown = showAll ? items : items.filter((n) => !n.read).concat(items.filter((n) => n.read).slice(0, 5));
-
   return (
-    <div className="card" id="notifications" style={{ marginBottom: 18, scrollMarginTop: 80 }}>
-      <div className="row" style={{ alignItems: "center", gap: 10, marginBottom: 6 }}>
+    <div className="card" id="notifications" style={{ scrollMarginTop: 80 }}>
+      <div className="row" style={{ alignItems: "center", gap: 8, marginBottom: 6 }}>
         <h2 style={{ margin: 0 }}>Notifications</h2>
         {unread > 0 && <span className="pill s-disabled">{unread} new</span>}
-        <div style={{ flex: 1 }} />
+      </div>
+
+      {shown.length === 0 ? (
+        <p className="empty" style={{ margin: 0, padding: "10px 0" }}>
+          Nothing waiting on you.
+        </p>
+      ) : (
+        <ul className="notif-list">
+          {shown.map((n) => (
+            <NotificationRow key={n.id} n={n} busy={busy} onOpen={(x) => act({ ids: [x.id] }, x.link || undefined)} />
+          ))}
+        </ul>
+      )}
+
+      <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+        <Link href="/notifications" className="btn ghost sm">
+          {more > 0 ? `See all ${items.length}` : "See all"}
+        </Link>
         {unread > 0 && (
-          <button type="button" className="btn ghost sm" disabled={busy} onClick={() => mark({ all: true })}>
+          <button type="button" className="btn ghost sm" disabled={busy} onClick={() => act({ all: true })}>
             Mark all as read
           </button>
         )}
       </div>
-
-      {items.length === 0 ? (
-        <p className="empty" style={{ padding: "12px 0", margin: 0 }}>
-          Nothing yet. Meeting invites, reminders, announcements and blockers you are tagged on appear here.
-        </p>
-      ) : (
-        <>
-          <ul className="notif-list">
-            {shown.map((n) => (
-              <li key={n.id} className={`notif${n.read ? "" : " is-unread"}`}>
-                <span className={`notif__icon k-${n.kind}`} aria-hidden="true">
-                  {ICON[n.kind] ?? "🔔"}
-                </span>
-                <div className="notif__main">
-                  <button type="button" className="notif__title" onClick={() => mark({ ids: [n.id] }, n.link || undefined)}>
-                    {n.title}
-                  </button>
-                  {n.body && <div className="notif__body">{n.body}</div>}
-                  <div className="notif__time">{ago(n.created_at)}</div>
-                </div>
-                {!n.read && <span className="notif__dot" title="Unread" />}
-              </li>
-            ))}
-          </ul>
-          {items.length > shown.length && (
-            <button type="button" className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => setShowAll(true)}>
-              Show older ones
-            </button>
-          )}
-        </>
-      )}
     </div>
   );
 }
