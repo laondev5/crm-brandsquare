@@ -1446,6 +1446,16 @@ export const MR_BREAKDOWNS = [
   { key: "provided", label: "Provided" },
 ] as const;
 
+/** A source as the plugin stores it: renameable, retireable, admin-owned. */
+export interface MachineSource {
+  key: string;
+  label: string;
+  archived?: boolean;
+  /** How many requests already use it, so nothing in use is deleted. */
+  used?: number;
+}
+
+/** Used only until the plugin answers with the saved list. */
 export const MR_SOURCES = [
   { key: "whatsapp", label: "WhatsApp" },
   { key: "phone", label: "Phone call" },

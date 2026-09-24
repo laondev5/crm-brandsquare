@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { listMachineRequests, listPeopleNames } from "@/lib/queries";
-import { orBlank, type MachineRequestCounts } from "@/lib/types";
+import { listMachineRequests, listPeopleNames, machineRequestMeta } from "@/lib/queries";
+import { MR_SOURCES, orBlank, type MachineRequestCounts } from "@/lib/types";
 import NewRequest from "./new-request";
 import StatusControls from "./status-pills";
 
@@ -47,10 +47,12 @@ export default async function RequestsPage({
   const mine = sp.mine === "1";
   const page = Number(sp.page) || 1;
 
-  const [data, people] = await Promise.all([
+  const [data, people, meta] = await Promise.all([
     listMachineRequests(me, { view, q, mine, page }).catch(() => null),
     listPeopleNames().catch(() => []),
+    machineRequestMeta(me).catch(() => null),
   ]);
+  const sources = meta?.sources ?? MR_SOURCES.map((s) => ({ key: s.key, label: s.label }));
 
   const href = (o: { view?: string; q?: string; mine?: boolean; page?: number }) => {
     const p = new URLSearchParams();
@@ -101,7 +103,7 @@ export default async function RequestsPage({
         </div>
       )}
 
-      {canEdit && <NewRequest people={people} openAtStart={sp.new === "1"} />}
+      {canEdit && <NewRequest people={people} sources={sources} openAtStart={sp.new === "1"} />}
 
       <div className="tabs mr-views">
         {VIEWS.map((v) => (

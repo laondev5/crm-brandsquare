@@ -141,6 +141,7 @@ const GROUPS: NavGroup[] = [
     children: [
       { href: "/settings/stages", label: "Pipeline stages", adminOnly: true },
       { href: "/settings/lead-properties", label: "Lead properties", adminOnly: true },
+      { href: "/settings/request-sources", label: "Request sources", adminOnly: true },
       { href: "/settings/responses", label: "Response templates", adminOnly: true },
       { href: "/settings/faq", label: "FAQs", adminOnly: true },
       { href: "/meetings/settings", label: "Meeting settings", superOnly: true },

@@ -11,8 +11,11 @@ import {
   listWaTemplates,
   getLeadProperties,
   listKb,
+  listMachineRequests,
+  machineRequestMeta,
 } from "@/lib/queries";
 import LeadProperties from "./properties";
+import LeadMachineRequests from "./machine-requests";
 import TemplatePicker from "../../whatsapp/template-picker";
 import { daysQuiet, hasPermission, isClosed, isStale, parsePayload, isAdminRole } from "@/lib/types";
 
@@ -35,7 +38,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   if (!full) notFound();
 
   const { lead, notes, activity } = full;
-  const [subs, emailHistory, emailSettings, pipeline, noteTemplates, emailTemplates, properties, responses] = await Promise.all([
+  const [subs, emailHistory, emailSettings, pipeline, noteTemplates, emailTemplates, properties, responses, machine, meta] = await Promise.all([
     isAdminRole(me.role) ? assignableStaff().catch(() => []) : Promise.resolve([]),
     getLeadEmails(id, scope),
     getEmailSettings().catch(() => null),
@@ -44,6 +47,8 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
     listTemplates("email").catch(() => []),
     getLeadProperties(),
     listKb("response").catch(() => []),
+    listMachineRequests(me, { view: "", lead: id }).then((r) => r.requests).catch(() => []),
+    machineRequestMeta(me).catch(() => null),
   ]);
 
   // The way to open a WhatsApp conversation with a lead from inside the CRM:
@@ -173,6 +178,14 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
             properties={properties}
             values={(lead as { props?: Record<string, string> }).props ?? {}}
             isAdmin={isAdminRole(me.role)}
+          />
+
+          <LeadMachineRequests
+            leadId={lead.id}
+            lead={{ name: lead.name, email: lead.email, phone: lead.phone, company: lead.company ?? "" }}
+            requests={machine}
+            sources={meta?.sources ?? []}
+            canAdd={me.role !== "md"}
           />
 
           <Tasks leadId={lead.id} initial={full.tasks ?? []} />

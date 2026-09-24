@@ -1,13 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import {
   addMachineRequestNote,
   deleteMachineRequest,
   saveMachineRequest,
+  saveMachineSources,
   type MachineRequestInput,
 } from "@/lib/queries";
+import type { MachineSource } from "@/lib/types";
 import { ApiError } from "@/lib/api";
 
 type Result = { ok: true; id?: number } | { error: string };
@@ -46,6 +48,8 @@ export async function createRequestAction(_prev: Result | null, form: FormData):
     notes: String(form.get("notes") ?? "").trim(),
     next_action: String(form.get("next_action") ?? "").trim(),
   };
+  const lead = Number(form.get("lead_id")) || null;
+  if (lead) body.lead_id = lead;
   const proc = Number(form.get("assigned_procurement")) || null;
   const sales = Number(form.get("assigned_sales")) || null;
   if (proc) body.assigned_procurement = proc;
@@ -54,6 +58,7 @@ export async function createRequestAction(_prev: Result | null, form: FormData):
   try {
     const res = await saveMachineRequest(me, null, body);
     refresh(res.request.id);
+    if (lead) revalidatePath(`/leads/${lead}`);
     return { ok: true, id: res.request.id };
   } catch (e) {
     return fail(e, "Could not save the request.");
@@ -115,6 +120,22 @@ export async function addRequestNoteAction(id: number, note: string): Promise<Re
     return fail(e, "Could not save that update.");
   }
   refresh(id);
+  return { ok: true };
+}
+
+/** The source list, saved whole and in order. Admins only; the plugin re-checks. */
+export async function saveMachineSourcesAction(sources: MachineSource[]): Promise<Result> {
+  const me = await requireAdmin();
+  if (!sources.some((s) => !s.archived)) {
+    return { error: "Keep at least one source that is not retired." };
+  }
+  try {
+    await saveMachineSources(me, sources);
+  } catch (e) {
+    return fail(e, "Could not save the list.");
+  }
+  revalidatePath("/settings/request-sources");
+  revalidatePath("/requests");
   return { ok: true };
 }
 

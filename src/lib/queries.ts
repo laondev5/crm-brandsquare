@@ -47,6 +47,7 @@ import type {
   MachineRequest,
   MachineRequestEvent,
   MachineRequestCounts,
+  MachineSource,
   ExecutiveReport,
   WaDiagnostics,
   WaMessage,
@@ -1367,6 +1368,8 @@ export interface MachineRequestFilters {
   q?: string;
   mine?: boolean;
   page?: number;
+  /** Only the requests raised for one lead. */
+  lead?: number;
 }
 
 export async function listMachineRequests(actor: DashUser, f: MachineRequestFilters = {}) {
@@ -1382,7 +1385,25 @@ export async function listMachineRequests(actor: DashUser, f: MachineRequestFilt
     view: f.view || undefined,
     q: f.q || undefined,
     mine: f.mine ? 1 : undefined,
+    lead: f.lead || undefined,
     page: f.page && f.page > 1 ? f.page : undefined,
+  });
+}
+
+export async function machineRequestMeta(actor: DashUser) {
+  return api.get<{
+    statuses: { key: string; label: string }[];
+    breakdown: { key: string; label: string }[];
+    sources: MachineSource[];
+    counts: MachineRequestCounts;
+  }>("/machine-requests/meta", { actor_id: actor.id });
+}
+
+/** The whole list, in order. Anything still in use is retired rather than dropped. */
+export async function saveMachineSources(actor: DashUser, sources: MachineSource[]) {
+  return api.post<{ sources: MachineSource[] }>("/machine-requests/sources", {
+    actor_id: actor.id,
+    sources: sources.map((s) => ({ key: s.key || undefined, label: s.label, archived: s.archived ? 1 : 0 })),
   });
 }
 
@@ -1416,6 +1437,7 @@ export type MachineRequestInput = Partial<
   assigned_procurement?: number | null;
   assigned_sales?: number | null;
   request_date?: string;
+  lead_id?: number | null;
 };
 
 export async function saveMachineRequest(actor: DashUser, id: number | null, body: MachineRequestInput) {

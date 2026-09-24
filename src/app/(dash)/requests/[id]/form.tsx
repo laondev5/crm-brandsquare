@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteRequestAction, saveRequestFormAction } from "@/app/actions/requests";
-import { MR_SOURCES, ROLE_LABEL, orBlank, type MachineRequest, type PersonName } from "@/lib/types";
+import { ROLE_LABEL, orBlank, type MachineRequest, type MachineSource, type PersonName } from "@/lib/types";
 
 /**
  * The request's own details, in the three groups people think in: who the
@@ -16,14 +16,18 @@ import { MR_SOURCES, ROLE_LABEL, orBlank, type MachineRequest, type PersonName }
 export default function RequestForm({
   r,
   people,
+  sources,
   canEdit,
   canDelete,
 }: {
   r: MachineRequest;
   people: PersonName[];
+  sources: MachineSource[];
   canEdit: boolean;
   canDelete: boolean;
 }) {
+  // A retired source stays selectable on the request that already uses it.
+  const pickable = sources.filter((s) => !s.archived || s.key === r.source);
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [state, action, pending] = useActionState(saveRequestFormAction.bind(null, r.id), null);
@@ -173,9 +177,10 @@ export default function RequestForm({
         <label className="f">
           <span>Source</span>
           <select name="source" defaultValue={r.source}>
-            {MR_SOURCES.map((s) => (
+            {pickable.map((s) => (
               <option key={s.key} value={s.key}>
                 {s.label}
+                {s.archived ? " (retired)" : ""}
               </option>
             ))}
           </select>

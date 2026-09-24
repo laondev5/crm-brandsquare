@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { getMachineRequest, listPeopleNames } from "@/lib/queries";
-import { isAdminRole } from "@/lib/types";
+import { getMachineRequest, listPeopleNames, machineRequestMeta } from "@/lib/queries";
+import { MR_SOURCES, isAdminRole } from "@/lib/types";
 import StatusControls from "../status-pills";
 import RequestForm from "./form";
 import RequestUpdates from "./updates";
@@ -26,9 +26,10 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
   const me = await requireMember();
   if (me.role === "author") redirect("/blog");
 
-  const [data, people] = await Promise.all([
+  const [data, people, meta] = await Promise.all([
     getMachineRequest(me, id).catch(() => null),
     listPeopleNames().catch(() => []),
+    machineRequestMeta(me).catch(() => null),
   ]);
   if (!data) notFound();
 
@@ -73,7 +74,13 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
 
       <div className="grid2">
         <div style={{ display: "grid", gap: 20 }}>
-          <RequestForm r={r} people={people} canEdit={canEdit} canDelete={isAdminRole(me.role)} />
+          <RequestForm
+            r={r}
+            people={people}
+            sources={meta?.sources ?? MR_SOURCES.map((s) => ({ key: s.key, label: s.label }))}
+            canEdit={canEdit}
+            canDelete={isAdminRole(me.role)}
+          />
         </div>
 
         <div style={{ display: "grid", gap: 20, alignContent: "start" }}>

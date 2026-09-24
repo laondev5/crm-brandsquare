@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createRequestAction } from "@/app/actions/requests";
-import { MR_SOURCES, ROLE_LABEL, type PersonName } from "@/lib/types";
+import { ROLE_LABEL, type MachineSource, type PersonName } from "@/lib/types";
 
 /**
  * Logging an enquiry the moment it arrives.
@@ -12,7 +12,17 @@ import { MR_SOURCES, ROLE_LABEL, type PersonName } from "@/lib/types";
  * request itself, and asking for a name up front is what keeps enquiries
  * sitting in WhatsApp instead of in the CRM.
  */
-export default function NewRequest({ people, openAtStart = false }: { people: PersonName[]; openAtStart?: boolean }) {
+export default function NewRequest({
+  people,
+  sources,
+  openAtStart = false,
+}: {
+  people: PersonName[];
+  /** The admin-managed list, retired ones already filtered out below. */
+  sources: MachineSource[];
+  openAtStart?: boolean;
+}) {
+  const pickable = sources.filter((s) => !s.archived);
   const router = useRouter();
   const [state, action, pending] = useActionState(createRequestAction, null);
   const [open, setOpen] = useState(openAtStart);
@@ -72,8 +82,8 @@ export default function NewRequest({ people, openAtStart = false }: { people: Pe
         </label>
         <label className="f">
           <span>Where did it come from?</span>
-          <select name="source" defaultValue="whatsapp">
-            {MR_SOURCES.map((s) => (
+          <select name="source" defaultValue={pickable[0]?.key ?? "whatsapp"}>
+            {pickable.map((s) => (
               <option key={s.key} value={s.key}>
                 {s.label}
               </option>

@@ -164,7 +164,21 @@ export default async function GuidePage() {
           WhatsApp conversation a request was in.
         </Step>
 
-        <Step n={6} title="Being assigned tells you">
+        <Step n={6} title="Raising one from a lead">
+          A lead&rsquo;s page has a <strong>Machine requests</strong> card. Press <strong>+ New request</strong>
+          there and the phone, name, company and email come across by themselves — you only type the machine
+          and what they need. Requests raised that way are listed on the lead too.
+        </Step>
+
+        {manager && (
+          <Step n={7} title="The list of sources (admins)">
+            <Link href="/settings/request-sources">Settings → Request sources</Link> is the{" "}
+            <strong>Where did it come from?</strong> dropdown. Add your own, rename them and order them.
+            Retiring one keeps it on the requests that already use it but takes it out of the dropdown.
+          </Step>
+        )}
+
+        <Step n={manager ? 8 : 7} title="Being assigned tells you">
           Whoever is put on a request as procurement or sales gets it in their bell, and so does the sales
           person when a breakdown becomes ready.
         </Step>
