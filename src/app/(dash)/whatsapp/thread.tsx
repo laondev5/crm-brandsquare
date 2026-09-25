@@ -4,12 +4,16 @@ import MessageList from "./message-list";
 import Composer from "./composer";
 import MarkRead from "./mark-read";
 import TemplatePicker from "./template-picker";
+import DeleteChat from "./delete-chat";
+import AddToLeads from "./add-to-leads";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default function Thread({
   thread,
   canSend,
+  canDelete = false,
+  canAddLeads = false,
   templates = [],
   quickReplies = [],
   responses = [],
@@ -17,6 +21,10 @@ export default function Thread({
 }: {
   thread: WaThread | null;
   canSend: boolean;
+  /** Admins and up: deleting is not part of working a thread. */
+  canDelete?: boolean;
+  /** Whoever may add a lead by hand may add one from here. */
+  canAddLeads?: boolean;
   templates?: WaTemplate[];
   quickReplies?: MessageTemplate[];
   responses?: KbItem[];
@@ -73,9 +81,12 @@ export default function Thread({
           <Link href={`/leads/${lead.id}`} className="pill s-active">
             View lead
           </Link>
+        ) : canAddLeads ? (
+          <AddToLeads id={conversation.id} />
         ) : (
           <span className="pill s-disabled">No lead linked</span>
         )}
+        {canDelete && <DeleteChat id={conversation.id} name={conversation.display_name} />}
     </>
   );
 

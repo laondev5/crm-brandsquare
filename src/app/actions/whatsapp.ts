@@ -1,12 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSuperAdmin, requireUser } from "@/lib/auth";
-import { hasPermission } from "@/lib/types";
+import { requireAdmin, requireSuperAdmin, requireUser } from "@/lib/auth";
+import { hasPermission, waMediaProblem } from "@/lib/types";
+import { needsRepackaging, webmOpusToOgg } from "@/lib/ogg-opus";
 import {
+  deleteWaConversations,
   openLeadWaChat,
+  waConversationsToLeads,
   markWaRead,
   saveWaSettings,
+  sendWaMedia,
   sendWaMessage,
   simulateWaInbound,
   subscribeWaApp,
@@ -38,6 +42,105 @@ export async function sendWaMessageAction(_prev: SendWaState, form: FormData): P
     return { ok: "sent" };
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : "Could not send that message." };
+  }
+}
+
+export type SendWaMediaState = FormState;
+
+/**
+ * Sends a photo, video, document or voice note.
+ *
+ * A recording made in the browser arrives as WebM on Chrome and Edge, which is
+ * Opus audio in a container WhatsApp refuses, so it is repackaged as Ogg on the
+ * way past -- same audio, different box. Firefox and Safari record something
+ * WhatsApp already accepts and are passed straight through.
+ */
+export async function sendWaMediaAction(
+  _prev: SendWaMediaState,
+  form: FormData
+): Promise<SendWaMediaState> {
+  const me = await requireUser();
+  if (!hasPermission(me, "send_whatsapp")) {
+    return { error: "You do not have permission to send WhatsApp messages." };
+  }
+
+  const id = Number(form.get("conversation_id"));
+  if (!id) return { error: "No conversation." };
+
+  const raw = form.get("file");
+  if (!(raw instanceof File) || raw.size === 0) return { error: "Pick a file first." };
+
+  let file = raw;
+  if (needsRepackaging(file.type) || /\.webm$/i.test(file.name)) {
+    try {
+      const ogg = webmOpusToOgg(new Uint8Array(await file.arrayBuffer()));
+      file = new File([ogg], file.name.replace(/\.[^.]+$/, "") + ".ogg", { type: "audio/ogg" });
+    } catch {
+      return {
+        error:
+          "That recording could not be prepared for WhatsApp. Record it again, or attach an audio file instead.",
+      };
+    }
+  }
+
+  const problem = waMediaProblem({ type: file.type, name: file.name, size: file.size });
+  if (problem) return { error: problem };
+
+  try {
+    await sendWaMedia(id, me, file, String(form.get("caption") ?? "").trim());
+    revalidatePath("/whatsapp");
+    return { ok: "sent" };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not send that file." };
+  }
+}
+
+/**
+ * Adds the people behind these conversations to the leads list.
+ *
+ * Governed by the permission to add a lead rather than by being an admin: a
+ * sales rep who can type a customer into the leads page by hand is the same
+ * person deciding the enquiry they are reading is worth keeping.
+ */
+export async function addWaToLeadsAction(
+  ids: number[]
+): Promise<{ created: number; linked: number; already: number } | { error: string }> {
+  const me = await requireUser();
+  if (!hasPermission(me, "add_leads")) return { error: "You do not have permission to add leads." };
+
+  const wanted = [...new Set(ids.map(Number).filter((n) => n > 0))];
+  if (wanted.length === 0) return { error: "Nothing was selected." };
+
+  try {
+    const res = await waConversationsToLeads(me, wanted);
+    revalidatePath("/whatsapp");
+    revalidatePath("/leads");
+    return { created: res.created, linked: res.linked, already: res.already };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not add those to the leads list." };
+  }
+}
+
+/**
+ * Deletes conversations outright.
+ *
+ * Admins and up, checked here and again in the plugin. Nothing is archived, so
+ * the confirmation in front of this is the only thing between a tidy-up and
+ * losing what was said to a customer.
+ */
+export async function deleteWaConversationsAction(
+  ids: number[]
+): Promise<{ deleted: number } | { error: string }> {
+  const me = await requireAdmin();
+  const wanted = [...new Set(ids.map(Number).filter((n) => n > 0))];
+  if (wanted.length === 0) return { error: "Nothing was selected." };
+
+  try {
+    const res = await deleteWaConversations(me, wanted);
+    revalidatePath("/whatsapp");
+    return { deleted: res.deleted };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not delete those conversations." };
   }
 }
 

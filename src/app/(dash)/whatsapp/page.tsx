@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { hasPermission, waSignature } from "@/lib/types";
+import { hasPermission, isAdminRole, waSignature } from "@/lib/types";
 import { getWaConversations, getWaThread, listKb, listTemplates, listWaTemplates } from "@/lib/queries";
 import ConversationList from "./conversation-list";
 import Thread from "./thread";
@@ -83,10 +83,14 @@ export default async function WhatsAppPage({
           conversations={data.conversations}
           selected={selected}
           search={sp.q ?? ""}
+          canDelete={isAdminRole(me.role)}
+          canAddLeads={hasPermission(me, "add_leads")}
         />
         <Thread
           thread={thread}
           canSend={hasPermission(me, "send_whatsapp")}
+          canDelete={isAdminRole(me.role)}
+          canAddLeads={hasPermission(me, "add_leads")}
           templates={tpl?.templates ?? []}
           quickReplies={quickReplies}
           responses={responses}

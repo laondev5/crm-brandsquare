@@ -880,6 +880,120 @@ export interface WaThread {
   messages: WaMessage[];
 }
 
+/* ---- files in a conversation ---- */
+
+export type WaMediaKind = "image" | "video" | "audio" | "document";
+
+/**
+ * What WhatsApp carries, and how large, with Meta's own ceilings.
+ *
+ * Checked here so an oversized file is refused before anybody waits for it to
+ * upload, and checked again in the plugin because the browser is not the gate.
+ * Documents are capped below WhatsApp's own 100 MB: nothing near that survives
+ * the hop through the dashboard, and a limit that works beats one that reads
+ * well and fails at the end.
+ */
+export const WA_MEDIA: Record<WaMediaKind, { label: string; mimes: string[]; maxMb: number }> = {
+  image: { label: "photo", mimes: ["image/jpeg", "image/png"], maxMb: 5 },
+  video: { label: "video", mimes: ["video/mp4", "video/3gpp"], maxMb: 16 },
+  audio: {
+    label: "voice note",
+    mimes: ["audio/ogg", "audio/mpeg", "audio/mp4", "audio/aac", "audio/amr", "audio/webm"],
+    maxMb: 16,
+  },
+  document: {
+    label: "document",
+    mimes: [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "text/plain",
+      "text/csv",
+    ],
+    maxMb: 20,
+  },
+};
+
+/** Windows in particular hands over an empty type for plenty of files, so the
+ *  extension is the fallback rather than an outright refusal. */
+const WA_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  mp4: "video/mp4",
+  "3gp": "video/3gpp",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  opus: "audio/ogg",
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  amr: "audio/amr",
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  txt: "text/plain",
+  csv: "text/csv",
+};
+
+/** What this file would be sent as, or null if WhatsApp will not carry it. */
+export function waMediaKind(file: { type?: string; name?: string }): WaMediaKind | null {
+  const declared = (file.type ?? "").split(";")[0].trim().toLowerCase();
+  const ext = (file.name ?? "").split(".").pop()?.toLowerCase() ?? "";
+  const mime = declared || WA_BY_EXTENSION[ext] || "";
+
+  for (const [kind, spec] of Object.entries(WA_MEDIA)) {
+    if (spec.mimes.includes(mime)) return kind as WaMediaKind;
+  }
+  // A type the browser named but WhatsApp does not take; the extension may
+  // still tell the truth (an .mp4 served as application/octet-stream).
+  const byExt = WA_BY_EXTENSION[ext];
+  if (byExt) {
+    for (const [kind, spec] of Object.entries(WA_MEDIA)) {
+      if (spec.mimes.includes(byExt)) return kind as WaMediaKind;
+    }
+  }
+  return null;
+}
+
+/** The accept attribute for the attach button. */
+export const WA_ACCEPT = [
+  ...WA_MEDIA.image.mimes,
+  ...WA_MEDIA.video.mimes,
+  ...WA_MEDIA.document.mimes,
+  ...WA_MEDIA.audio.mimes.filter((m) => m !== "audio/webm"),
+  ".jpg,.jpeg,.png,.mp4,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.mp3,.m4a,.ogg",
+].join(",");
+
+/** Refuses a file with the reason in words, or returns null when it is fine. */
+export function waMediaProblem(file: { type?: string; name?: string; size: number }): string | null {
+  const kind = waMediaKind(file);
+  if (!kind) {
+    return "WhatsApp does not carry that kind of file. Photos, MP4 video, PDFs and Office documents all go through.";
+  }
+  const { label, maxMb } = WA_MEDIA[kind];
+  if (file.size <= 0) return "That file is empty.";
+  if (file.size > maxMb * 1024 * 1024) {
+    return `WhatsApp takes a ${label} of at most ${maxMb} MB. That one is ${(file.size / 1048576).toFixed(1)} MB.`;
+  }
+  return null;
+}
+
+/** A size worth showing next to a file name. */
+export function prettyBytes(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / 1048576).toFixed(1)} MB`;
+}
+
 /* ---- WhatsApp message templates ---- */
 
 export type WaButton =

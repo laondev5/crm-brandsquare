@@ -843,6 +843,45 @@ export async function openLeadWaChat(leadId: number, actor: DashUser) {
   });
 }
 
+/**
+ * Sends a file to a conversation.
+ *
+ * Multipart rather than JSON because the bytes have to travel as bytes; in
+ * every other respect it matches sendWaMessage, including who gets recorded
+ * as having sent it.
+ */
+export async function sendWaMedia(conversationId: number, actor: DashUser, file: File, caption = "") {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  if (caption) form.append("caption", caption);
+  form.append("actor_id", String(actor.id));
+  form.append("actor_name", actor.name);
+  return api.upload<{ message: WaMessage }>(`/whatsapp/conversations/${conversationId}/media`, form);
+}
+
+/**
+ * Puts the people behind these conversations on the leads list.
+ *
+ * The plugin matches each number against the leads already there first, so a
+ * customer who has written before is linked to the record they already have
+ * rather than gaining a second one.
+ */
+export async function waConversationsToLeads(actor: DashUser, ids: number[]) {
+  return api.post<{ created: number; linked: number; already: number; failed: string[] }>(
+    "/whatsapp/conversations/to-leads",
+    { ids, actor_id: actor.id, actor_name: actor.name }
+  );
+}
+
+/** Deletes whole conversations, messages and stored files included. The plugin
+ *  refuses this for anyone below admin, whatever this end sends. */
+export async function deleteWaConversations(actor: DashUser, ids: number[]) {
+  return api.post<{ deleted: number }>("/whatsapp/conversations/delete", {
+    ids,
+    actor_id: actor.id,
+  });
+}
+
 /* ---------------- WhatsApp message templates ---------------- */
 
 export async function listWaTemplates(refresh = false) {

@@ -429,8 +429,28 @@ export default async function GuidePage() {
           and send. When they reply, the 24 hours start again and you can type normally.
         </Step>
 
+        <Step n={4} title="Photos, documents and voice notes">
+          Beside the message box there is a <strong>paperclip</strong> and a{" "}
+          <strong>microphone</strong>. The paperclip sends a photo (JPG or PNG, up to 5 MB), an MP4
+          video (up to 16 MB), or a PDF or Office document (up to 20 MB); you can add a caption
+          before it goes. The microphone records a voice note — press it, speak, then{" "}
+          <strong>Stop</strong>, and you can play it back before sending or throw it away. Whatever
+          a customer sends you appears the same way, and photos and voice notes stay readable in the
+          thread afterwards.
+        </Step>
+
         {manager && (
-          <Step n={4} title="Writing templates">
+          <Step n={5} title="Deleting a conversation">
+            Admins only, and it cannot be undone: every message, photo, voice note and document in
+            that conversation goes, for everyone. Use <strong>Delete</strong> at the top of a
+            conversation for one, or <strong>Select to delete</strong> above the list to tick
+            several and remove them together. If that number writes again, a new conversation
+            starts.
+          </Step>
+        )}
+
+        {manager && (
+          <Step n={6} title="Writing templates">
             <Link href="/templates/whatsapp">Templates → WhatsApp</Link> →{" "}
             <strong>+ New WhatsApp template</strong>. The tab has step-by-step instructions at the top.
             Give it a name, pick Marketing (anything that sells) or Utility (an update about their

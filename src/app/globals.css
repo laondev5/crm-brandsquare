@@ -411,6 +411,50 @@
     .wa-desk.has-panel { grid-template-columns: 1fr; }
     .wa-desk__panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(330px, 92%); z-index: 5; box-shadow: -12px 0 30px rgba(10, 7, 48, .14); }
   }
+  /* ---------- the conversation list ---------- */
+  .wa-row { display: flex; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; background: transparent; }
+  .wa-row.is-open { background: var(--accent); }
+  .wa-row.is-picking { cursor: pointer; align-items: flex-start; }
+  .wa-row.is-picking:hover { background: #faf9f6; }
+  .wa-row.is-picked { background: #fdeceb; }
+  .wa-row.is-picking input { margin-top: 12px; flex-shrink: 0; accent-color: var(--err); }
+  .wa-row__avatar { width: 38px; height: 38px; border-radius: 50%; background: #e8e8ee; color: var(--ink); display: grid; place-items: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .wa-row__unread { background: #25D366; color: #fff; border-radius: 99px; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 4px; flex-shrink: 0; }
+  .wa-pick__bar { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+  .wa-pick__bar .spacer { margin-left: auto; }
+  .wa-pick__note { margin: 8px 0 0; font-size: 11.5px; color: var(--p); cursor: pointer; line-height: 1.4; }
+  .wa-pick__confirm { padding: 12px 14px; background: #fdf6ea; border-bottom: 1px solid #eddcbc; }
+  .wa-pick__confirm strong { display: block; font-size: 13px; color: var(--ink); }
+  .wa-pick__confirm p { margin: 4px 0 10px; font-size: 11.5px; line-height: 1.5; color: #7a5a1a; }
+
+  /* ---------- sending a file ---------- */
+  .wa-icon-btn { padding: 8px 10px; line-height: 1; }
+  .wa-rec { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; background: #fdeceb; }
+  .wa-rec__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--err); animation: wa-pulse 1.2s ease-in-out infinite; }
+  .wa-rec__time { font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 600; color: var(--ink); min-width: 34px; }
+  @keyframes wa-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  .wa-attach-err { margin: 0; padding: 6px 10px; font-size: 12px; color: var(--err); display: flex; gap: 6px; align-items: flex-start; }
+  .wa-attach-err button { background: none; border: 0; color: inherit; cursor: pointer; font-size: 15px; line-height: 1; padding: 0; }
+
+  /* The staged file sits over everything: it is worth a look before it reaches
+     a customer, so it is not a strip that can be missed. */
+  .wa-stage { position: fixed; inset: 0; z-index: 60; background: rgba(12, 10, 32, .55); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+  .wa-stage__head, .wa-stage__body, .wa-stage__foot { width: min(460px, 100%); background: var(--card); }
+  .wa-stage__head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 12px 12px 0 0; border-bottom: 1px solid var(--line); }
+  .wa-stage__head .spacer { margin-left: auto; }
+  .wa-stage__close { background: none; border: 0; cursor: pointer; color: var(--muted); padding: 2px; line-height: 1; }
+  .wa-stage__body { padding: 14px; max-height: min(60vh, 520px); overflow-y: auto; display: grid; gap: 10px; }
+  .wa-stage__img { width: 100%; max-height: 300px; object-fit: contain; border-radius: 8px; background: #f3f3f6; display: block; }
+  .wa-stage__audio { width: 100%; }
+  .wa-stage__doc { display: flex; align-items: center; gap: 10px; margin: 0; padding: 14px; background: #f5f4f0; border-radius: 8px; font-size: 13.5px; word-break: break-all; }
+  .wa-stage__meta { color: var(--muted); font-size: 11.5px; }
+  .wa-stage__foot { display: flex; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--line); border-radius: 0 0 12px 12px; }
+
+  .wa-confirm { position: fixed; inset: 0; z-index: 60; background: rgba(12, 10, 32, .55); display: grid; place-items: center; padding: 20px; }
+  .wa-confirm__box { width: min(420px, 100%); background: var(--card); border-radius: 12px; padding: 18px; }
+  .wa-confirm__box strong { display: block; font-size: 14.5px; color: var(--ink); }
+  .wa-confirm__box p { margin: 6px 0 14px; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+
   /* ---------- notification bell ---------- */
   .work-today { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; align-items: start; }
   .work-today__main { display: grid; gap: 18px; min-width: 0; }

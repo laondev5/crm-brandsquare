@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { sendWaMessageAction, type SendWaState } from "@/app/actions/whatsapp";
+import Attachments from "./attachments";
 import { fillResponse, fillTemplate, groupBySection, type KbItem, type MessageTemplate } from "@/lib/types";
 
 /** One ready-made message, already filled with this contact's details. */
@@ -170,7 +171,11 @@ export default function Composer({
             style={{ padding: 10, display: "flex", gap: 8, alignItems: "flex-end" }}
             onKeyDown={(e) => {
               // Enter sends, Shift+Enter writes a newline -- the WhatsApp app's
-              // own convention, so it needs no explanation on screen.
+              // own convention, so it needs no explanation on screen. Only from
+              // the message box itself: a caption being typed for an attached
+              // file is a different message and must not send this one.
+              const from = e.target as HTMLElement;
+              if (from.getAttribute?.("name") !== "text") return;
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 (e.currentTarget as HTMLFormElement).requestSubmit();
@@ -188,6 +193,7 @@ export default function Composer({
               onChange={(e) => setText(e.target.value)}
               style={{ flex: 1, resize: "vertical", minHeight: 40, lineHeight: 1.5 }}
             />
+            <Attachments conversationId={conversationId} />
             {extra}
             <button type="submit" className="btn" disabled={pending}>
               {pending ? "Sending…" : "Send"}
