@@ -838,6 +838,9 @@ export interface WaConversation {
   last_message_preview: string;
   last_direction: "in" | "out" | "";
   unread_count: number;
+  /** They wrote in and nobody here has ever replied — a first contact. */
+  is_new?: boolean;
+  replied_at?: string | null;
 }
 
 export type WaMessageStatus = "sending" | "sent" | "delivered" | "read" | "failed";
@@ -996,6 +999,111 @@ export function prettyBytes(size: number): string {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
   return `${(size / 1048576).toFixed(1)} MB`;
+}
+
+/* ---------------- quotations ---------------- */
+
+export type QuoteStatus = "draft" | "sent" | "accepted" | "declined";
+
+export const QUOTE_STATUSES: { key: QuoteStatus; label: string; note: string }[] = [
+  { key: "draft", label: "Draft", note: "Being written. The customer has not seen it." },
+  { key: "sent", label: "Sent", note: "It has gone to the customer." },
+  { key: "accepted", label: "Accepted", note: "They agreed to it." },
+  { key: "declined", label: "Declined", note: "They said no, or it lapsed." },
+];
+
+export interface QuoteItem {
+  id?: number;
+  description: string;
+  qty: number;
+  unit_price: number;
+  line_total: number;
+}
+
+/**
+ * A quotation as it was written and sent.
+ *
+ * The customer's details are copied onto it rather than read back from the
+ * lead: a quotation is a document that went out on a date, and renaming the
+ * lead afterwards must not change what was sent.
+ */
+export interface Quote {
+  id: number;
+  ref: string;
+  lead_id: number | null;
+  conversation_id: number | null;
+  customer_name: string;
+  customer_company: string;
+  customer_email: string;
+  customer_phone: string;
+  currency: string;
+  issued_on: string | null;
+  valid_until: string | null;
+  tax_percent: number;
+  subtotal: number;
+  tax_amount: number;
+  total: number;
+  status: QuoteStatus;
+  status_label: string;
+  sent_at: string | null;
+  created_by: number | null;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+  items: QuoteItem[];
+}
+
+export interface QuoteCounts {
+  all: number;
+  draft: number;
+  sent: number;
+  accepted: number;
+  declined: number;
+}
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  NGN: "\u20a6",
+  USD: "$",
+  GBP: "\u00a3",
+  EUR: "\u20ac",
+};
+
+/**
+ * Money to read.
+ *
+ * The symbol is optional because a PDF drawn in a standard font has no naira
+ * sign in it — there, the currency code is written out instead, which is what
+ * a bank would do anyway.
+ */
+export function money(amount: number, currency = "NGN", withSymbol = true): string {
+  const figure = (Number.isFinite(amount) ? amount : 0).toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const code = (currency || "NGN").toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[code];
+  return withSymbol && symbol ? `${symbol}${figure}` : `${code} ${figure}`;
+}
+
+/** What a rep typed, read as a number: "12,500,000" and "₦12.5m" alike come
+ *  from a keyboard, not a form validator. */
+export function readMoney(raw: string | number): number {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : 0;
+  const clean = String(raw).replace(/[^0-9.\-]/g, "");
+  const value = Number.parseFloat(clean);
+  return Number.isFinite(value) ? value : 0;
+}
+
+/** The arithmetic, for showing totals as they are typed. The plugin does its
+ *  own before saving, and its answer is the one that is stored. */
+export function quoteTotals(items: { qty: number; unit_price: number }[], taxPercent: number) {
+  const subtotal = items.reduce((sum, i) => sum + (i.qty || 0) * (i.unit_price || 0), 0);
+  const tax = subtotal * ((taxPercent || 0) / 100);
+  return {
+    subtotal: Math.round(subtotal * 100) / 100,
+    tax_amount: Math.round(tax * 100) / 100,
+    total: Math.round((subtotal + tax) * 100) / 100,
+  };
 }
 
 /* ---- WhatsApp message templates ---- */

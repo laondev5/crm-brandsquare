@@ -125,7 +125,13 @@ export default function Attachments({ conversationId }: { conversationId: number
     }
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // One channel, 48 kHz: what a WhatsApp voice note is. Asking for it
+      // here means the recording does not have to be converted later, and
+      // takes a stereo microphone out of the picture as a thing that could
+      // make WhatsApp refuse the file.
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, sampleRate: 48000, echoCancellation: true, noiseSuppression: true },
+      });
     } catch {
       setError("The browser would not give access to the microphone. Allow it and try again.");
       return;

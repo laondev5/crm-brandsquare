@@ -44,6 +44,14 @@ function Row({ c }: { c: WaConversation }) {
             }}
           >
             {c.display_name}
+            {/* Nobody here has ever replied: a stranger who wrote in and is
+                still waiting, which is the one thing worth spotting from
+                across a shared inbox. */}
+            {c.is_new && (
+              <span className="wa-first" title="First time they have written — nobody has replied yet">
+                New
+              </span>
+            )}
           </strong>
           <small style={{ color: "var(--muted)", flexShrink: 0, fontSize: 11 }}>
             {relTime(c.last_message_at)}

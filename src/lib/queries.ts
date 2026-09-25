@@ -10,6 +10,9 @@ import type {
   Campaign,
   CampaignDetail,
   DashUser,
+  Quote,
+  QuoteCounts,
+  QuoteStatus,
   EmailBlocks,
   EmailCampaignDetail,
   EmailCampaignRow,
@@ -880,6 +883,58 @@ export async function deleteWaConversations(actor: DashUser, ids: number[]) {
     ids,
     actor_id: actor.id,
   });
+}
+
+/* ---------------- quotations ---------------- */
+
+export interface QuoteInput {
+  lead_id?: number | null;
+  conversation_id?: number | null;
+  customer_name?: string;
+  customer_company?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  currency?: string;
+  issued_on?: string | null;
+  valid_until?: string | null;
+  tax_percent?: number;
+  status?: QuoteStatus;
+  items?: { description: string; qty: number; unit_price: number }[];
+}
+
+export async function listQuotes(
+  actor: DashUser,
+  params: { lead?: number; conversation?: number; status?: string; q?: string; mine?: boolean } = {}
+) {
+  return api.get<{ quotes: Quote[]; counts: QuoteCounts }>("/quotes", {
+    ...params,
+    mine: params.mine ? 1 : undefined,
+    actor_id: actor.id,
+  });
+}
+
+export async function getQuote(id: number) {
+  return api.get<{ quote: Quote }>(`/quotes/${id}`);
+}
+
+export async function createQuote(actor: DashUser, input: QuoteInput) {
+  return api.post<{ quote: Quote }>("/quotes", {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function updateQuote(actor: DashUser, id: number, input: QuoteInput) {
+  return api.patch<{ quote: Quote }>(`/quotes/${id}`, {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteQuote(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/quotes/${id}`, { actor_id: actor.id });
 }
 
 /* ---------------- WhatsApp message templates ---------------- */

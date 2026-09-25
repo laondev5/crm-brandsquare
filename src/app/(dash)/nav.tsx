@@ -64,6 +64,17 @@ const GROUPS: NavGroup[] = [
       { href: "/email", label: "Email" },
     ],
   },
+  {
+    label: "Quotations",
+    icon: FileText,
+    children: [
+      { href: "/quotes", label: "All quotations", md: true },
+      { href: "/quotes?status=draft", label: "Drafts" },
+      { href: "/quotes?status=sent", label: "Sent", md: true },
+      { href: "/quotes?status=accepted", label: "Accepted", md: true },
+      { href: "/quotes/new", label: "+ New quotation" },
+    ],
+  },
   // Machinery enquiries as procurement works them: the views are the queues,
   // so "what is waiting on me" is a menu item rather than a search.
   {

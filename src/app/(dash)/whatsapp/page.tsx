@@ -91,6 +91,7 @@ export default async function WhatsAppPage({
           canSend={hasPermission(me, "send_whatsapp")}
           canDelete={isAdminRole(me.role)}
           canAddLeads={hasPermission(me, "add_leads")}
+          canQuote={isAdminRole(me.role) || me.role === "subadmin"}
           templates={tpl?.templates ?? []}
           quickReplies={quickReplies}
           responses={responses}

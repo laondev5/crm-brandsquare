@@ -407,6 +407,39 @@ export default async function GuidePage() {
 
       {!author && !md && (
       <div className="card">
+        <h2>Quotations</h2>
+
+        <Step n={1} title="Writing one">
+          Press <strong>Quote</strong> at the top of a WhatsApp chat and it opens in front of the
+          conversation, so you never leave the chat you are answering. On a lead, use{" "}
+          <strong>+ New quotation</strong> on the Quotations card. Either way the customer's name and
+          number are already filled in.
+        </Step>
+
+        <Step n={2} title="The figures are yours">
+          There is no price list behind this. Write what you are quoting for, put the quantity and
+          the unit price against it, and add as many lines as you need — the machine, spares,
+          delivery, installation. The totals add up as you type. VAT starts at 7.5% and you can
+          change it or set it to zero.
+        </Step>
+
+        <Step n={3} title="Sending it">
+          Choose what goes: <strong>the document</strong>, a PDF with your logo that they can print
+          or forward, <strong>the figures in the chat</strong> as a message, or both. It goes to
+          them on WhatsApp and the quotation is marked Sent. <strong>Download the PDF</strong> gives
+          you the same file to email yourself.
+        </Step>
+
+        <Step n={4} title="Afterwards">
+          On <Link href="/quotes">Quotations</Link>, mark it <strong>Accepted</strong> or{" "}
+          <strong>Declined</strong> when you hear back. Every quotation is listed there with who
+          wrote it and what it came to, and each one also shows on its lead.
+        </Step>
+      </div>
+      )}
+
+      {!author && !md && (
+      <div className="card">
         <h2>WhatsApp</h2>
 
         <Step n={1} title="One inbox for the business number">
@@ -429,7 +462,13 @@ export default async function GuidePage() {
           and send. When they reply, the 24 hours start again and you can type normally.
         </Step>
 
-        <Step n={4} title="Photos, documents and voice notes">
+        <Step n={4} title="Spotting a new prospect">
+          A conversation marked <strong>New</strong> in the list, or{" "}
+          <strong>First contact</strong> at the top of the chat, is somebody who has written in and
+          has never been answered by anyone here. The moment you reply, the flag goes.
+        </Step>
+
+        <Step n={5} title="Photos, documents and voice notes">
           Beside the message box there is a <strong>paperclip</strong> and a{" "}
           <strong>microphone</strong>. The paperclip sends a photo (JPG or PNG, up to 5 MB), an MP4
           video (up to 16 MB), or a PDF or Office document (up to 20 MB); you can add a caption
@@ -440,7 +479,7 @@ export default async function GuidePage() {
         </Step>
 
         {manager && (
-          <Step n={5} title="Deleting a conversation">
+          <Step n={6} title="Deleting a conversation">
             Admins only, and it cannot be undone: every message, photo, voice note and document in
             that conversation goes, for everyone. Use <strong>Delete</strong> at the top of a
             conversation for one, or <strong>Select to delete</strong> above the list to tick
@@ -450,7 +489,7 @@ export default async function GuidePage() {
         )}
 
         {manager && (
-          <Step n={6} title="Writing templates">
+          <Step n={7} title="Writing templates">
             <Link href="/templates/whatsapp">Templates → WhatsApp</Link> →{" "}
             <strong>+ New WhatsApp template</strong>. The tab has step-by-step instructions at the top.
             Give it a name, pick Marketing (anything that sells) or Utility (an update about their

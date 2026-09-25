@@ -6,6 +6,7 @@ import MarkRead from "./mark-read";
 import TemplatePicker from "./template-picker";
 import DeleteChat from "./delete-chat";
 import AddToLeads from "./add-to-leads";
+import QuoteModal from "./quote-modal";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -14,6 +15,7 @@ export default function Thread({
   canSend,
   canDelete = false,
   canAddLeads = false,
+  canQuote = false,
   templates = [],
   quickReplies = [],
   responses = [],
@@ -25,6 +27,8 @@ export default function Thread({
   canDelete?: boolean;
   /** Whoever may add a lead by hand may add one from here. */
   canAddLeads?: boolean;
+  /** Whoever may write a quotation can start one from the chat it came from. */
+  canQuote?: boolean;
   templates?: WaTemplate[];
   quickReplies?: MessageTemplate[];
   responses?: KbItem[];
@@ -62,6 +66,11 @@ export default function Thread({
     <>
         <div style={{ minWidth: 0 }}>
           <strong style={{ fontSize: 14, color: "var(--ink)" }}>{conversation.display_name}</strong>
+          {conversation.is_new && (
+            <span className="wa-first" title="First time they have written — nobody has replied yet">
+              First contact
+            </span>
+          )}
           <br />
           <small style={{ color: "var(--muted)" }}>+{conversation.phone}</small>
         </div>
@@ -85,6 +94,19 @@ export default function Thread({
           <AddToLeads id={conversation.id} />
         ) : (
           <span className="pill s-disabled">No lead linked</span>
+        )}
+        {canQuote && (
+          <QuoteModal
+            conversationId={conversation.id}
+            leadId={lead?.id ?? null}
+            customer={{
+              name: lead?.name || conversation.contact_name || "",
+              email: lead?.email || "",
+              phone: conversation.phone ? `+${conversation.phone}` : "",
+            }}
+            meName={meName}
+            canSend={canSend}
+          />
         )}
         {canDelete && <DeleteChat id={conversation.id} name={conversation.display_name} />}
     </>

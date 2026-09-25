@@ -12,10 +12,12 @@ import {
   getLeadProperties,
   listKb,
   listMachineRequests,
+  listQuotes,
   machineRequestMeta,
 } from "@/lib/queries";
 import LeadProperties from "./properties";
 import LeadMachineRequests from "./machine-requests";
+import LeadQuotes from "./quotes";
 import TemplatePicker from "../../whatsapp/template-picker";
 import { daysQuiet, hasPermission, isClosed, isStale, parsePayload, isAdminRole } from "@/lib/types";
 
@@ -38,7 +40,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   if (!full) notFound();
 
   const { lead, notes, activity } = full;
-  const [subs, emailHistory, emailSettings, pipeline, noteTemplates, emailTemplates, properties, responses, machine, meta] = await Promise.all([
+  const [subs, emailHistory, emailSettings, pipeline, noteTemplates, emailTemplates, properties, responses, machine, meta, quotes] = await Promise.all([
     isAdminRole(me.role) ? assignableStaff().catch(() => []) : Promise.resolve([]),
     getLeadEmails(id, scope),
     getEmailSettings().catch(() => null),
@@ -49,6 +51,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
     listKb("response").catch(() => []),
     listMachineRequests(me, { view: "", lead: id }).then((r) => r.requests).catch(() => []),
     machineRequestMeta(me).catch(() => null),
+    listQuotes(me, { lead: id }).then((r) => r.quotes).catch(() => []),
   ]);
 
   // The way to open a WhatsApp conversation with a lead from inside the CRM:
@@ -178,6 +181,12 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
             properties={properties}
             values={(lead as { props?: Record<string, string> }).props ?? {}}
             isAdmin={isAdminRole(me.role)}
+          />
+
+          <LeadQuotes
+            leadId={lead.id}
+            quotes={quotes}
+            canWrite={isAdminRole(me.role) || me.role === "subadmin"}
           />
 
           <LeadMachineRequests
