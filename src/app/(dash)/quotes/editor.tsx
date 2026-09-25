@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { saveQuoteAction, type QuoteFormState } from "@/app/actions/quotes";
 import { money, readMoney, quoteTotals, type Quote } from "@/lib/types";
+import CurrencyPicker from "./currency-picker";
 
 interface Line {
   key: string;
@@ -60,7 +61,7 @@ export default function QuoteEditor({
   const [state, action, pending] = useActionState<QuoteFormState, FormData>(saveQuoteAction, null);
   const [lines, setLines] = useState<Line[]>(() => linesFrom(quote));
   const [tax, setTax] = useState(String(quote ? quote.tax_percent : 7.5));
-  const [currency, setCurrency] = useState(quote?.currency ?? "NGN");
+  const [currencyCode, setCurrencyCode] = useState(quote?.currency ?? "NGN");
 
   // A new quotation lands on its own page once it has an id to live at --
   // unless the caller asked to be told instead, which is how the chat keeps
@@ -147,12 +148,7 @@ export default function QuoteEditor({
       <div className="qt-grid">
         <label className="f">
           <span>Currency</span>
-          <input
-            type="text"
-            name="currency"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value.toUpperCase().slice(0, 8))}
-          />
+          <CurrencyPicker value={currencyCode} onChange={setCurrencyCode} />
         </label>
         <label className="f">
           <span>Date</span>
@@ -226,7 +222,7 @@ export default function QuoteEditor({
                     placeholder="12,500,000"
                   />
                 </td>
-                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{money(amount, currency)}</td>
+                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{money(amount, currencyCode)}</td>
                 <td>
                   <button
                     type="button"
@@ -248,17 +244,17 @@ export default function QuoteEditor({
       <div className="qt-totals">
         <div>
           <span>Subtotal</span>
-          <strong>{money(totals.subtotal, currency)}</strong>
+          <strong>{money(totals.subtotal, currencyCode)}</strong>
         </div>
         {readMoney(tax) > 0 && (
           <div>
             <span>VAT {readMoney(tax)}%</span>
-            <strong>{money(totals.tax_amount, currency)}</strong>
+            <strong>{money(totals.tax_amount, currencyCode)}</strong>
           </div>
         )}
         <div className="qt-totals__grand">
           <span>Total</span>
-          <strong>{money(totals.total, currency)}</strong>
+          <strong>{money(totals.total, currencyCode)}</strong>
         </div>
       </div>
 

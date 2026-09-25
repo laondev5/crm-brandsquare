@@ -1003,6 +1003,9 @@ export function prettyBytes(size: number): string {
 
 /* ---------------- quotations ---------------- */
 
+import { currency } from "./currencies";
+
+
 export type QuoteStatus = "draft" | "sent" | "accepted" | "declined";
 
 export const QUOTE_STATUSES: { key: QuoteStatus; label: string; note: string }[] = [
@@ -1061,27 +1064,21 @@ export interface QuoteCounts {
   declined: number;
 }
 
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  NGN: "\u20a6",
-  USD: "$",
-  GBP: "\u00a3",
-  EUR: "\u20ac",
-};
-
 /**
  * Money to read.
  *
  * The symbol is optional because a PDF drawn in a standard font has no naira
  * sign in it — there, the currency code is written out instead, which is what
- * a bank would do anyway.
+ * a bank would do anyway. A currency with no Latin symbol reads as its code
+ * everywhere, for the same reason: a code is never wrong, a broken glyph is.
  */
-export function money(amount: number, currency = "NGN", withSymbol = true): string {
+export function money(amount: number, currencyCode = "NGN", withSymbol = true): string {
   const figure = (Number.isFinite(amount) ? amount : 0).toLocaleString("en-NG", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const code = (currency || "NGN").toUpperCase();
-  const symbol = CURRENCY_SYMBOLS[code];
+  const code = (currencyCode || "NGN").toUpperCase();
+  const symbol = currency(code)?.symbol;
   return withSymbol && symbol ? `${symbol}${figure}` : `${code} ${figure}`;
 }
 
