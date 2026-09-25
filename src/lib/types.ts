@@ -980,7 +980,11 @@ export function waMediaProblem(file: { type?: string; name?: string; size: numbe
     return "WhatsApp does not carry that kind of file. Photos, MP4 video, PDFs and Office documents all go through.";
   }
   const { label, maxMb } = WA_MEDIA[kind];
-  if (file.size <= 0) return "That file is empty.";
+  if (file.size <= 0) {
+    // Nearly always a cloud-storage placeholder rather than a real empty file:
+    // OneDrive and Drive hand over a 0-byte stand-in until the file is opened.
+    return "That file came through as 0 bytes. If it lives in OneDrive or Google Drive, open it once so it downloads, then try again.";
+  }
   if (file.size > maxMb * 1024 * 1024) {
     return `WhatsApp takes a ${label} of at most ${maxMb} MB. That one is ${(file.size / 1048576).toFixed(1)} MB.`;
   }

@@ -3,8 +3,13 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Mic, Paperclip, Square, X } from "lucide-react";
-import { sendWaMediaAction } from "@/app/actions/whatsapp";
+import { sendWaMediaAction, waUploadPassAction } from "@/app/actions/whatsapp";
+import { needsRepackaging, webmOpusToOgg } from "@/lib/ogg-opus";
 import { WA_ACCEPT, prettyBytes, waMediaKind, waMediaProblem } from "@/lib/types";
+
+/** What Vercel will carry in a request body. Anything above this never reaches
+ *  the dashboard's own code, so it cannot be sent that way at all. */
+const THROUGH_DASHBOARD_MAX = 4 * 1024 * 1024;
 
 /** A voice note has to stop somewhere, and five minutes is already far longer
  *  than anyone speaks into a chat. */
@@ -175,15 +180,70 @@ export default function Attachments({ conversationId }: { conversationId: number
     setSeconds(0);
   }
 
+  /**
+   * Sends the staged file to WordPress directly, and only asks the dashboard
+   * for permission to do so.
+   *
+   * A recording is repackaged here rather than on the server, because with the
+   * file going straight to WordPress the server never sees it. The dashboard
+   * stays as a fallback for anything small enough to fit through it, so a
+   * problem with the direct route costs the large files, not every file.
+   */
   function send() {
     if (!file) return;
-    const form = new FormData();
-    form.append("conversation_id", String(conversationId));
-    form.append("file", file, file.name);
-    if (caption.trim()) form.append("caption", caption.trim());
 
     startSending(async () => {
-      const res = await sendWaMediaAction({}, form);
+      setError(null);
+
+      let out = file;
+      if (needsRepackaging(file.type) || /\.webm$/i.test(file.name)) {
+        try {
+          const ogg = webmOpusToOgg(new Uint8Array(await file.arrayBuffer()));
+          out = new File([ogg], file.name.replace(/\.[^.]+$/, "") + ".ogg", { type: "audio/ogg" });
+        } catch {
+          setError("That recording could not be prepared for WhatsApp. Record it again, or attach an audio file instead.");
+          return;
+        }
+      }
+
+      const pass = await waUploadPassAction(conversationId);
+      if ("error" in pass) {
+        setError(pass.error);
+        return;
+      }
+
+      const form = new FormData();
+      form.append("file", out, out.name);
+      form.append("ticket", pass.ticket);
+      if (caption.trim()) form.append("caption", caption.trim());
+
+      let direct = "";
+      try {
+        const res = await fetch(pass.url, { method: "POST", body: form });
+        if (res.ok) {
+          clear();
+          router.refresh();
+          return;
+        }
+        const body = await res.json().catch(() => null);
+        direct = body?.message || `The file was refused (HTTP ${res.status}).`;
+      } catch {
+        direct = "Could not reach the website to upload the file.";
+      }
+
+      // Small enough to fit through the dashboard: worth one more try, since
+      // that route is the one that has always worked.
+      if (out.size > THROUGH_DASHBOARD_MAX) {
+        setError(direct);
+        return;
+      }
+
+      const relay = new FormData();
+      relay.append("conversation_id", String(conversationId));
+      relay.append("file", out, out.name);
+      if (caption.trim()) relay.append("caption", caption.trim());
+
+      const res = await sendWaMediaAction({}, relay);
       if ("error" in res && res.error) {
         setError(res.error);
         return;

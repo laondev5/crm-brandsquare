@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin, requireSuperAdmin, requireUser } from "@/lib/auth";
 import { hasPermission, waMediaProblem } from "@/lib/types";
 import { needsRepackaging, webmOpusToOgg } from "@/lib/ogg-opus";
+import { mediaUploadPass, type UploadPass } from "@/lib/wa-upload";
 import {
   deleteWaConversations,
   openLeadWaChat,
@@ -43,6 +44,24 @@ export async function sendWaMessageAction(_prev: SendWaState, form: FormData): P
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : "Could not send that message." };
   }
+}
+
+/**
+ * Permission for the browser to post a file straight to WordPress.
+ *
+ * Vercel refuses a request body over 4.5 MB at its edge, so a video cannot
+ * come through this app at all -- only this ticket does. It carries no secret:
+ * the API key signs it and stays here.
+ */
+export async function waUploadPassAction(
+  conversationId: number
+): Promise<UploadPass | { error: string }> {
+  const me = await requireUser();
+  if (!hasPermission(me, "send_whatsapp")) {
+    return { error: "You do not have permission to send WhatsApp messages." };
+  }
+  if (!conversationId) return { error: "No conversation." };
+  return mediaUploadPass(conversationId, me);
 }
 
 export type SendWaMediaState = FormState;
