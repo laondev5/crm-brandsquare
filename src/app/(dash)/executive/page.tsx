@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { requireOverseer } from "@/lib/auth";
 import { getExecutive } from "@/lib/queries";
-import type { ExecutiveReport } from "@/lib/types";
+import { ROLE_LABEL, type ExecutiveReport } from "@/lib/types";
+import { buildBriefing } from "@/lib/exec-briefing";
 import LineChart, { type ChartPoint } from "../line-chart";
 import TeamTable from "./team-table";
 import ReportsFeed from "./reports-feed";
 import ActivityFeed from "./activity-feed";
+import VoiceReport from "./voice-report";
 
 /** The three views the MD asked for. The plugin also knows 90 days. */
 const RANGES = [
@@ -68,6 +70,10 @@ export default async function ExecutivePage({
   const campMax = Math.max(1, ...data.campaigns.map((x) => x.leads));
   const srcMax = Math.max(1, ...data.sources.map((x) => x.visitors));
 
+  // The same report, written to be heard. Built here so only the finished
+  // script travels to the browser, not a second copy of the data.
+  const briefing = buildBriefing(data, (role) => ROLE_LABEL[role] ?? role);
+
   return (
     <>
       <div className="head">
@@ -87,6 +93,10 @@ export default async function ExecutivePage({
           ))}
         </div>
       </div>
+
+      {/* Keyed on the period, so switching it stops the voice rather than
+          leaving it reading the old report over the new one. */}
+      <VoiceReport key={range.days} sections={briefing} />
 
       {/* Headline numbers, each against the same length of time before it. */}
       <div className="exec-kpis">

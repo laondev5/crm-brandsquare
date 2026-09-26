@@ -85,6 +85,16 @@ export default async function GuidePage() {
             first, with blockers highlighted and who was asked to fix them. Pick a person to see only
             theirs. <strong>Activity</strong> is every change made on a lead, by whom and when.
           </Step>
+
+          <Step n={5} title="Have it read to you">
+            <strong>Listen to this report</strong> reads the whole report aloud — the headline
+            numbers, what needs attention, the pipeline, each person, the daily reports and a summary
+            of the activity. It follows whichever period is chosen. You can pause, skip to a section,
+            or speed it up. The voice is your browser&rsquo;s own, so it is free. Blockers still
+            waiting are read first, at most 12 daily reports are read out, and the rest stay on the
+            screen. A voice marked <em>online</em> sends the text to Microsoft or Google to be
+            spoken; the others stay on your computer.
+          </Step>
         </div>
       )}
 
