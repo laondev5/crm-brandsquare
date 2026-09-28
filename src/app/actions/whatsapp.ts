@@ -7,6 +7,8 @@ import { needsRepackaging, webmOpusToOgg } from "@/lib/ogg-opus";
 import { mediaUploadPass, type UploadPass } from "@/lib/wa-upload";
 import {
   deleteWaConversations,
+  deleteWaMessage,
+  editWaMessage,
   openLeadWaChat,
   waConversationsToLeads,
   markWaRead,
@@ -18,6 +20,7 @@ import {
   verifyWaSettings,
 } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
+import type { WaMessage } from "@/lib/types";
 import type { FormState } from "./auth";
 
 export type SendWaState = FormState;
@@ -43,6 +46,48 @@ export async function sendWaMessageAction(_prev: SendWaState, form: FormData): P
     return { ok: "sent" };
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : "Could not send that message." };
+  }
+}
+
+/**
+ * Corrects a typo in a message this business sent.
+ *
+ * Available to whoever can send in the shared inbox, the same permission the
+ * button that started the chat needed — not narrowed to whoever sent this
+ * particular message. The plugin still refuses anything but a plain typed
+ * reply, so the check here is only a faster no for the common mistakes.
+ */
+export async function editWaMessageAction(id: number, text: string): Promise<{ message: WaMessage } | { error: string }> {
+  const me = await requireUser();
+  if (!hasPermission(me, "send_whatsapp")) return { error: "You do not have permission to edit WhatsApp messages." };
+  if (!text.trim()) return { error: "Type something first." };
+
+  try {
+    const res = await editWaMessage(me, id, text.trim());
+    revalidatePath("/whatsapp");
+    return { message: res.message };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not save that edit." };
+  }
+}
+
+/**
+ * Removes one message from the CRM's own copy of the conversation.
+ *
+ * The row is kept as a tombstone rather than gone outright — the thread's
+ * shape stays the same, and whoever removed it is on record — but any file
+ * that was stored for it is genuinely deleted from this site.
+ */
+export async function deleteWaMessageAction(id: number): Promise<{ message: WaMessage } | { error: string }> {
+  const me = await requireUser();
+  if (!hasPermission(me, "send_whatsapp")) return { error: "You do not have permission to delete WhatsApp messages." };
+
+  try {
+    const res = await deleteWaMessage(me, id);
+    revalidatePath("/whatsapp");
+    return { message: res.message };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not delete that message." };
   }
 }
 

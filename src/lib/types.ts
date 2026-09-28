@@ -868,6 +868,18 @@ export interface WaMessage {
     footer?: string;
     buttons?: string[];
   } | null;
+  /** Set once someone corrects a typo in a sent message. Editing only ever
+   *  changes this CRM's own record — WhatsApp has no way to change a message
+   *  already delivered, so the customer's phone still shows what was sent. */
+  edited_at?: string | null;
+  edited_by_name?: string;
+  /** A tombstone: the row is kept (so the thread's shape holds) but its
+   *  content is gone, body and media alike — deleting genuinely removes the
+   *  file this site was holding, it is not a hidden flag the browser must
+   *  honour. */
+  deleted?: boolean;
+  deleted_at?: string | null;
+  deleted_by_name?: string;
 }
 
 export interface WaThread {

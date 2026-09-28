@@ -876,6 +876,31 @@ export async function waConversationsToLeads(actor: DashUser, ids: number[]) {
   );
 }
 
+/**
+ * Corrects a typo in a message this business sent.
+ *
+ * The plugin refuses anything but a plain typed reply — not a template, not
+ * an incoming message — whatever this end sends, so the check here is only
+ * to give a quicker answer than a round trip to the API.
+ */
+export async function editWaMessage(actor: DashUser, id: number, text: string) {
+  return api.patch<{ message: WaMessage }>(`/whatsapp/messages/${id}`, {
+    text,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+/**
+ * Removes one message from the CRM's own copy of the conversation.
+ *
+ * Anyone who can send in the shared inbox can also tidy it — the same
+ * permission, not narrowed to admins or to a message's own sender.
+ */
+export async function deleteWaMessage(actor: DashUser, id: number) {
+  return api.del<{ ok: true; message: WaMessage }>(`/whatsapp/messages/${id}`, { actor_id: actor.id });
+}
+
 /** Deletes whole conversations, messages and stored files included. The plugin
  *  refuses this for anyone below admin, whatever this end sends. */
 export async function deleteWaConversations(actor: DashUser, ids: number[]) {

@@ -116,7 +116,7 @@ export default function Thread({
     <>
       {conversation.unread_count > 0 && <MarkRead id={conversation.id} />}
 
-      <MessageList conversationId={conversation.id} messages={messages} />
+      <MessageList conversationId={conversation.id} messages={messages} canManage={canSend} />
 
       {canSend && windowClosed && (
         <div

@@ -488,8 +488,19 @@ export default async function GuidePage() {
           thread afterwards.
         </Step>
 
+        <Step n={6} title="Fixing or removing a single message">
+          Hold your mouse over a message and a pencil and a bin appear. The <strong>pencil</strong>
+          edits a plain message you typed — not a photo's caption, not a template — and only shows
+          up on your own side of the chat. This corrects the record here; WhatsApp has no way to
+          change a message once it has reached someone, so their phone still shows exactly what you
+          first sent. The <strong>bin</strong> removes any message, yours or theirs, from this
+          screen — it becomes &ldquo;Message deleted&rdquo; the way WhatsApp&rsquo;s own app shows
+          it, and a stored photo or voice note is properly deleted, not just hidden. Anyone with
+          WhatsApp access can do both.
+        </Step>
+
         {manager && (
-          <Step n={6} title="Deleting a conversation">
+          <Step n={7} title="Deleting a conversation">
             Admins only, and it cannot be undone: every message, photo, voice note and document in
             that conversation goes, for everyone. Use <strong>Delete</strong> at the top of a
             conversation for one, or <strong>Select to delete</strong> above the list to tick
@@ -499,7 +510,7 @@ export default async function GuidePage() {
         )}
 
         {manager && (
-          <Step n={7} title="Writing templates">
+          <Step n={8} title="Writing templates">
             <Link href="/templates/whatsapp">Templates → WhatsApp</Link> →{" "}
             <strong>+ New WhatsApp template</strong>. The tab has step-by-step instructions at the top.
             Give it a name, pick Marketing (anything that sells) or Utility (an update about their

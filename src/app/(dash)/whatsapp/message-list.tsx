@@ -13,9 +13,12 @@ import MessageBubble from "./message-bubble";
 export default function MessageList({
   conversationId,
   messages,
+  canManage = false,
 }: {
   conversationId: number;
   messages: WaMessage[];
+  /** Whoever may send in this thread may also edit or delete a message in it. */
+  canManage?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const seen = useRef<{ conversation: number; count: number } | null>(null);
@@ -47,7 +50,7 @@ export default function MessageList({
           No messages yet.
         </p>
       ) : (
-        messages.map((m) => <MessageBubble key={m.id} message={m} />)
+        messages.map((m) => <MessageBubble key={m.id} message={m} canManage={canManage} />)
       )}
     </div>
   );
