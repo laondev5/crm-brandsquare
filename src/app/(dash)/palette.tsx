@@ -31,7 +31,8 @@ export default function Palette({ isAdmin }: { isAdmin: boolean }) {
     { id: "p-pipe", label: "Pipeline", hint: "Drag leads between stages", href: "/pipeline", group: "Go to" },
     { id: "p-agenda", label: "Agenda", hint: "Follow-ups by date", href: "/agenda", group: "Go to" },
     { id: "p-leads", label: "Leads", hint: "Full lead list", href: "/leads", group: "Go to" },
-    { id: "p-email", label: "Email", hint: "Campaigns and sends", href: "/email", group: "Go to" },
+    { id: "p-mail", label: "Email inbox", hint: "The shared mailbox", href: "/mail", group: "Go to" },
+    { id: "p-email", label: "Email campaigns", hint: "Bulk sends", href: "/email", group: "Go to" },
     ...(isAdmin
       ? [
           { id: "p-camp", label: "Campaigns", hint: "Forms and conversion", href: "/campaigns", group: "Go to" },

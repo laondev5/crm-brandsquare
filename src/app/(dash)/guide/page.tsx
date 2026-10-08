@@ -453,7 +453,7 @@ export default async function GuidePage() {
         <h2>Email inbox</h2>
 
         <Step n={1} title="The company mailbox, in the CRM">
-          <Link href="/mail">Leads → Email inbox</Link> shows the company Gmail mailbox the way the
+          <Link href="/mail">Email → Inbox</Link> shows the company Gmail mailbox the way the
           WhatsApp inbox shows WhatsApp: one shared list, newest first. New mail arrives by itself
           while the page is open, and <strong>Check now</strong> looks straight away. Mail you answer in
           Gmail itself shows up here too, and the other way round.
@@ -494,7 +494,7 @@ export default async function GuidePage() {
             and meetings already booked stay on its calendar. The same page sets how far back to bring in
             mail and whether the inbox is open to everyone allowed to send email or admins only &mdash; it
             is a whole mailbox, so limit it if it holds anything that is not customers. Bulk email
-            campaigns send from the separate address under <Link href="/email/settings">Email → Sender
+            campaigns send from the separate address under <Link href="/email/settings">Email → Campaign sender
             settings</Link>.
           </Step>
         )}

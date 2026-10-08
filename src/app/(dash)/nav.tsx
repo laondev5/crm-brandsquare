@@ -11,6 +11,7 @@ import {
   FileText,
   PenSquare,
   LayoutDashboard,
+  Mail,
   Megaphone,
   Settings2,
   Target,
@@ -61,8 +62,17 @@ const GROUPS: NavGroup[] = [
       { href: "/leads", label: "All leads" },
       { href: "/pipeline", label: "Pipeline" },
       { href: "/campaigns", label: "Campaigns", adminOnly: true, author: true, md: true },
-      { href: "/email", label: "Email" },
-      { href: "/mail", label: "Email inbox" },
+    ],
+  },
+  // The shared mailbox and the bulk campaigns, together and on their own.
+  {
+    label: "Email",
+    icon: Mail,
+    children: [
+      { href: "/mail", label: "Inbox" },
+      { href: "/email", label: "Campaigns" },
+      { href: "/email/new", label: "+ New campaign" },
+      { href: "/email/settings", label: "Campaign sender", adminOnly: true },
     ],
   },
   {

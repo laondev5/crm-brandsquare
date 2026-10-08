@@ -32,6 +32,7 @@ import {
   isAdminRole,
 } from "@/lib/types";
 import { waDigits, waLink } from "@/lib/phone";
+import { properName } from "@/lib/api";
 
 import Manage from "./manage";
 import Tasks from "./tasks";
@@ -101,7 +102,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   const owners = [...activity]
     .filter((a) => a.type === "assigned" && a.to_value && a.to_value !== "Unassigned")
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
-    .map((a) => ({ name: a.to_value, since: a.created_at, by: a.actor_name }))
+    .map((a) => ({ name: properName(a.to_value), since: a.created_at, by: a.actor_name }))
     .filter((o, i, all) => i === 0 || all[i - 1].name !== o.name);
 
   const answers = parsePayload(lead.payload);

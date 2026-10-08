@@ -21,7 +21,7 @@ export default async function EmailPage({
   return (
     <>
       <div className="head">
-        <h1>Email marketing</h1>
+        <h1>Campaigns</h1>
         <div className="spacer" />
         {isAdminRole(me.role) && (
           <Link href="/email/settings" className="btn ghost">

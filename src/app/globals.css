@@ -503,6 +503,7 @@
   /* ---------- the email inbox ---------- */
   .mail-unread { background: var(--p); color: #fff; border-radius: 99px; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 4px; flex-shrink: 0; }
   .mail-tabs { display: flex; gap: 4px; margin-top: 8px; }
+  .mail-tabs--page { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
   .mail-tab { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; color: var(--muted); text-decoration: none; }
   .mail-tab:hover { background: #f4f4f8; color: var(--ink); }
   .mail-tab.is-on { background: var(--accent); color: var(--p); }

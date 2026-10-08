@@ -23,6 +23,50 @@ export class ApiError extends Error {
 
 type Params = Record<string, string | number | null | undefined>;
 
+/**
+ * Staff names are typed by whoever invited them, in whatever case, and then show
+ * up in dozens of places: who a lead is assigned to, who wrote a note, who sent
+ * an email. Every one should read the same way, so it is put right once, here,
+ * on the way in -- not in each screen that happens to remember to.
+ *
+ * Only the first letter of each word is raised; the rest is left as written, so
+ * "McDonald" and "Okeke-Eze" survive. Lead and customer names are not touched:
+ * they are the customer's own spelling.
+ */
+const PERSON_KEYS = new Set([
+  "actor_name", "assigned_name", "created_by_name", "updated_by_name", "edited_by_name", "deleted_by_name",
+  "uploaded_by_name", "author_name", "organizer_name", "owner_name", "blocker_owner_name", "procurement_name",
+  "sales_name", "sent_by", "created_by",
+]);
+
+export function properName(s: string): string {
+  return s.replace(/(^|[\s-])(\p{Ll})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
+}
+
+function tidyNames(v: unknown): unknown {
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) v[i] = tidyNames(v[i]);
+    return v;
+  }
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    // A person record: an id, a name and a role. A lead has no role.
+    const isPerson = typeof o.name === "string" && typeof o.role === "string" && "id" in o;
+    // An assignment in a timeline names the person it was given to.
+    const isHandover = o.type === "assigned" || o.type === "assigned_procurement" || o.type === "assigned_sales";
+    for (const k of Object.keys(o)) {
+      const val = o[k];
+      if (
+        typeof val === "string" &&
+        (PERSON_KEYS.has(k) || (isPerson && k === "name") || (isHandover && (k === "to_value" || k === "from_value")))
+      )
+        o[k] = properName(val);
+      else if (val && typeof val === "object") o[k] = tidyNames(val);
+    }
+  }
+  return v;
+}
+
 function url(path: string, params?: Params) {
   const u = new URL(BASE + path);
   if (params) {
@@ -73,7 +117,7 @@ async function request<T>(path: string, init: RequestInit & { params?: Params } 
     throw new ApiError(body?.message || `Request failed (HTTP ${res.status})`, res.status, body?.code || "");
   }
 
-  return body as T;
+  return tidyNames(body) as T;
 }
 
 /**

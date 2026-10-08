@@ -143,13 +143,13 @@ export default async function GoogleAccountPage({
               </li>
               <li>
                 Press <strong>Test connection</strong>. Then schedule a meeting on the Meetings page with the link box left
-                empty &mdash; it gets its own Meet room &mdash; and open <strong>Leads → Email inbox</strong>.
+                empty &mdash; it gets its own Meet room &mdash; and open <strong>Email → Inbox</strong>.
               </li>
             </ol>
             <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 0 }}>
               The reminder 10 minutes before a meeting is always sent by the CRM (email and pop-up), whichever way the
               meeting was made. Bulk email campaigns are separate: they send from the address set under{" "}
-              <Link href="/email/settings">Email → Sender settings</Link>.
+              <Link href="/email/settings">Email → Campaign sender</Link>.
             </p>
           </div>
         </div>
