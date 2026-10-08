@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { saveWaSettingsAction, verifyWaSettingsAction, type WaSettingsState } from "@/app/actions/whatsapp";
-import type { WaSettings } from "@/lib/types";
+import { DEFAULT_WA_GREETING, type WaSettings } from "@/lib/types";
 
 export default function SettingsForm({ settings }: { settings: WaSettings }) {
   const [state, action, pending] = useActionState<WaSettingsState, FormData>(saveWaSettingsAction, {});
@@ -67,6 +67,43 @@ export default function SettingsForm({ settings }: { settings: WaSettings }) {
             defaultValue={settings.verify_token}
             placeholder="A phrase you invent, entered again in Meta's dashboard"
           />
+        </label>
+
+        <h3 style={{ margin: "22px 0 4px", fontSize: 14 }}>Using WhatsApp on the phone</h3>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px", lineHeight: 1.55 }}>
+          For when the team works in the ordinary WhatsApp Business app instead of this inbox. Switch it on the{" "}
+          <a href="/whatsapp">WhatsApp inbox</a> page with the <strong>Internal</strong> toggle.
+        </p>
+
+        <label className="f">
+          <span>The business WhatsApp number</span>
+          <input
+            type="text"
+            name="external_number"
+            defaultValue={settings.external_number}
+            placeholder="e.g. 07082964247"
+            inputMode="tel"
+            autoComplete="off"
+          />
+          <small style={{ color: "var(--muted)" }}>
+            The number the phone app is signed in as. A local number is read as Nigerian; add the country code
+            for any other.
+          </small>
+        </label>
+
+        <label className="f">
+          <span>Opening message</span>
+          <textarea
+            name="external_greeting"
+            rows={3}
+            defaultValue={settings.external_greeting || DEFAULT_WA_GREETING}
+            placeholder={DEFAULT_WA_GREETING}
+          />
+          <small style={{ color: "var(--muted)" }}>
+            What is typed into the chat when someone presses a lead&rsquo;s WhatsApp button. They can change it
+            before sending. Use <code>{"{{first_name}}"}</code>, <code>{"{{name}}"}</code>,{" "}
+            <code>{"{{company}}"}</code> and <code>{"{{your_name}}"}</code> (whoever pressed the button).
+          </small>
         </label>
 
         <div style={{ display: "flex", gap: 10, marginTop: 6 }}>

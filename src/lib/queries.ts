@@ -34,6 +34,13 @@ import type {
   WaConversation,
   WaThread,
   WaSettings,
+  WaMode,
+  WaBackupStatus,
+  WaBackupBatch,
+  MailStatus,
+  MailList,
+  MailThreadDetail,
+  MailSettings,
   Site,
   Pipeline,
   Stage,
@@ -599,11 +606,12 @@ export async function bulkCreateLeads(input: {
 
 /** Records that someone opened the shared WhatsApp thread for this lead —
  *  the CRM never sees the message itself, only that contact happened. */
-export async function logWhatsAppOpen(leadId: number, actor: DashUser, ownerId?: number | null) {
+export async function logWhatsAppOpen(leadId: number, actor: DashUser, ownerId?: number | null, external = false) {
   return api.post<{ ok: boolean }>(`/leads/${leadId}/whatsapp-open`, {
     actor_id: actor.id,
     actor_name: actor.name,
     owner: ownerId ?? undefined,
+    external: external ? 1 : undefined,
   });
 }
 
@@ -817,6 +825,8 @@ export async function saveWaSettings(
     verify_token?: string;
     access_token?: string;
     app_secret?: string;
+    external_number?: string;
+    external_greeting?: string;
   }
 ): Promise<WaSettings> {
   return api.post<WaSettings>("/whatsapp/settings", { ...patch, actor_id: actor.id });
@@ -908,6 +918,42 @@ export async function deleteWaConversations(actor: DashUser, ids: number[]) {
     ids,
     actor_id: actor.id,
   });
+}
+
+/* ---------------- WhatsApp: in the CRM, or on the phone ---------------- */
+
+/** How WhatsApp is being worked right now. Cheap and cached per request: the nav, the inbox and the lead page all ask. */
+export const getWaMode = cache(async (actorId: number): Promise<WaMode> => {
+  return api.get<WaMode>("/whatsapp/mode", { actor_id: actorId });
+});
+
+/** The switch. The plugin allows it only to the WhatsApp settings tier, whatever this end sends. */
+export async function setWaMode(actor: DashUser, internal: boolean) {
+  return api.post<WaMode>("/whatsapp/mode", { internal, actor_id: actor.id });
+}
+
+/**
+ * Where a lead's chat is, without starting one -- the lead's number in the form
+ * WhatsApp's links want, and the conversation if there is history. Failing to
+ * ask must not stop the button working, so a lookup that errors is just "none".
+ */
+export async function getLeadChat(leadId: number, actor: DashUser) {
+  try {
+    return await api.get<{ conversation_id: number | null; phone: string }>(`/leads/${leadId}/whatsapp-chat`, {
+      actor_id: actor.id,
+    });
+  } catch {
+    return { conversation_id: null, phone: "" };
+  }
+}
+
+export async function getWaBackupStatus(actor: DashUser) {
+  return api.get<WaBackupStatus>("/whatsapp/backup", { actor_id: actor.id });
+}
+
+/** Copies a few more files still only on Meta onto this site. Called again until `remaining` is 0. */
+export async function runWaBackupBatch(actor: DashUser, limit = 10) {
+  return api.post<WaBackupBatch>("/whatsapp/backup/media", { limit, actor_id: actor.id });
 }
 
 /* ---------------- quotations ---------------- */
@@ -1433,6 +1479,76 @@ export async function disconnectGoogle(actor: DashUser) {
 
 export async function testGoogle(actor: DashUser) {
   return api.post<{ ok: true; calendar: string }>("/google/test", { actor_id: actor.id });
+}
+
+/* ---------------- the email inbox ---------------- */
+
+export interface MailListParams {
+  filter?: "" | "unread" | "new";
+  search?: string;
+  lead?: number;
+  page?: number;
+  per_page?: number;
+}
+
+export async function getMailList(actor: DashUser, p: MailListParams = {}) {
+  return api.get<MailList>("/mail/threads", { ...p, actor_id: actor.id });
+}
+
+export async function getMailThread(actor: DashUser, id: number) {
+  return api.get<MailThreadDetail>(`/mail/threads/${id}`, { actor_id: actor.id });
+}
+
+export async function markMailRead(actor: DashUser, id: number) {
+  return api.post<{ ok: boolean }>(`/mail/threads/${id}/read`, { actor_id: actor.id });
+}
+
+export async function sendMailMessage(
+  actor: DashUser,
+  input: { thread_id?: number | null; to?: string; cc?: string; subject?: string; text: string }
+) {
+  return api.post<{ ok: true; thread_id: number | null; sent_id: string }>("/mail/send", {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteMailThreads(actor: DashUser, ids: number[]) {
+  return api.post<{ removed: number }>("/mail/threads/delete", { ids, actor_id: actor.id });
+}
+
+export async function mailThreadsToLeads(actor: DashUser, ids: number[]) {
+  return api.post<{ created: number; linked: number; already: number; failed: string[] }>(
+    "/mail/threads/to-leads",
+    { ids, actor_id: actor.id, actor_name: actor.name }
+  );
+}
+
+export async function getMailPulse(actor: DashUser, thread?: number) {
+  return api.get<{ sig: string; importing: boolean; imported: number; error: string }>("/mail/pulse", {
+    actor_id: actor.id,
+    thread,
+  });
+}
+
+export async function syncMail(actor: DashUser) {
+  return api.post<{ status: MailStatus }>("/mail/sync", { actor_id: actor.id });
+}
+
+export async function getMailSettings(actor: DashUser) {
+  return api.get<MailSettings>("/mail/settings", { actor_id: actor.id });
+}
+
+export async function saveMailSettings(
+  actor: DashUser,
+  patch: { sync_days?: number; visibility?: string; from_name?: string; signature?: string }
+) {
+  return api.post<MailSettings>("/mail/settings", { ...patch, actor_id: actor.id });
+}
+
+export async function wipeMail(actor: DashUser) {
+  return api.post<MailSettings>("/mail/wipe", { actor_id: actor.id });
 }
 
 /* ---------------- notifications and announcements ---------------- */

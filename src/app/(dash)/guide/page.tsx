@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { canOversee, isAdminRole, isSuperRole } from "@/lib/types";
 
-function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+function Step({ n, title, children }: { n: number | string; title: string; children: React.ReactNode }) {
   return (
     <div className="row" style={{ gap: 14, alignItems: "flex-start", marginBottom: 18 }}>
       <span
@@ -207,7 +207,7 @@ export default async function GuidePage() {
         <Step n={2} title="The Google Meet room">
           The CRM creates the Google Meet room itself through Google&rsquo;s API when you save, and puts the
           meeting in everyone&rsquo;s Google Calendar — you never leave the CRM to set it up. This needs a Google
-          account connected once under <strong>Settings → Meeting settings</strong>; until then, paste a Meet link.
+          account connected once under <strong>Settings → Google account</strong>; until then, paste a Meet link.
         </Step>
 
         <Step n={3} title="Everyone is told, and reminded">
@@ -450,6 +450,59 @@ export default async function GuidePage() {
 
       {!author && !md && (
       <div className="card">
+        <h2>Email inbox</h2>
+
+        <Step n={1} title="The company mailbox, in the CRM">
+          <Link href="/mail">Leads → Email inbox</Link> shows the company Gmail mailbox the way the
+          WhatsApp inbox shows WhatsApp: one shared list, newest first. New mail arrives by itself
+          while the page is open, and <strong>Check now</strong> looks straight away. Mail you answer in
+          Gmail itself shows up here too, and the other way round.
+        </Step>
+
+        <Step n={2} title="Reading and replying">
+          Press a conversation to read it; the newest message is open and earlier ones are folded to a
+          line. Pictures from the internet are hidden until you press <strong>Show pictures</strong>
+          (they can tell the sender you opened it). Write in the box underneath, pick a template or
+          response if it helps, attach files up to 20 MB in all, and press <strong>Send</strong>. It goes
+          out from the company address, signed with your name.
+        </Step>
+
+        <Step n={3} title="Starting an email, and finding people">
+          <strong>New email</strong> writes to anyone. The search box looks through names, subjects
+          and the text of every message, and <strong>Unread</strong> and <strong>Not replied</strong> narrow
+          the list. <strong>Not replied</strong> is people who wrote in and nobody here has answered yet.
+        </Step>
+
+        <Step n={4} title="From email to lead">
+          A conversation shows whose lead it is, or <strong>Add to leads</strong> when the sender is not on
+          file. If their address matches a lead already there, that lead is linked rather than a second
+          one made. Use <strong>Select to add as leads</strong> to do several at once.
+          {manager && (
+            <>
+              {" "}Admins can also <strong>Select conversations</strong> and remove them from the
+              CRM&rsquo;s inbox. Nothing is deleted in Gmail, and a new message brings the conversation back.
+            </>
+          )}
+        </Step>
+
+        {superAdmin && (
+          <Step n={5} title="The Google account behind it (super admin and IT officer)">
+            Under <Link href="/meetings/settings">Settings → Google account</Link>. To use the
+            organisation&rsquo;s own address instead of a personal one, type it, keep{" "}
+            <strong>Also connect its email inbox</strong> ticked and press <strong>Change account</strong>.
+            The old account is disconnected, its imported mail leaves the CRM (Gmail itself is untouched),
+            and meetings already booked stay on its calendar. The same page sets how far back to bring in
+            mail and whether the inbox is open to everyone allowed to send email or admins only &mdash; it
+            is a whole mailbox, so limit it if it holds anything that is not customers. Bulk email
+            campaigns send from the separate address under <Link href="/email/settings">Email → Sender
+            settings</Link>.
+          </Step>
+        )}
+      </div>
+      )}
+
+      {!author && !md && (
+      <div className="card">
         <h2>WhatsApp</h2>
 
         <Step n={1} title="One inbox for the business number">
@@ -499,8 +552,20 @@ export default async function GuidePage() {
           WhatsApp access can do both.
         </Step>
 
+        <Step n={7} title="When the team works WhatsApp on the phone">
+          At the top of the WhatsApp inbox, the <strong>Internal</strong> switch says where the team is
+          working WhatsApp. While it is on, everything above applies. If the business moves to the
+          ordinary WhatsApp Business app (which has no 24-hour rule), a super admin or the IT officer
+          turns it off, and then: the <strong>WhatsApp</strong> button on a lead opens WhatsApp itself on
+          a chat with that lead, with a greeting already typed that you can change before sending; this
+          inbox becomes a <strong>read-only archive</strong> of everything said before, with{" "}
+          <strong>Open in WhatsApp</strong> to carry a conversation on; and <strong>Chat history</strong>{" "}
+          on a lead&rsquo;s page opens what was said here. Opening WhatsApp from a lead is noted in the
+          lead&rsquo;s timeline, but what you then type on the phone is not recorded in the CRM.
+        </Step>
+
         {manager && (
-          <Step n={7} title="Deleting a conversation">
+          <Step n={8} title="Deleting a conversation">
             Admins only, and it cannot be undone: every message, photo, voice note and document in
             that conversation goes, for everyone. Use <strong>Delete</strong> at the top of a
             conversation for one, or <strong>Select to delete</strong> above the list to tick
@@ -510,7 +575,7 @@ export default async function GuidePage() {
         )}
 
         {manager && (
-          <Step n={8} title="Writing templates">
+          <Step n={9} title="Writing templates">
             <Link href="/templates/whatsapp">Templates → WhatsApp</Link> →{" "}
             <strong>+ New WhatsApp template</strong>. The tab has step-by-step instructions at the top.
             Give it a name, pick Marketing (anything that sells) or Utility (an update about their
@@ -534,6 +599,17 @@ export default async function GuidePage() {
             are never shown again after saving — leave those boxes blank to keep what is saved. The
             box on the right says in one line whether messages are arriving, and why not if
             they aren&rsquo;t, with the last 20 calls from Meta underneath.
+          </Step>
+
+          <Step n="1b" title="WhatsApp on the phone, and the backup">
+            Also in <Link href="/whatsapp/settings">WhatsApp settings</Link>: the business number the team
+            uses on the phone and the greeting a lead&rsquo;s WhatsApp button starts a chat with. The{" "}
+            <strong>Backup</strong> card keeps the history safe before the Meta account is detached:
+            press <strong>Save files on this site now</strong> first (Meta only keeps customers&rsquo; photos
+            and voice notes for about a month, so they have to be copied), then{" "}
+            <strong>Download full backup</strong> for a zip with every chat as readable text, the files and
+            a spreadsheet of all messages. WhatsApp cannot load an old conversation into the phone app, so
+            the archive is how the history is kept.
           </Step>
 
           <Step n={2} title="Ad datasets — where results are reported">

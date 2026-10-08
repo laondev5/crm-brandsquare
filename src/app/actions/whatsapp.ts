@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin, requireSuperAdmin, requireUser } from "@/lib/auth";
 import { hasPermission, waMediaProblem } from "@/lib/types";
 import { needsRepackaging, webmOpusToOgg } from "@/lib/ogg-opus";
-import { mediaUploadPass, type UploadPass } from "@/lib/wa-upload";
+import { mediaUploadPass, waBackupDownloadUrl, type UploadPass } from "@/lib/wa-upload";
 import {
   deleteWaConversations,
   deleteWaMessage,
   editWaMessage,
   openLeadWaChat,
+  runWaBackupBatch,
+  setWaMode,
   waConversationsToLeads,
   markWaRead,
   saveWaSettings,
@@ -20,7 +22,8 @@ import {
   verifyWaSettings,
 } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
-import type { WaMessage } from "@/lib/types";
+import { isSuperRole } from "@/lib/types";
+import type { WaBackupBatch, WaMessage } from "@/lib/types";
 import type { FormState } from "./auth";
 
 export type SendWaState = FormState;
@@ -249,12 +252,59 @@ export async function saveWaSettingsAction(_prev: WaSettingsState, form: FormDat
       // not the same thing as clearing it.
       access_token: String(form.get("access_token") ?? "").trim(),
       app_secret: String(form.get("app_secret") ?? "").trim(),
+      // Only when the form has the fields at all, so a save from somewhere
+      // that does not show them cannot blank the number the team is using.
+      ...(form.has("external_number") ? { external_number: String(form.get("external_number") ?? "").trim() } : {}),
+      ...(form.has("external_greeting") ? { external_greeting: String(form.get("external_greeting") ?? "").trim() } : {}),
     });
     revalidatePath("/whatsapp/settings");
     return { ok: "Saved." };
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : "Could not save those settings." };
   }
+}
+
+/**
+ * The switch between working WhatsApp in the CRM and working it on the phone.
+ *
+ * Super admin or IT officer only, the tier that holds the WhatsApp connection:
+ * it changes what every person on the team sees and does, so it is not a
+ * preference. The plugin refuses anyone else regardless of what is sent here.
+ */
+export async function setWaModeAction(internal: boolean): Promise<{ internal: boolean } | { error: string }> {
+  const me = await requireSuperAdmin();
+  try {
+    const res = await setWaMode(me, internal);
+    // Every page that decides what a WhatsApp button does.
+    revalidatePath("/", "layout");
+    return { internal: res.internal };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not change that." };
+  }
+}
+
+/** One round of saving files still only on Meta; the page calls it until nothing is left. */
+export async function waBackupBatchAction(): Promise<WaBackupBatch | { error: string }> {
+  const me = await requireUser();
+  if (!isSuperRole(me.role)) return { error: "Only a super admin or the IT officer can take a backup." };
+  try {
+    return await runWaBackupBatch(me, 10);
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not save the files." };
+  }
+}
+
+/**
+ * A link that downloads the whole backup, good for a few minutes.
+ *
+ * The archive is built and sent by WordPress to the browser directly, because
+ * this app is on Vercel and will not carry a response that large. The link is
+ * signed for this person and this purpose only.
+ */
+export async function waBackupLinkAction(): Promise<{ url: string } | { error: string }> {
+  const me = await requireUser();
+  if (!isSuperRole(me.role)) return { error: "Only a super admin or the IT officer can take a backup." };
+  return { url: waBackupDownloadUrl(me) };
 }
 
 export async function verifyWaSettingsAction(): Promise<{ ok: true; label: string } | { error: string }> {

@@ -37,7 +37,7 @@ export default function MeetingForm({
   onDone?: () => void;
   /** With a Google account connected, the room is made by the Google API. */
   google?: { connected: boolean; account: string };
-  /** Super admin / IT: can connect Google from Meeting settings. */
+  /** Super admin / IT: can connect Google from Google account. */
   canSetup?: boolean;
 }) {
   const auto = !!google?.connected;
@@ -147,10 +147,10 @@ export default function MeetingForm({
                 Meet rooms are not being created in the CRM yet because no Google account is connected.{" "}
                 {canSetup ? (
                   <>
-                    <a href="/meetings/settings">Connect one in Meeting settings</a> and this box goes away.
+                    <a href="/meetings/settings">Connect one in Google account</a> and this box goes away.
                   </>
                 ) : (
-                  "Ask the super admin to connect one in Meeting settings. Until then, paste a Meet link here."
+                  "Ask the super admin to connect one in Google account. Until then, paste a Meet link here."
                 )}
               </div>
             )}

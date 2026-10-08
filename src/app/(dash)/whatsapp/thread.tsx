@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
+import { waLink } from "@/lib/phone";
 import type { KbItem, MessageTemplate, WaTemplate, WaThread } from "@/lib/types";
 import MessageList from "./message-list";
 import Composer from "./composer";
@@ -13,6 +15,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export default function Thread({
   thread,
   canSend,
+  archive = false,
   canDelete = false,
   canAddLeads = false,
   canQuote = false,
@@ -23,6 +26,8 @@ export default function Thread({
 }: {
   thread: WaThread | null;
   canSend: boolean;
+  /** WhatsApp has moved to the phone: read-only, with a way to carry on there. */
+  archive?: boolean;
   /** Admins and up: deleting is not part of working a thread. */
   canDelete?: boolean;
   /** Whoever may add a lead by hand may add one from here. */
@@ -118,7 +123,7 @@ export default function Thread({
 
       <MessageList conversationId={conversation.id} messages={messages} canManage={canSend} />
 
-      {canSend && windowClosed && (
+      {canSend && !archive && windowClosed && (
         <div
           style={{
             padding: "8px 14px",
@@ -136,6 +141,41 @@ export default function Thread({
 
     </>
   );
+
+  if (archive) {
+    // The same messages, with the reply box swapped for a way to carry on in
+    // WhatsApp itself. Nothing here can be edited or removed: it is a record.
+    return (
+      <div style={{ display: "flex", flexDirection: "column", minHeight: 0, background: "#f3f3f6" }}>
+        <div className="wa-thread-head">{header}</div>
+        {conversationView}
+        <div
+          style={{
+            borderTop: "1px solid var(--line)",
+            padding: "10px 14px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+            background: "#fff",
+          }}
+        >
+          <small style={{ color: "var(--muted)", flex: 1, minWidth: 180 }}>
+            Archived. Carry on this conversation in WhatsApp.
+          </small>
+          <a
+            className="btn"
+            style={{ background: "#25D366" }}
+            href={waLink(conversation.phone)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink className="size-3" /> Open in WhatsApp
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0, background: "#f3f3f6" }}>

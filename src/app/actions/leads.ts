@@ -351,13 +351,13 @@ export async function importLeadsAction(input: {
  * here is deliberately silent to the user: a missing log entry shouldn't
  * block someone from actually messaging the lead.
  */
-export async function logWhatsAppOpenAction(leadId: number) {
+export async function logWhatsAppOpenAction(leadId: number, external = false) {
   const me = await requireUser();
   if (!hasPermission(me, "send_whatsapp")) return;
 
   const scope = isAdminRole(me.role) ? null : me.id;
   try {
-    await logWhatsAppOpen(leadId, me, scope);
+    await logWhatsAppOpen(leadId, me, scope, external);
     revalidatePath(`/leads/${leadId}`);
   } catch {
     // best-effort — see comment above

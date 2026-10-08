@@ -19,4 +19,16 @@ export function googleRedirectUri() {
  */
 export const GOOGLE_SCOPES = ["openid", "email", "https://www.googleapis.com/auth/calendar.events"];
 
+/**
+ * What the email inbox adds: reading, sending and marking messages read in the
+ * connected mailbox. Asked for only when the person ticks the box, because it
+ * is the more sensitive of the two and a connection used only for meetings has
+ * no business holding it.
+ */
+export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
+
+export function googleScopesFor(withMail: boolean): string[] {
+  return withMail ? [...GOOGLE_SCOPES, GMAIL_SCOPE] : GOOGLE_SCOPES;
+}
+
 export const GOOGLE_STATE_COOKIE = "bsq_google_state";

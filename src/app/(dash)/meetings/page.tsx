@@ -60,7 +60,7 @@ export default async function MeetingsPage({
         <div className="spacer" />
         {isSuperRole(me.role) && (
           <Link href="/meetings/settings" className="btn ghost">
-            Meeting settings
+            Google account
           </Link>
         )}
         <div className="tabs" style={{ marginBottom: 0 }}>

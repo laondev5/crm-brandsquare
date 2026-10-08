@@ -9,7 +9,9 @@ import {
   getPipeline,
   listTemplates,
   listWaTemplates,
+  getLeadChat,
   getLeadProperties,
+  getWaMode,
   listKb,
   listMachineRequests,
   listQuotes,
@@ -19,13 +21,23 @@ import LeadProperties from "./properties";
 import LeadMachineRequests from "./machine-requests";
 import LeadQuotes from "./quotes";
 import TemplatePicker from "../../whatsapp/template-picker";
-import { daysQuiet, hasPermission, isClosed, isStale, parsePayload, isAdminRole } from "@/lib/types";
+import {
+  DEFAULT_WA_GREETING,
+  daysQuiet,
+  fillTemplate,
+  hasPermission,
+  isClosed,
+  isStale,
+  parsePayload,
+  isAdminRole,
+} from "@/lib/types";
+import { waDigits, waLink } from "@/lib/phone";
 
 import Manage from "./manage";
 import Tasks from "./tasks";
 import Files from "./files";
 import StatusPill from "../../pill";
-import WhatsAppButton from "./whatsapp-button";
+import WhatsAppButton, { type ExternalWhatsApp } from "./whatsapp-button";
 import EmailPanel from "./email-panel";
 import Notes from "./notes";
 import DeleteLead from "./delete-lead";
@@ -54,10 +66,33 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
     listQuotes(me, { lead: id }).then((r) => r.quotes).catch(() => []),
   ]);
 
+  const canWhatsApp = hasPermission(me, "send_whatsapp") && !!lead.phone;
+
+  // Whether WhatsApp is worked in the CRM or on the phone. If the plugin cannot
+  // say, assume the CRM: that is how the button always behaved.
+  const waMode = canWhatsApp ? await getWaMode(me.id).catch(() => null) : null;
+  let externalWa: ExternalWhatsApp | undefined;
+  if (waMode && !waMode.internal) {
+    const digits = waDigits(lead.phone);
+    const greeting = fillTemplate(waMode.external_greeting.trim() || DEFAULT_WA_GREETING, {
+      name: lead.name,
+      email: lead.email,
+      phone: lead.phone,
+      company: lead.company,
+      your_name: me.name,
+    });
+    const chat = await getLeadChat(id, me);
+    externalWa = {
+      href: digits ? waLink(digits, greeting) : null,
+      conversationId: chat.conversation_id,
+    };
+  }
+
   // The way to open a WhatsApp conversation with a lead from inside the CRM:
-  // an approved template is the only first message WhatsApp will carry.
+  // an approved template is the only first message WhatsApp will carry. On the
+  // phone there is no such restriction and no template to send from here.
   const waTemplates =
-    hasPermission(me, "send_whatsapp") && lead.phone
+    canWhatsApp && !externalWa
       ? ((await listWaTemplates().catch(() => null))?.templates ?? []).filter((t) => t.status === "APPROVED")
       : [];
 
@@ -94,7 +129,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
         </h1>
         <div className="spacer" />
         {hasPermission(me, "send_whatsapp") && lead.phone && (
-          <WhatsAppButton leadId={lead.id} />
+          <WhatsAppButton leadId={lead.id} external={externalWa} />
         )}
         {waTemplates.length > 0 && (
           <TemplatePicker

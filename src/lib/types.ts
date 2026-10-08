@@ -1209,6 +1209,9 @@ export interface WaSettings {
   verify_token: string;
   has_access_token: boolean;
   has_app_secret: boolean;
+  internal: boolean;
+  external_number: string;
+  external_greeting: string;
   configured: boolean;
   webhook_url: string;
 }
@@ -1270,10 +1273,10 @@ export interface DuplicateMatch {
  */
 export function fillTemplate(
   body: string,
-  vars: { name?: string; email?: string; phone?: string; company?: string; first_name?: string }
+  vars: { name?: string; email?: string; phone?: string; company?: string; first_name?: string; your_name?: string }
 ): string {
   const all = { ...vars, first_name: vars.first_name || (vars.name ?? "").trim().split(/\s+/)[0] };
-  return body.replace(/\{\{\s*(first_name|name|email|phone|company)\s*\}\}/gi, (whole, key: string) => {
+  return body.replace(/\{\{\s*(first_name|name|email|phone|company|your_name)\s*\}\}/gi, (whole, key: string) => {
     const v = all[key.toLowerCase() as keyof typeof all];
     return v ? v : whole;
   });
@@ -1623,6 +1626,12 @@ export interface GoogleSettings {
   account_email: string;
   connected_at: string;
   last_error: string;
+  /** What Google actually let the CRM do, which can be less than it asked for. */
+  scopes: string[];
+  has_calendar: boolean;
+  has_gmail: boolean;
+  /** Upcoming meetings on the calendar of a previous account, which changes can no longer reach. */
+  legacy_meetings: number;
 }
 
 /* ---------------- notifications and announcements ---------------- */
@@ -1755,3 +1764,145 @@ export type MachineRequestCounts = Record<string, number>;
 export function orBlank(v: string | null | undefined) {
   return v && v.trim() ? v : "Not provided";
 }
+
+/* ---------------- WhatsApp: in the CRM, or on the phone ---------------- */
+
+/**
+ * How WhatsApp is being worked, for everyone to see.
+ *
+ * Inside the CRM the inbox sends and receives. Once the number has moved to the
+ * ordinary WhatsApp Business app, messages are written on a phone, and the
+ * inbox becomes an archive of everything said before — read, searched and
+ * downloaded, but no longer a place to reply from.
+ */
+export interface WaMode {
+  internal: boolean;
+  /** The business number as it was typed, for showing. */
+  external_number: string;
+  /** The same number the way WhatsApp's links want it: country code, digits only. */
+  external_digits: string;
+  external_greeting: string;
+  configured: boolean;
+}
+
+/** What a message opened from a lead starts with, until someone writes their own. */
+export const DEFAULT_WA_GREETING = "Hello {{first_name}}, this is {{your_name}} from Brandsquare.";
+
+export interface WaBackupStatus {
+  conversations: number;
+  messages: number;
+  media_total: number;
+  /** Files with a copy on this site: safe whatever happens to the Meta account. */
+  media_saved: number;
+  /** Files still only on Meta, which keeps them for about a month. */
+  media_pending: number;
+  /** Files Meta says no longer exist. */
+  media_failed: number;
+  configured: boolean;
+  zip: boolean;
+  last_backup: { at: string; by: string; conversations: number; messages: number; files: number } | null;
+}
+
+export interface WaBackupBatch {
+  saved: number;
+  lost: number;
+  /** Why it stopped early, in Meta's words, when it did. */
+  stopped: string;
+  remaining: number;
+}
+
+/* ---------------- the email inbox ---------------- */
+
+export interface MailStatus {
+  connected: boolean;
+  /** The connected account has let the CRM into its mailbox. */
+  has_gmail: boolean;
+  /** The Google account connected now. */
+  account: string;
+  /** The account whose mail is held here: the same, unless a change is mid-way. */
+  mail_account: string;
+  /** Still working through the first import. */
+  importing: boolean;
+  imported: number;
+  last_sync_at: string | null;
+  last_error: string;
+  threads: number;
+}
+
+export interface MailPerson {
+  name: string;
+  email: string;
+}
+
+export interface MailThread {
+  id: number;
+  subject: string;
+  snippet: string;
+  contact_name: string;
+  contact_email: string;
+  /** The lead's name when there is one, otherwise who it is with. */
+  display_name: string;
+  lead_id: number | null;
+  assigned_name: string | null;
+  message_count: number;
+  unread_count: number;
+  last_message_at: string | null;
+  last_direction: "in" | "out" | "";
+  /** Nobody here has ever replied — they wrote in and are still waiting. */
+  is_new: boolean;
+  replied_at: string | null;
+}
+
+export interface MailAttachment {
+  id: number;
+  filename: string;
+  mime: string;
+  size: number;
+  inline: boolean;
+}
+
+export interface MailMessage {
+  id: number;
+  direction: "in" | "out";
+  from_name: string;
+  from_email: string;
+  to: MailPerson[];
+  cc: MailPerson[];
+  subject: string;
+  text: string;
+  /** Already cleaned of anything that could run or load; still shown in a sealed frame. */
+  html: string;
+  attachments: MailAttachment[];
+  is_unread: boolean;
+  sent_at: string;
+  /** Who in the CRM sent it, for messages sent from here. */
+  actor_name: string;
+}
+
+export interface MailList {
+  threads: MailThread[];
+  total: number;
+  unread_total: number;
+  new_total: number;
+  status: MailStatus;
+}
+
+export interface MailThreadDetail {
+  thread: MailThread;
+  messages: MailMessage[];
+  lead: { id: number; name: string; email: string; status: string; assigned_name: string | null } | null;
+  status: MailStatus;
+}
+
+export type MailVisibility = "everyone" | "admins";
+
+export interface MailSettings extends MailStatus {
+  sync_days: number;
+  visibility: MailVisibility;
+  from_name: string;
+  signature: string;
+  messages: number;
+}
+
+/** What may be attached to an email: Gmail's own ceiling is 25 MB, and this leaves room for encoding. */
+export const MAIL_MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;

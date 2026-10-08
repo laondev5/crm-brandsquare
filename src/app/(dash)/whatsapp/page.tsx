@@ -1,9 +1,10 @@
 import { requireUser } from "@/lib/auth";
-import { hasPermission, isAdminRole, waSignature } from "@/lib/types";
-import { getWaConversations, getWaThread, listKb, listTemplates, listWaTemplates } from "@/lib/queries";
+import { hasPermission, isAdminRole, isSuperRole, waSignature } from "@/lib/types";
+import { getWaConversations, getWaMode, getWaThread, listKb, listTemplates, listWaTemplates } from "@/lib/queries";
 import ConversationList from "./conversation-list";
 import Thread from "./thread";
 import LiveInbox from "./live-inbox";
+import ModeToggle from "./mode-toggle";
 
 /**
  * One shared inbox, not one per admin. WhatsApp has a single business
@@ -34,12 +35,19 @@ export default async function WhatsAppPage({
     );
   }
 
+  // In the CRM, or on the phone. If the plugin cannot say, assume the CRM:
+  // that is how this page has always worked.
+  const mode = await getWaMode(me.id).catch(() => null);
+  const internal = mode?.internal ?? true;
+
   const canSend = hasPermission(me, "send_whatsapp");
+  // On the phone nothing is written from here, so nothing to write it with.
+  const canWrite = canSend && internal;
   const [thread, tpl, quickReplies, responses] = await Promise.all([
     selected ? getWaThread(selected).catch(() => null) : Promise.resolve(null),
-    canSend ? listWaTemplates().catch(() => null) : Promise.resolve(null),
-    canSend ? listTemplates("whatsapp").catch(() => []) : Promise.resolve([]),
-    canSend ? listKb("response").catch(() => []) : Promise.resolve([]),
+    canWrite ? listWaTemplates().catch(() => null) : Promise.resolve(null),
+    canWrite ? listTemplates("whatsapp").catch(() => []) : Promise.resolve([]),
+    canWrite ? listKb("response").catch(() => []) : Promise.resolve([]),
   ]);
 
   return (
@@ -57,9 +65,30 @@ export default async function WhatsAppPage({
             {data.unread_total} unread
           </span>
         )}
+        <div className="spacer" />
+        {mode && (
+          <ModeToggle
+            internal={internal}
+            canSwitch={isSuperRole(me.role)}
+            hasNumber={!!mode.external_digits}
+          />
+        )}
       </div>
 
-      {!data.configured && (
+      {!internal && (
+        <div className="msg warn">
+          <strong>WhatsApp is being used on the phone.</strong> This is an archive of what was said here before: you
+          can read and search it, but new messages are written in the WhatsApp Business app.{" "}
+          {mode?.external_number ? (
+            <>
+              Team number: <strong>{mode.external_number}</strong>.{" "}
+            </>
+          ) : null}
+          The WhatsApp button on each lead opens that app on their chat.
+        </div>
+      )}
+
+      {internal && !data.configured && (
         <div className="msg warn">
           No WhatsApp Business number is connected yet, so this is running in test mode — messages
           you send here are marked delivered locally rather than actually leaving. Everything else
@@ -88,10 +117,11 @@ export default async function WhatsAppPage({
         />
         <Thread
           thread={thread}
-          canSend={hasPermission(me, "send_whatsapp")}
+          canSend={canWrite}
+          archive={!internal}
           canDelete={isAdminRole(me.role)}
           canAddLeads={hasPermission(me, "add_leads")}
-          canQuote={isAdminRole(me.role) || me.role === "subadmin"}
+          canQuote={canWrite && (isAdminRole(me.role) || me.role === "subadmin")}
           templates={tpl?.templates ?? []}
           quickReplies={quickReplies}
           responses={responses}

@@ -489,6 +489,56 @@
   /* A stranger who wrote in and has never been answered. */
   .wa-first { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 99px; background: #fdeadf; color: #8a3d0b; font-size: 9.5px; font-weight: 700; letter-spacing: .02em; vertical-align: middle; }
 
+  /* The WhatsApp "Internal" switch: is the team working in the CRM, or on the phone. */
+  .wa-switch { display: inline-flex; align-items: center; gap: 8px; font: inherit; background: none; border: 0; padding: 4px 2px; color: var(--ink); }
+  .wa-switch--btn { cursor: pointer; }
+  .wa-switch--btn:disabled { opacity: .6; cursor: progress; }
+  .wa-switch__label { font-size: 13px; font-weight: 600; }
+  .wa-switch__track { width: 36px; height: 20px; border-radius: 99px; background: #c9c8d3; position: relative; transition: background .15s; flex-shrink: 0; }
+  .wa-switch__track.is-on { background: #25D366; }
+  .wa-switch__knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .15s; }
+  .wa-switch__track.is-on .wa-switch__knob { transform: translateX(16px); }
+  .wa-switch--btn:focus-visible { outline: 2px solid var(--p); outline-offset: 2px; border-radius: 6px; }
+
+  /* ---------- the email inbox ---------- */
+  .mail-unread { background: var(--p); color: #fff; border-radius: 99px; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 4px; flex-shrink: 0; }
+  .mail-tabs { display: flex; gap: 4px; margin-top: 8px; }
+  .mail-tab { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; color: var(--muted); text-decoration: none; }
+  .mail-tab:hover { background: #f4f4f8; color: var(--ink); }
+  .mail-tab.is-on { background: var(--accent); color: var(--p); }
+  .mail-tab em { font-style: normal; font-size: 10px; background: var(--p); color: #fff; border-radius: 99px; padding: 0 5px; }
+  .mail-pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); background: #fff; }
+  .mail-pager small { color: var(--muted); }
+  .mail-scroll { flex: 1; overflow-y: auto; padding: 12px 14px 18px; display: grid; gap: 10px; align-content: start; }
+  .mail-msg { background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .mail-msg.is-out { border-left: 3px solid var(--p); }
+  .mail-msg.is-unread { border-color: #c9c3ee; box-shadow: 0 0 0 2px rgba(123, 97, 255, .08); }
+  .mail-msg__head { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; cursor: pointer; font-size: 13px; }
+  .mail-msg__head strong { color: var(--ink); }
+  .mail-msg__peek { color: var(--muted); font-weight: 400; }
+  .mail-msg__body { padding: 0 14px 14px; }
+  .mail-text { margin: 0; white-space: pre-wrap; word-wrap: break-word; font: inherit; font-size: 14px; line-height: 1.55; color: #23222b; }
+  .mail-images { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 6px 10px; background: #f5f4f0; border-radius: 6px; font-size: 12px; color: var(--muted); }
+  .mail-link { background: none; border: 0; padding: 0; font: inherit; color: var(--p); cursor: pointer; font-weight: 600; }
+  .mail-link:hover { text-decoration: underline; }
+  .mail-files { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 12.5px; }
+  .mail-files li { display: flex; align-items: center; gap: 6px; }
+  .mail-files li button:last-child:not(.mail-link) { background: none; border: 0; cursor: pointer; color: var(--muted); padding: 0 2px; line-height: 1; }
+  .mail-reply { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .mail-compose__row { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 13px; }
+  .mail-compose__row > span { width: 52px; color: var(--muted); flex-shrink: 0; }
+  .mail-compose__row input { flex: 1; min-width: 0; }
+  .mail-compose__to { margin: 0 0 8px; font-size: 12.5px; color: var(--muted); }
+  .mail-compose__picks { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mail-back { display: none; font-size: 13px; font-weight: 600; color: var(--p); text-decoration: none; }
+  @media (max-width: 900px) {
+    /* The list and the conversation take turns on a narrow screen. */
+    .mail-desk { grid-template-columns: 1fr !important; }
+    .mail-desk[data-open="thread"] .mail-list-pane { display: none !important; }
+    .mail-desk[data-open="list"] .mail-thread-pane { display: none !important; }
+    .mail-back { display: inline-block; }
+  }
+
   /* Quoting in front of the chat, so the conversation is not left behind. */
   .qt-modal { position: fixed; inset: 0; z-index: 70; background: rgba(12, 10, 32, .55); display: flex; align-items: flex-start; justify-content: center; padding: 24px 16px; overflow-y: auto; }
   .qt-modal__box { width: min(900px, 100%); background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 24px 60px rgba(10, 7, 48, .3); }

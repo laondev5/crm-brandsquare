@@ -3,10 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Download, Send } from "lucide-react";
+import { CheckCheck, Download, ExternalLink, Send } from "lucide-react";
 import { openLeadChatAction, sendWaMessageAction, waUploadPassAction } from "@/app/actions/whatsapp";
 import { setQuoteStatusAction } from "@/app/actions/quotes";
 import { BUSINESS, loadLogo, quoteMessage, quotePdf } from "@/lib/quote-pdf";
+import { waDigits, waLink } from "@/lib/phone";
+import { logWhatsAppOpenAction } from "@/app/actions/leads";
 import type { Quote } from "@/lib/types";
 
 /**
@@ -24,10 +26,13 @@ export default function SendQuote({
   quote,
   meName,
   canSend,
+  external = false,
 }: {
   quote: Quote;
   meName: string;
   canSend: boolean;
+  /** WhatsApp is worked on the phone: open it with the figures ready, rather than sending from here. */
+  external?: boolean;
 }) {
   const router = useRouter();
   const [attachPdf, setAttachPdf] = useState(true);
@@ -53,6 +58,20 @@ export default function SendQuote({
       link.download = filename;
       link.click();
       URL.revokeObjectURL(url);
+    });
+  }
+
+  /** On the phone: WhatsApp's link carries text but never a file, so the PDF is saved here to attach by hand. */
+  function markSent() {
+    start(async () => {
+      setError(null);
+      const marked = await setQuoteStatusAction(quote.id, "sent");
+      if ("error" in marked) {
+        setError(marked.error);
+        return;
+      }
+      setDone("Marked as sent.");
+      router.refresh();
     });
   }
 
@@ -150,7 +169,42 @@ export default function SendQuote({
         </div>
       )}
 
-      {canSend ? (
+      {canSend && external ? (
+        <>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 10px", lineHeight: 1.5 }}>
+            WhatsApp is being used on the phone, so this opens it with the figures typed in. A link cannot carry a
+            file: download the PDF first if you want to attach it in the chat.
+          </p>
+          {waDigits(quote.customer_phone) ? (
+            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+              <a
+                className="btn"
+                style={{ background: "#25D366" }}
+                href={waLink(waDigits(quote.customer_phone), quoteMessage(quote, BUSINESS.name, meName))}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  if (quote.lead_id) void logWhatsAppOpenAction(quote.lead_id, true);
+                }}
+              >
+                <ExternalLink className="size-3" /> Open in WhatsApp
+              </a>
+              <button type="button" className="btn ghost" onClick={download} disabled={busy}>
+                <Download className="size-3" /> Download the PDF
+              </button>
+              {quote.status !== "sent" && (
+                <button type="button" className="btn ghost" onClick={markSent} disabled={busy}>
+                  <CheckCheck className="size-3" /> Mark as sent
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="empty" style={{ margin: 0 }}>
+              This quotation has no phone number WhatsApp can use. Add one to the customer details and save.
+            </p>
+          )}
+        </>
+      ) : canSend ? (
         <>
           <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 10px" }}>
             Goes to{" "}

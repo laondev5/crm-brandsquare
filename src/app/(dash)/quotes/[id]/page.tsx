@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { getQuote } from "@/lib/queries";
+import { getQuote, getWaMode } from "@/lib/queries";
 import { hasPermission, isAdminRole, money } from "@/lib/types";
 import QuoteEditor from "../editor";
 import SendQuote from "./send";
@@ -16,6 +16,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
   const quote = data.quote;
 
   const canWrite = isAdminRole(me.role) || me.role === "subadmin";
+  const waMode = hasPermission(me, "send_whatsapp") ? await getWaMode(me.id).catch(() => null) : null;
 
   return (
     <>
@@ -77,6 +78,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
             quote={quote}
             meName={me.name}
             canSend={canWrite && hasPermission(me, "send_whatsapp")}
+            external={!!waMode && !waMode.internal}
           />
 
           {canWrite && <QuoteStatus quote={quote} canDelete={isAdminRole(me.role)} />}

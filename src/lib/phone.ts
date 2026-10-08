@@ -1,39 +1,44 @@
 /**
- * Converts a lead's phone number to the digits-only international format
- * wa.me links require (e.g. "0803 123 4567" -> "2348031234567").
+ * A phone number in the form WhatsApp's own links want: the country code, then
+ * the number, digits only — 2347082964247, not 0708 296 4247 or +234 708 296 4247.
  *
- * Leads are entered by hand or imported from spreadsheets, so this has to
- * cope with spaces, dashes, brackets and a leading "+" or "00" — not just
- * the clean format a web form would enforce.
+ * This is the plugin's bsqf_wa_lead_phone() written out again, rule for rule, so
+ * a number means the same thing wherever it is read. It is checked against the
+ * real PHP function across a table of awkward inputs, so a change to either has
+ * to be a change to both. Nigerian numbers are assumed unless a country code is
+ * given, because that is who the business writes to.
+ *
+ * Returns "" for anything that cannot be a phone number, which is what lets a
+ * button say "this lead has no number" instead of opening a chat with nobody.
  */
+export function waDigits(raw: string | null | undefined, cc = "234"): string {
+  let d = String(raw ?? "").replace(/[^\d+]/g, "");
+  if (d === "") return "";
+
+  if (d.startsWith("+")) d = d.slice(1);
+  else if (d.startsWith("00")) d = d.slice(2);
+  else if (d.startsWith("0")) d = cc + d.slice(1);
+  else if (!d.startsWith(cc)) d = cc + d;
+
+  d = d.replace(/\D/g, "");
+  // "+234 (0) 803 ..." keeps the zero a local dialler drops after the country code.
+  // A Nigerian number never has a 0 right after 234, so it is not part of the number.
+  if (/^2340\d{10}$/.test(d)) d = "234" + d.slice(4);
+  return d.length < 8 || d.length > 15 ? "" : d;
+}
+
+/** A chat in WhatsApp (the app, or the web version on a computer), with a message ready to send. */
+export function waLink(digits: string, text = ""): string {
+  const base = `https://wa.me/${digits}`;
+  return text.trim() ? `${base}?text=${encodeURIComponent(text)}` : base;
+}
+
+/** The original names, kept so nothing that imported them breaks. */
 export function toWhatsAppNumber(raw: string, defaultCountryCode = "234"): string | null {
-  if (!raw) return null;
-
-  let digits = raw.replace(/[^\d+]/g, "");
-  if (!digits) return null;
-
-  if (digits.startsWith("+")) {
-    digits = digits.slice(1);
-  } else if (digits.startsWith("00")) {
-    digits = digits.slice(2);
-  } else if (digits.startsWith("0")) {
-    // Local format — 0803... becomes 234803... (leading 0 dropped, not kept)
-    digits = defaultCountryCode + digits.slice(1);
-  } else if (!digits.startsWith(defaultCountryCode)) {
-    // No leading 0, no +, no country code already present — assume local.
-    digits = defaultCountryCode + digits;
-  }
-
-  // A real phone number is at least 8 digits; anything shorter is noise
-  // (a partial paste, a landline extension) and not worth linking to.
-  if (digits.length < 8 || digits.length > 15) return null;
-
-  return digits;
+  return waDigits(raw, defaultCountryCode) || null;
 }
 
 export function whatsAppLink(rawPhone: string, prefilledText?: string): string | null {
-  const number = toWhatsAppNumber(rawPhone);
-  if (!number) return null;
-  const q = prefilledText ? `?text=${encodeURIComponent(prefilledText)}` : "";
-  return `https://wa.me/${number}${q}`;
+  const number = waDigits(rawPhone);
+  return number ? waLink(number, prefilledText ?? "") : null;
 }

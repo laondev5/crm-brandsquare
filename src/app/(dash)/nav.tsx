@@ -62,6 +62,7 @@ const GROUPS: NavGroup[] = [
       { href: "/pipeline", label: "Pipeline" },
       { href: "/campaigns", label: "Campaigns", adminOnly: true, author: true, md: true },
       { href: "/email", label: "Email" },
+      { href: "/mail", label: "Email inbox" },
     ],
   },
   {
@@ -155,7 +156,7 @@ const GROUPS: NavGroup[] = [
       { href: "/settings/request-sources", label: "Request sources", adminOnly: true },
       { href: "/settings/responses", label: "Response templates", adminOnly: true },
       { href: "/settings/faq", label: "FAQs", adminOnly: true },
-      { href: "/meetings/settings", label: "Meeting settings", superOnly: true },
+      { href: "/meetings/settings", label: "Google account", superOnly: true },
     ],
   },
 ];

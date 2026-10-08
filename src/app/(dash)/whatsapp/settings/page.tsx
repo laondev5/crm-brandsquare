@@ -1,9 +1,10 @@
 import { requireSuperAdmin } from "@/lib/auth";
-import { getWaDiagnostics, getWaSettings } from "@/lib/queries";
+import { getWaBackupStatus, getWaDiagnostics, getWaSettings } from "@/lib/queries";
 import SettingsForm from "./settings-form";
 import SimulateForm from "./simulate-form";
 import SelectOnFocusInput from "./select-on-focus";
 import Diagnostics from "./diagnostics";
+import Backup from "./backup";
 
 /**
  * The Meta credentials live only here, entered by a super admin and stored
@@ -31,6 +32,7 @@ export default async function WhatsAppSettingsPage() {
   // Asked only once credentials exist: without a token there is nothing to
   // ask Meta, and an older plugin without the endpoint must not break the page.
   const diag = settings.configured ? await getWaDiagnostics(me).catch(() => null) : null;
+  const backup = await getWaBackupStatus(me).catch(() => null);
 
   return (
     <>
@@ -55,6 +57,8 @@ export default async function WhatsAppSettingsPage() {
               <SelectOnFocusInput value={settings.webhook_url} />
             </label>
           </div>
+
+          {backup && <Backup status={backup} />}
 
           {!settings.configured && <SimulateForm />}
         </div>
