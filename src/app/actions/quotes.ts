@@ -29,12 +29,14 @@ function readForm(form: FormData): QuoteInput {
   const descriptions = form.getAll("item_description").map(String);
   const quantities = form.getAll("item_qty").map(String);
   const prices = form.getAll("item_price").map(String);
+  const notes = form.getAll("item_note").map(String);
 
   const items = descriptions
     .map((description, i) => ({
       description: description.trim(),
       qty: readMoney(quantities[i] ?? "1") || 1,
       unit_price: readMoney(prices[i] ?? "0"),
+      note: (notes[i] ?? "").trim(),
     }))
     // A line nobody filled in is not a line. The form offers spares; a
     // quotation should carry only what was written on it.
@@ -42,18 +44,26 @@ function readForm(form: FormData): QuoteInput {
 
   const lead = Number(form.get("lead_id"));
   const conversation = Number(form.get("conversation_id"));
+  const org = Number(form.get("org_id"));
+  const text = (key: string) => String(form.get(key) ?? "").trim();
 
   return {
     lead_id: lead > 0 ? lead : null,
     conversation_id: conversation > 0 ? conversation : null,
-    customer_name: String(form.get("customer_name") ?? "").trim(),
-    customer_company: String(form.get("customer_company") ?? "").trim(),
-    customer_email: String(form.get("customer_email") ?? "").trim(),
-    customer_phone: String(form.get("customer_phone") ?? "").trim(),
-    currency: String(form.get("currency") ?? "NGN").trim() || "NGN",
-    issued_on: String(form.get("issued_on") ?? "").trim() || null,
-    valid_until: String(form.get("valid_until") ?? "").trim() || null,
-    tax_percent: readMoney(String(form.get("tax_percent") ?? "0")),
+    org_id: org > 0 ? org : null,
+    customer_name: text("customer_name"),
+    customer_company: text("customer_company"),
+    customer_email: text("customer_email"),
+    customer_phone: text("customer_phone"),
+    currency: text("currency") || "NGN",
+    issued_on: text("issued_on") || null,
+    valid_until: text("valid_until") || null,
+    tax_percent: readMoney(text("tax_percent")),
+    details: text("details"),
+    suitable_for: text("suitable_for"),
+    specs: text("specs"),
+    notes: text("notes"),
+    next_step: text("next_step"),
     items,
   };
 }

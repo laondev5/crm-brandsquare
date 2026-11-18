@@ -17,10 +17,16 @@ import type { SavedView } from "@/lib/types";
 export default function ViewsBar({
   views,
   currentQuery,
+  scope = "leads",
+  basePath = "/leads",
 }: {
   views: SavedView[];
   /** The filters currently on screen, as a querystring without the leading ?. */
   currentQuery: string;
+  /** Which list these views belong to. */
+  scope?: "leads" | "deals" | "tasks";
+  /** Where the saved querystring should be applied. */
+  basePath?: string;
 }) {
   const router = useRouter();
   const [naming, setNaming] = useState(false);
@@ -31,7 +37,7 @@ export default function ViewsBar({
   const save = () => {
     setErr("");
     startTransition(async () => {
-      const res = await saveViewAction(name, currentQuery);
+      const res = await saveViewAction(name, currentQuery, scope, basePath);
       if ("error" in res) {
         setErr(res.error);
         return;
@@ -43,10 +49,10 @@ export default function ViewsBar({
   };
 
   const remove = (v: SavedView) => {
-    if (!confirm(`Remove the saved view "${v.name}"? The leads themselves are untouched.`)) return;
+    if (!confirm(`Remove the saved view "${v.name}"? The records themselves are untouched.`)) return;
     setErr("");
     startTransition(async () => {
-      const res = await deleteViewAction(v.id);
+      const res = await deleteViewAction(v.id, basePath);
       if ("error" in res) setErr(res.error);
       else router.refresh();
     });
@@ -55,7 +61,7 @@ export default function ViewsBar({
   return (
     <div className="views">
       {views.map((v) => {
-        const href = v.query ? `/leads?${v.query}` : "/leads";
+        const href = v.query ? `${basePath}?${v.query}` : basePath;
         const on = v.query === currentQuery;
         return (
           <span key={v.id} className={`viewchip${on ? " on" : ""}`}>

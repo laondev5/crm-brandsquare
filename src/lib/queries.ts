@@ -78,6 +78,22 @@ import type {
   BlogCategory,
   BlogAnalytics,
   BlogPostAnalytics,
+  Organization,
+  OrganizationCounts,
+  OrganizationDetail,
+  OrgNote,
+  Invoice,
+  InvoiceCounts,
+  InvoiceStatus,
+  Receipt,
+  CatalogueItem,
+  DocSettings,
+  Deal,
+  DealDetail,
+  DealInput,
+  DealList,
+  DealNote,
+  TaskList,
 } from "./types";
 
 /**
@@ -248,10 +264,17 @@ export async function getHeatmap(
 
 /* ---------------- tasks and files ---------------- */
 
-export async function addTask(leadId: number, title: string, dueAt: string, actor: DashUser) {
-  return api.post<{ ok: boolean; id: number; tasks: Task[] }>(`/leads/${leadId}/tasks`, {
+export async function addTask(
+  leadId: number,
+  title: string,
+  dueAt: string,
+  actor: DashUser,
+  extra: { detail?: string; priority?: string; assigned_to?: number | null } = {}
+) {
+  return api.post<{ ok: boolean; id: number; task: Task; tasks: Task[] }>(`/leads/${leadId}/tasks`, {
     title,
     due_at: dueAt,
+    ...extra,
     actor_id: actor.id,
     actor_name: actor.name,
   });
@@ -259,10 +282,17 @@ export async function addTask(leadId: number, title: string, dueAt: string, acto
 
 export async function updateTask(
   taskId: number,
-  patch: { done?: boolean; title?: string; due_at?: string },
+  patch: {
+    done?: boolean;
+    title?: string;
+    due_at?: string;
+    detail?: string;
+    priority?: string;
+    assigned_to?: number | null;
+  },
   actor: DashUser
 ) {
-  return api.patch<{ ok: boolean; tasks: Task[] }>(`/tasks/${taskId}`, {
+  return api.patch<{ ok: boolean; task: Task; tasks: Task[] }>(`/tasks/${taskId}`, {
     ...patch,
     actor_id: actor.id,
     actor_name: actor.name,
@@ -271,6 +301,66 @@ export async function updateTask(
 
 export async function deleteTask(taskId: number, actor: DashUser) {
   return api.del<{ ok: boolean; tasks: Task[] }>(`/tasks/${taskId}`, {
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+/* ---------------- the team's shared task list ---------------- */
+
+export async function listTasks(
+  actor: DashUser,
+  params: {
+    scope?: string;
+    assignee?: number | "me" | "none";
+    lead_id?: number;
+    org_id?: number;
+    deal_id?: number;
+    q?: string;
+    limit?: number;
+  } = {}
+) {
+  return api.get<TaskList>("/tasks", {
+    ...params,
+    assignee: params.assignee ?? undefined,
+    actor_id: actor.id,
+  });
+}
+
+export async function createTask(
+  actor: DashUser,
+  input: {
+    title: string;
+    due_at?: string;
+    detail?: string;
+    priority?: string;
+    assigned_to?: number | null;
+    lead_id?: number | null;
+    org_id?: number | null;
+    deal_id?: number | null;
+  }
+) {
+  return api.post<{ ok: true; id: number; task: Task; tasks: Task[] }>("/tasks", {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function patchTask(
+  actor: DashUser,
+  id: number,
+  patch: {
+    done?: boolean;
+    title?: string;
+    due_at?: string;
+    detail?: string;
+    priority?: string;
+    assigned_to?: number | null;
+  }
+) {
+  return api.patch<{ ok: boolean; task: Task; tasks: Task[] }>(`/tasks/${id}`, {
+    ...patch,
     actor_id: actor.id,
     actor_name: actor.name,
   });
@@ -671,13 +761,18 @@ export async function metrics(ownerId?: number | null, siteId?: number | "this" 
 
 /* ---------------- saved views ---------------- */
 
-export const listViews = cache(async (): Promise<SavedView[]> => {
-  const r = await api.get<{ views: SavedView[] }>("/views");
+export const listViews = cache(async (scope: "leads" | "deals" | "tasks" = "leads"): Promise<SavedView[]> => {
+  const r = await api.get<{ views: SavedView[] }>("/views", { scope });
   return r.views ?? [];
 });
 
-export async function createView(actor: DashUser, name: string, query: string) {
-  return api.post<{ ok: true; id: number }>("/views", { name, query, actor_id: actor.id });
+export async function createView(
+  actor: DashUser,
+  name: string,
+  query: string,
+  scope: "leads" | "deals" | "tasks" = "leads"
+) {
+  return api.post<{ ok: true; id: number }>("/views", { name, query, scope, actor_id: actor.id });
 }
 
 export async function deleteView(id: number) {
@@ -961,6 +1056,7 @@ export async function runWaBackupBatch(actor: DashUser, limit = 10) {
 export interface QuoteInput {
   lead_id?: number | null;
   conversation_id?: number | null;
+  org_id?: number | null;
   customer_name?: string;
   customer_company?: string;
   customer_email?: string;
@@ -970,7 +1066,12 @@ export interface QuoteInput {
   valid_until?: string | null;
   tax_percent?: number;
   status?: QuoteStatus;
-  items?: { description: string; qty: number; unit_price: number }[];
+  details?: string;
+  suitable_for?: string;
+  specs?: string;
+  notes?: string;
+  next_step?: string;
+  items?: { description: string; qty: number; unit_price: number; note?: string }[];
 }
 
 export async function listQuotes(
@@ -1691,4 +1792,337 @@ export async function addMachineRequestNote(actor: DashUser, id: number, note: s
 
 export async function deleteMachineRequest(actor: DashUser, id: number) {
   return api.del<{ ok: true }>(`/machine-requests/${id}`, { actor_id: actor.id });
+}
+
+/* ---------------- organisations ---------------- */
+
+export interface OrganizationInput {
+  name?: string;
+  org_type?: string;
+  sector?: string;
+  website?: string;
+  country?: string;
+  location?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  source?: string;
+  status?: string;
+  notes?: string;
+  assigned_to?: number | null;
+}
+
+export async function listOrganizations(
+  actor: DashUser,
+  params: {
+    status?: string;
+    type?: string;
+    q?: string;
+    owner?: number;
+    sort?: "recent" | "name" | "quiet";
+  } = {}
+) {
+  return api.get<{
+    organizations: Organization[];
+    counts: OrganizationCounts;
+    types: { key: string; label: string }[];
+    statuses: { key: string; label: string }[];
+  }>("/organizations", {
+    ...params,
+    owner: params.owner || undefined,
+    actor_id: actor.id,
+  });
+}
+
+export async function getOrganization(actor: DashUser, id: number) {
+  return api.get<{ organization: OrganizationDetail }>(`/organizations/${id}`, { actor_id: actor.id });
+}
+
+export async function createOrganization(actor: DashUser, input: OrganizationInput) {
+  return api.post<{ organization: OrganizationDetail }>("/organizations", {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function updateOrganization(actor: DashUser, id: number, input: OrganizationInput) {
+  return api.patch<{ organization: OrganizationDetail }>(`/organizations/${id}`, {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteOrganization(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/organizations/${id}`, { actor_id: actor.id });
+}
+
+export async function addOrgNote(actor: DashUser, id: number, body: string) {
+  return api.post<{ ok: true; note: OrgNote }>(`/organizations/${id}/notes`, {
+    body,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteOrgNote(actor: DashUser, id: number, noteId: number) {
+  return api.del<{ ok: true }>(`/organizations/${id}/notes/${noteId}`, { actor_id: actor.id });
+}
+
+/* ---------------- invoices ---------------- */
+
+export interface InvoiceInput {
+  invoice_no?: string;
+  quote_id?: number | null;
+  org_id?: number | null;
+  lead_id?: number | null;
+  customer_name?: string;
+  customer_company?: string;
+  customer_location?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  currency?: string;
+  issued_on?: string | null;
+  valid_until?: string | null;
+  tax_percent?: number;
+  bank_name?: string;
+  bank_account_name?: string;
+  bank_account_number?: string;
+  bank_swift?: string;
+  bank_currency?: string;
+  payment_terms?: string;
+  notes?: string;
+  next_step?: string;
+  status?: InvoiceStatus;
+  items?: { description: string; qty: number; unit_price: number }[];
+}
+
+export async function listInvoices(
+  actor: DashUser,
+  params: { status?: string; org?: number; q?: string; mine?: boolean } = {}
+) {
+  return api.get<{
+    invoices: Invoice[];
+    counts: InvoiceCounts;
+    statuses: { key: string; label: string }[];
+  }>("/invoices", {
+    ...params,
+    org: params.org || undefined,
+    mine: params.mine ? 1 : undefined,
+    actor_id: actor.id,
+  });
+}
+
+export async function getInvoice(id: number) {
+  return api.get<{ invoice: Invoice }>(`/invoices/${id}`);
+}
+
+export async function createInvoice(actor: DashUser, input: InvoiceInput) {
+  return api.post<{ invoice: Invoice }>("/invoices", {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function invoiceFromQuote(actor: DashUser, quoteId: number) {
+  return api.post<{ invoice: Invoice; existing: boolean }>(`/invoices/from-quote/${quoteId}`, {
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function updateInvoice(actor: DashUser, id: number, input: InvoiceInput) {
+  return api.patch<{ invoice: Invoice }>(`/invoices/${id}`, {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteInvoice(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/invoices/${id}`, { actor_id: actor.id });
+}
+
+/* ---------------- receipts ---------------- */
+
+export interface ReceiptInput {
+  receipt_no?: string;
+  invoice_id?: number | null;
+  org_id?: number | null;
+  lead_id?: number | null;
+  customer_name?: string;
+  customer_company?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  currency?: string;
+  receipt_date?: string | null;
+  payment_date?: string | null;
+  amount_received?: number;
+  share_percent?: number;
+  order_total?: number;
+  payment_method?: string;
+  payment_reference?: string;
+  summary?: string;
+  terms?: string;
+  notes?: string;
+  items?: { description: string; qty: number; line_total: number }[];
+}
+
+export async function listReceipts(
+  actor: DashUser,
+  params: { invoice?: number; org?: number; q?: string } = {}
+) {
+  return api.get<{ receipts: Receipt[] }>("/receipts", {
+    ...params,
+    invoice: params.invoice || undefined,
+    org: params.org || undefined,
+    actor_id: actor.id,
+  });
+}
+
+export async function getReceipt(id: number) {
+  return api.get<{ receipt: Receipt }>(`/receipts/${id}`);
+}
+
+export async function createReceipt(actor: DashUser, input: ReceiptInput) {
+  return api.post<{ receipt: Receipt }>("/receipts", {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function receiptFromInvoice(actor: DashUser, invoiceId: number) {
+  return api.post<{ receipt: Receipt }>(`/receipts/from-invoice/${invoiceId}`, {
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function updateReceipt(actor: DashUser, id: number, input: ReceiptInput) {
+  return api.patch<{ receipt: Receipt }>(`/receipts/${id}`, {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteReceipt(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/receipts/${id}`, { actor_id: actor.id });
+}
+
+/* ---------------- catalogue ---------------- */
+
+export interface CatalogueInput {
+  name?: string;
+  model?: string;
+  category?: string;
+  description?: string;
+  specs?: string;
+  price?: number;
+  currency?: string;
+  image_url?: string;
+  active?: boolean;
+  position?: number;
+}
+
+export async function listCatalogue(
+  params: { active?: boolean; category?: string; q?: string } = {}
+) {
+  return api.get<{ items: CatalogueItem[]; categories: string[] }>("/catalogue", {
+    active: params.active === undefined ? undefined : params.active ? 1 : 0,
+    category: params.category,
+    q: params.q,
+  });
+}
+
+export async function getCatalogueItem(id: number) {
+  return api.get<{ item: CatalogueItem }>(`/catalogue/${id}`);
+}
+
+export async function createCatalogueItem(actor: DashUser, input: CatalogueInput) {
+  return api.post<{ item: CatalogueItem }>("/catalogue", { ...input, actor_id: actor.id });
+}
+
+export async function updateCatalogueItem(actor: DashUser, id: number, input: CatalogueInput) {
+  return api.patch<{ item: CatalogueItem }>(`/catalogue/${id}`, { ...input, actor_id: actor.id });
+}
+
+export async function deleteCatalogueItem(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/catalogue/${id}`, { actor_id: actor.id });
+}
+
+/* ---------------- document settings ---------------- */
+
+export async function getDocSettings() {
+  return api.get<{ settings: DocSettings }>("/documents/settings");
+}
+
+export async function saveDocSettings(actor: DashUser, input: Partial<DocSettings>) {
+  return api.post<{ settings: DocSettings }>("/documents/settings", { ...input, actor_id: actor.id });
+}
+
+/* ---------------- deals ---------------- */
+
+export async function listDeals(
+  actor: DashUser,
+  params: {
+    stage?: string;
+    owner?: number;
+    org_id?: number;
+    lead_id?: number;
+    q?: string;
+    sort?: "recent" | "amount" | "close" | "created";
+  } = {}
+) {
+  return api.get<DealList>("/deals", {
+    ...params,
+    owner: params.owner || undefined,
+    actor_id: actor.id,
+  });
+}
+
+export async function getDeal(actor: DashUser, id: number) {
+  return api.get<{ deal: DealDetail }>(`/deals/${id}`, { actor_id: actor.id });
+}
+
+export async function createDeal(actor: DashUser, input: DealInput) {
+  return api.post<{ ok: true; id: number; deal: Deal }>("/deals", {
+    ...input,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function updateDeal(
+  actor: DashUser,
+  id: number,
+  patch: Partial<DealInput> & { lost_reason?: string }
+) {
+  return api.patch<{ ok: true; id: number; deal: Deal }>(`/deals/${id}`, {
+    ...patch,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteDeal(actor: DashUser, id: number) {
+  return api.del<{ ok: true }>(`/deals/${id}`, { actor_id: actor.id });
+}
+
+export async function addDealNote(actor: DashUser, id: number, body: string) {
+  return api.post<{ ok: true; note: DealNote }>(`/deals/${id}/notes`, {
+    body,
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
+}
+
+export async function deleteDealNote(actor: DashUser, id: number, noteId: number) {
+  return api.del<{ ok: true }>(`/deals/${id}/notes/${noteId}`, {
+    actor_id: actor.id,
+    actor_name: actor.name,
+  });
 }

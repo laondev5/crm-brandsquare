@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { addTaskAction, deleteTaskAction, setTaskDoneAction } from "@/app/actions/tasks";
-import type { Task } from "@/lib/types";
+import type { DashUser, Task } from "@/lib/types";
 
 /**
  * Follow-ups on a lead.
@@ -12,10 +12,21 @@ import type { Task } from "@/lib/types";
  * off the overdue list — the two are the same fact, not two things to keep in
  * sync by hand.
  */
-export default function Tasks({ leadId, initial }: { leadId: number; initial: Task[] }) {
+export default function Tasks({
+  leadId,
+  initial,
+  people = [],
+  meId = 0,
+}: {
+  leadId: number;
+  initial: Task[];
+  people?: DashUser[];
+  meId?: number;
+}) {
   const [tasks, setTasks] = useState<Task[]>(initial);
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
+  const [assignee, setAssignee] = useState(String(meId));
   const [err, setErr] = useState("");
   const [busy, startTransition] = useTransition();
 
@@ -44,10 +55,11 @@ export default function Tasks({ leadId, initial }: { leadId: number; initial: Ta
           e.preventDefault();
           if (!title.trim()) return;
           run(async () => {
-            const r = await addTaskAction(leadId, title, due);
+            const r = await addTaskAction(leadId, title, due, Number(assignee) || meId);
             if (!("error" in r)) {
               setTitle("");
               setDue("");
+              setAssignee(String(meId));
             }
             return r;
           });
@@ -68,6 +80,20 @@ export default function Tasks({ leadId, initial }: { leadId: number; initial: Ta
           style={{ width: 210 }}
           aria-label="When it is due"
         />
+        {people.length > 0 && (
+          <select
+            value={assignee}
+            onChange={(e) => setAssignee(e.target.value)}
+            style={{ width: 150 }}
+            aria-label="Who it is for"
+          >
+            {people.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.id === meId ? "Me" : p.name}
+              </option>
+            ))}
+          </select>
+        )}
         <button className="btn" disabled={busy || !title.trim()}>
           Add
         </button>
@@ -92,8 +118,11 @@ export default function Tasks({ leadId, initial }: { leadId: number; initial: Ta
                   />
                   <span className="tasklist__title">{t.title}</span>
                 </label>
-                {t.due_at && (
-                  <span className={`tasklist__due${overdue ? " is-over" : ""}`}>{fmt(t.due_at)}</span>
+                {(t.due_at || t.assignee) && (
+                  <span className={`tasklist__due${overdue ? " is-over" : ""}`}>
+                    {t.assignee ? `${t.assignee} · ` : ""}
+                    {t.due_at ? fmt(t.due_at) : "No date"}
+                  </span>
                 )}
                 <button
                   className="btn danger sm"

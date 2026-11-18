@@ -481,6 +481,15 @@
   .pill.s-sent { background: #e6f1fb; color: #0c447c; }
   .pill.s-accepted { background: #eaf3de; color: #27500a; }
   .pill.s-declined { background: #fdeceb; color: #8c2018; }
+  .pill.s-part_paid { background: #faeeda; color: #854f0b; }
+  .pill.s-paid { background: #eaf3de; color: #27500a; }
+  .pill.s-cancelled { background: #fdeceb; color: #8c2018; }
+  .pill.o-prospect { background: #eeeef4; color: #4a4a63; }
+  .pill.o-contacted { background: #e6f1fb; color: #0c447c; }
+  .pill.o-negotiating { background: #faeeda; color: #854f0b; }
+  .pill.o-partner { background: #eaf3de; color: #27500a; }
+  .pill.o-customer { background: #e8f5ea; color: #1d5f2a; }
+  .pill.o-dormant { background: #f1efe8; color: #5f5e5a; }
   @media (max-width: 1000px) {
     .qt-page { grid-template-columns: 1fr; }
     .qt-page__side { position: static; }
@@ -676,6 +685,12 @@
   .seg label input { width: auto; margin: 0; }
   .seg label.on { border-color: var(--p); background: #fff7f0; color: var(--ink); font-weight: 600; }
   .seg label b { color: var(--p); }
+  /* The same idea as the labels above, for links that reload the list. */
+  .seg__btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 13px; background: var(--card); color: var(--txt); font-weight: 500; }
+  .seg__btn:hover { border-color: #c9c9d4; }
+  .seg__btn.is-on { border-color: var(--p); background: #fff7f0; color: var(--ink); font-weight: 600; }
+  .seg__count { font-size: 11px; color: var(--muted); background: #f1f1f6; border-radius: 999px; padding: 1px 7px; font-weight: 600; }
+  .seg__btn.is-on .seg__count { background: #ffe7d3; color: var(--pd); }
   .ann__head { display: flex; gap: 12px; align-items: flex-start; }
   .ann__avatar { width: 36px; height: 36px; border-radius: 50%; background: #fff3e9; color: var(--pd); display: grid; place-items: center; font-weight: 700; flex: none; }
   .ann__title { margin: 0 0 2px !important; font-size: 16px !important; }

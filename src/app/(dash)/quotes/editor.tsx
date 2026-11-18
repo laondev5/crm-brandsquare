@@ -10,17 +10,25 @@ import CurrencyPicker from "./currency-picker";
 interface Line {
   key: string;
   description: string;
+  note: string;
   qty: string;
   unit_price: string;
 }
 
-const blank = (): Line => ({ key: Math.random().toString(36).slice(2), description: "", qty: "1", unit_price: "" });
+const blank = (): Line => ({
+  key: Math.random().toString(36).slice(2),
+  description: "",
+  note: "",
+  qty: "1",
+  unit_price: "",
+});
 
 function linesFrom(quote: Quote | null): Line[] {
   if (!quote?.items.length) return [blank()];
   return quote.items.map((item, i) => ({
     key: `saved-${item.id ?? i}`,
     description: item.description,
+    note: item.note ?? "",
     qty: String(item.qty),
     unit_price: String(item.unit_price),
   }));
@@ -47,6 +55,7 @@ export default function QuoteEditor({
   prefill?: {
     lead_id?: number | null;
     conversation_id?: number | null;
+    org_id?: number | null;
     name?: string;
     company?: string;
     email?: string;
@@ -97,6 +106,7 @@ export default function QuoteEditor({
         name="conversation_id"
         value={quote?.conversation_id ?? prefill?.conversation_id ?? ""}
       />
+      <input type="hidden" name="org_id" value={quote?.org_id ?? prefill?.org_id ?? ""} />
 
       {state?.error && <div className="msg err">{state.error}</div>}
       {state?.ok && <div className="msg ok">Saved.</div>}
@@ -183,6 +193,7 @@ export default function QuoteEditor({
         <thead>
           <tr>
             <th>Description</th>
+            <th style={{ width: 130 }}>Note</th>
             <th style={{ width: 90 }}>Qty</th>
             <th style={{ width: 150 }}>Unit price</th>
             <th style={{ width: 140, textAlign: "right" }}>Amount</th>
@@ -201,6 +212,15 @@ export default function QuoteEditor({
                     value={line.description}
                     onChange={(e) => set(i, { description: e.target.value })}
                     placeholder="Rice milling machine, complete line — 2 TPH, with destoner and polisher"
+                  />
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    name="item_note"
+                    value={line.note}
+                    onChange={(e) => set(i, { note: e.target.value })}
+                    placeholder="Main unit"
                   />
                 </td>
                 <td>
@@ -257,6 +277,57 @@ export default function QuoteEditor({
           <strong>{money(totals.total, currencyCode)}</strong>
         </div>
       </div>
+
+      <h2 style={{ marginTop: 22 }}>What goes on the paper</h2>
+      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
+        These are the words around the figures on the PDF. The machine name is taken from the first
+        line above; everything else is read exactly as written here.
+      </p>
+      <label className="f">
+        <span>Description</span>
+        <textarea
+          name="details"
+          rows={3}
+          defaultValue={quote?.details ?? ""}
+          placeholder="High-speed industrial flour mill designed for grinding rice, beans, plantain, corn and sorghum. Capacity 400–800 kg/hr, adjustable fineness 1.5–0.7 mm."
+        />
+      </label>
+      <label className="f">
+        <span>Suitable for</span>
+        <textarea
+          name="suitable_for"
+          rows={2}
+          defaultValue={quote?.suitable_for ?? ""}
+          placeholder="Commercial flour production, bakery flour, rice flour, animal feed meal and multi-grain processing."
+        />
+      </label>
+      <label className="f">
+        <span>Key specifications — one per line</span>
+        <textarea
+          name="specs"
+          rows={5}
+          defaultValue={quote?.specs ?? ""}
+          placeholder={"Capacity: 400–800 kg/hr\nGrinding motor: 22 kW\nTotal power: 34.1 kW\nFineness: 0.7–1.5 mm"}
+        />
+      </label>
+      <label className="f">
+        <span>Important notes — one per line</span>
+        <textarea
+          name="notes"
+          rows={4}
+          defaultValue={quote?.notes ?? ""}
+          placeholder={"Prices are in USD. Local currency equivalent is calculated on the day of order.\nShipping is NOT included.\nQuotation validity: 7 days."}
+        />
+      </label>
+      <label className="f">
+        <span>Next step</span>
+        <textarea
+          name="next_step"
+          rows={2}
+          defaultValue={quote?.next_step ?? ""}
+          placeholder="Please reply to confirm your order and we will prepare the full proforma invoice."
+        />
+      </label>
 
       {canEdit ? (
         <div className="row" style={{ gap: 10, marginTop: 16 }}>

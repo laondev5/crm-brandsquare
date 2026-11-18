@@ -21,12 +21,19 @@ function touched(leadId: number) {
   revalidatePath("/leads");
 }
 
-export async function addTaskAction(leadId: number, title: string, dueAt: string): Promise<Result> {
+export async function addTaskAction(
+  leadId: number,
+  title: string,
+  dueAt: string,
+  assignedTo?: number | null
+): Promise<Result> {
   const me = await requireUser();
   if (!title.trim()) return { error: "Give the task a name." };
 
   try {
-    const res = await addTask(leadId, title.trim(), dueAt, me);
+    const res = await addTask(leadId, title.trim(), dueAt, me, {
+      assigned_to: assignedTo || undefined,
+    });
     touched(leadId);
     return { tasks: res.tasks };
   } catch (e) {

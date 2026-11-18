@@ -15,6 +15,8 @@ import {
   listKb,
   listMachineRequests,
   listQuotes,
+  listDeals,
+  teamPeople,
   machineRequestMeta,
 } from "@/lib/queries";
 import LeadProperties from "./properties";
@@ -28,6 +30,7 @@ import {
   hasPermission,
   isClosed,
   isStale,
+  money,
   parsePayload,
   isAdminRole,
 } from "@/lib/types";
@@ -53,7 +56,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   if (!full) notFound();
 
   const { lead, notes, activity } = full;
-  const [subs, emailHistory, emailSettings, pipeline, noteTemplates, emailTemplates, properties, responses, machine, meta, quotes] = await Promise.all([
+  const [subs, emailHistory, emailSettings, pipeline, noteTemplates, emailTemplates, properties, responses, machine, meta, quotes, deals, people] = await Promise.all([
     isAdminRole(me.role) ? assignableStaff().catch(() => []) : Promise.resolve([]),
     getLeadEmails(id, scope),
     getEmailSettings().catch(() => null),
@@ -65,6 +68,8 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
     listMachineRequests(me, { view: "", lead: id }).then((r) => r.requests).catch(() => []),
     machineRequestMeta(me).catch(() => null),
     listQuotes(me, { lead: id }).then((r) => r.quotes).catch(() => []),
+    listDeals(me, { lead_id: id }).then((r) => r.deals).catch(() => []),
+    teamPeople().catch(() => []),
   ]);
 
   const canWhatsApp = hasPermission(me, "send_whatsapp") && !!lead.phone;
@@ -233,7 +238,58 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
             canAdd={me.role !== "md"}
           />
 
-          <Tasks leadId={lead.id} initial={full.tasks ?? []} />
+          <div className="card">
+            <div className="row">
+              <h2 style={{ margin: 0 }}>Deals</h2>
+              <div style={{ flex: 1 }} />
+              <Link href={`/deals/new?lead=${lead.id}`} className="btn ghost sm">
+                + New deal
+              </Link>
+            </div>
+            {deals.length === 0 ? (
+              <p className="empty" style={{ padding: "14px 0 0", margin: 0 }}>
+                No money on the table with this lead yet.
+              </p>
+            ) : (
+              <table className="tbl" style={{ marginTop: 10 }}>
+                <thead>
+                  <tr>
+                    <th>Deal</th>
+                    <th>Stage</th>
+                    <th>Close</th>
+                    <th style={{ textAlign: "right" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deals.map((d) => (
+                    <tr key={d.id}>
+                      <td>
+                        <Link href={`/deals/${d.id}`} style={{ fontWeight: 600 }}>
+                          {d.title}
+                        </Link>
+                        <br />
+                        <small style={{ color: "var(--muted)" }}>{d.ref}</small>
+                      </td>
+                      <td className="tbl-keep">
+                        <span
+                          className="pill"
+                          style={{ background: `${d.stage_colour}1a`, color: d.stage_colour }}
+                        >
+                          {d.stage_label}
+                        </span>
+                      </td>
+                      <td className="tbl-keep">{d.close_date?.slice(0, 10) || "—"}</td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap", fontWeight: 600 }}>
+                        {money(d.amount, d.currency)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <Tasks leadId={lead.id} initial={full.tasks ?? []} people={people} meId={me.id} />
 
           <Files leadId={lead.id} initial={full.files ?? []} />
 

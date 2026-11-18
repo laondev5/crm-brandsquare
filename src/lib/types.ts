@@ -795,13 +795,52 @@ export function humanSeconds(s: number): string {
 
 export interface Task {
   id: number;
+  /** Zero when the task hangs off nothing in particular. */
   lead_id: number;
+  org_id: number;
+  deal_id: number;
   title: string;
+  detail: string;
+  priority: TaskPriority;
   due_at: string | null;
   /** Null while still outstanding. */
   done_at: string | null;
+  assigned_to: number | null;
+  assignee: string;
+  assigned_by: number | null;
+  assigned_by_name: string;
+  created_by: number | null;
   created_by_name: string;
   created_at: string;
+  lead_name: string;
+  lead_company: string;
+  org_name: string;
+  deal_title: string;
+}
+
+export type TaskPriority = "low" | "normal" | "high";
+
+export const TASK_PRIORITIES: { key: TaskPriority; label: string }[] = [
+  { key: "low", label: "Low" },
+  { key: "normal", label: "Normal" },
+  { key: "high", label: "High" },
+];
+
+export const TASK_SCOPES: { key: string; label: string }[] = [
+  { key: "open", label: "Open" },
+  { key: "today", label: "Due today" },
+  { key: "upcoming", label: "Upcoming" },
+  { key: "overdue", label: "Overdue" },
+  { key: "done", label: "Completed" },
+  { key: "all", label: "All" },
+];
+
+export interface TaskCounts {
+  open: number;
+  overdue: number;
+  today: number;
+  upcoming: number;
+  done: number;
 }
 
 export interface LeadFile {
@@ -1033,6 +1072,8 @@ export interface QuoteItem {
   qty: number;
   unit_price: number;
   line_total: number;
+  /** A line-level remark, printed in the pricing table's Notes column. */
+  note?: string;
 }
 
 /**
@@ -1047,6 +1088,7 @@ export interface Quote {
   ref: string;
   lead_id: number | null;
   conversation_id: number | null;
+  org_id: number | null;
   customer_name: string;
   customer_company: string;
   customer_email: string;
@@ -1060,6 +1102,15 @@ export interface Quote {
   total: number;
   status: QuoteStatus;
   status_label: string;
+  /** The machine details section, when the rep wrote one. */
+  details: string;
+  /** Who or what the machine is for, as a sentence. */
+  suitable_for: string;
+  /** Key specifications, one per line. */
+  specs: string;
+  /** The important-notes box, one note per line. */
+  notes: string;
+  next_step: string;
   sent_at: string | null;
   created_by: number | null;
   created_by_name: string;
@@ -1107,6 +1158,428 @@ export function readMoney(raw: string | number): number {
  *  own before saving, and its answer is the one that is stored. */
 export function quoteTotals(items: { qty: number; unit_price: number }[], taxPercent: number) {
   const subtotal = items.reduce((sum, i) => sum + (i.qty || 0) * (i.unit_price || 0), 0);
+  const tax = subtotal * ((taxPercent || 0) / 100);
+  return {
+    subtotal: Math.round(subtotal * 100) / 100,
+    tax_amount: Math.round(tax * 100) / 100,
+    total: Math.round((subtotal + tax) * 100) / 100,
+  };
+}
+
+/* ---------------- organisations ---------------- */
+
+/**
+ * A business the company sells to or partners with.
+ *
+ * Kept apart from leads on purpose: a lead is one person's enquiry, while an
+ * organisation can send several people, buy in bulk and be invoiced under one
+ * name for years. Its documents hang off this record.
+ */
+export type OrgType = "partner" | "bulk" | "both";
+export type OrgStatus = "prospect" | "contacted" | "negotiating" | "partner" | "customer" | "dormant";
+
+export const ORG_TYPES: { key: OrgType; label: string }[] = [
+  { key: "partner", label: "Partner" },
+  { key: "bulk", label: "Bulk buyer" },
+  { key: "both", label: "Partner and bulk buyer" },
+];
+
+export const ORG_STATUSES: { key: OrgStatus; label: string }[] = [
+  { key: "prospect", label: "Prospect" },
+  { key: "contacted", label: "Contacted" },
+  { key: "negotiating", label: "Negotiating" },
+  { key: "partner", label: "Partner" },
+  { key: "customer", label: "Customer" },
+  { key: "dormant", label: "Dormant" },
+];
+
+export interface Organization {
+  id: number;
+  ref: string;
+  name: string;
+  org_type: OrgType;
+  org_type_label: string;
+  sector: string;
+  website: string;
+  country: string;
+  location: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  source: string;
+  status: OrgStatus;
+  status_label: string;
+  notes: string;
+  assigned_to: number | null;
+  /** The assignee's name, resolved by the plugin. */
+  owner: string;
+  last_activity_at: string | null;
+  created_by: number | null;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrgNote {
+  id: number;
+  body: string;
+  author_id: number | null;
+  author_name: string;
+  created_at: string;
+}
+
+export interface OrgActivity {
+  id: number;
+  /** created, status, assigned, note, quotation, invoice, receipt, updated */
+  type: string;
+  value: string;
+  actor_id: number | null;
+  actor_name: string;
+  created_at: string;
+}
+
+export interface OrgDocument {
+  kind: "quotation" | "invoice" | "receipt";
+  label: string;
+  id: number;
+  ref: string;
+  amount: number;
+  currency: string;
+  status: string;
+  date: string;
+}
+
+export interface OrganizationDetail extends Organization {
+  notes_list: OrgNote[];
+  activity: OrgActivity[];
+  documents: OrgDocument[];
+}
+
+export interface OrganizationCounts {
+  all: number;
+  [status: string]: number;
+}
+
+/* ---------------- deals ---------------- */
+
+/**
+ * Money being discussed with a customer. A deal is linked to an organisation
+ * or a lead, not merged into them: the same buyer can have several deals, each
+ * with its own value and close date, while the company record stays one.
+ */
+export interface Deal {
+  id: number;
+  ref: string;
+  title: string;
+  org_id: number | null;
+  org_name: string;
+  lead_id: number | null;
+  lead_name: string;
+  lead_company: string;
+  stage: LeadStatus;
+  stage_label: string;
+  stage_type: "open" | "won" | "lost";
+  stage_colour: string;
+  probability: number;
+  amount: number;
+  currency: string;
+  close_date: string | null;
+  source: string;
+  notes: string;
+  lost_reason: string;
+  closed_at: string | null;
+  owner_id: number | null;
+  owner: string;
+  last_activity_at: string | null;
+  created_by: number | null;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DealNote {
+  id: number;
+  body: string;
+  author_id: number | null;
+  author_name: string;
+  created_at: string;
+}
+
+export interface DealActivity {
+  id: number;
+  type: string;
+  value: string;
+  actor_id: number | null;
+  actor_name: string;
+  created_at: string;
+}
+
+export interface DealOrganization {
+  id: number;
+  ref: string;
+  name: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  location: string;
+}
+
+export interface DealLead {
+  id: number;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  status: string;
+}
+
+export interface DealDetail extends Deal {
+  notes_list: DealNote[];
+  activity: DealActivity[];
+  organization: DealOrganization | null;
+  lead: DealLead | null;
+  documents: OrgDocument[];
+  tasks: Task[];
+}
+
+export interface DealList {
+  deals: Deal[];
+  stages: Stage[];
+  counts: Record<string, number>;
+  values: Record<string, number>;
+  open_value: number;
+}
+
+export interface DealInput {
+  title: string;
+  org_id: number | null;
+  lead_id: number | null;
+  stage: string;
+  amount: number;
+  currency: string;
+  close_date: string;
+  source: string;
+  notes: string;
+  owner_id: number | null;
+}
+
+/* ---------------- global tasks ---------------- */
+
+export interface TaskList {
+  tasks: Task[];
+  counts: TaskCounts;
+  scope: string;
+}
+
+/* ---------------- invoices ---------------- */
+
+export type InvoiceStatus = "draft" | "sent" | "accepted" | "part_paid" | "paid" | "cancelled";
+
+export const INVOICE_STATUSES: { key: InvoiceStatus; label: string; note: string }[] = [
+  { key: "draft", label: "Draft", note: "Being written. Nobody has seen it." },
+  { key: "sent", label: "Sent", note: "The proforma invoice has gone to the customer." },
+  { key: "accepted", label: "Accepted", note: "They agreed to the terms." },
+  { key: "part_paid", label: "Part paid", note: "Some of the money has come in." },
+  { key: "paid", label: "Paid", note: "Receipts cover the whole invoice." },
+  { key: "cancelled", label: "Cancelled", note: "Withdrawn; it no longer counts." },
+];
+
+export interface InvoiceItem {
+  id?: number;
+  description: string;
+  qty: number;
+  unit_price: number;
+  line_total: number;
+}
+
+export interface InvoiceReceipt {
+  id: number;
+  receipt_no: string;
+  amount_received: number;
+  currency: string;
+  receipt_date: string | null;
+  payment_method: string;
+}
+
+/**
+ * A proforma invoice.
+ *
+ * The bank details and payment terms are copied onto it when it is written,
+ * so an invoice keeps saying what it said when it went out even after the
+ * company's settings change.
+ */
+export interface Invoice {
+  id: number;
+  invoice_no: string;
+  ref: string;
+  quote_id: number | null;
+  org_id: number | null;
+  org_name: string;
+  lead_id: number | null;
+  customer_name: string;
+  customer_company: string;
+  customer_location: string;
+  customer_email: string;
+  customer_phone: string;
+  currency: string;
+  issued_on: string | null;
+  valid_until: string | null;
+  tax_percent: number;
+  subtotal: number;
+  tax_amount: number;
+  total: number;
+  bank_name: string;
+  bank_account_name: string;
+  bank_account_number: string;
+  bank_swift: string;
+  bank_currency: string;
+  payment_terms: string;
+  notes: string;
+  next_step: string;
+  status: InvoiceStatus;
+  status_label: string;
+  sent_at: string | null;
+  created_by: number | null;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+  items: InvoiceItem[];
+  /** Detail only. */
+  paid_total?: number;
+  balance?: number;
+  receipts?: InvoiceReceipt[];
+}
+
+export interface InvoiceCounts {
+  all: number;
+  [status: string]: number;
+}
+
+/* ---------------- receipts ---------------- */
+
+export interface ReceiptItem {
+  id?: number;
+  description: string;
+  qty: number;
+  line_total: number;
+}
+
+/**
+ * What was actually received against an invoice.
+ *
+ * Separate from the invoice because it is a different claim: the invoice asks
+ * for money, the receipt confirms it arrived. Several part payments can sit
+ * against one invoice, and their sum is what moves the invoice to paid.
+ */
+export interface Receipt {
+  id: number;
+  receipt_no: string;
+  ref: string;
+  invoice_id: number | null;
+  invoice_no: string;
+  org_id: number | null;
+  org_name: string;
+  lead_id: number | null;
+  customer_name: string;
+  customer_company: string;
+  customer_email: string;
+  customer_phone: string;
+  currency: string;
+  receipt_date: string | null;
+  payment_date: string | null;
+  amount_received: number;
+  share_percent: number;
+  order_total: number;
+  balance: number;
+  payment_method: string;
+  payment_reference: string;
+  summary: string;
+  terms: string;
+  notes: string;
+  created_by: number | null;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+  items: ReceiptItem[];
+}
+
+/* ---------------- catalogue ---------------- */
+
+export interface CatalogueItem {
+  id: number;
+  name: string;
+  model: string;
+  category: string;
+  description: string;
+  specs: string;
+  price: number;
+  currency: string;
+  image_url: string;
+  active: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ---------------- document settings ---------------- */
+
+/** Who the papers are from. The settings' business fields, without the
+ *  financial defaults that belong to a particular document. */
+export interface Brand {
+  name: string;
+  tagline?: string;
+  website?: string;
+  email?: string;
+  signatory_name?: string;
+  signatory_title?: string;
+}
+
+/**
+ * The letterhead and boilerplate behind every document.
+ *
+ * One place to change the company's address, bank details, signatory and the
+ * terms each kind of paper carries. Documents already written keep their own
+ * copy of the parts that matter to them.
+ */
+export interface DocSettings {
+  company_name: string;
+  tagline: string;
+  website: string;
+  email: string;
+  signatory_name: string;
+  signatory_title: string;
+  bank_name: string;
+  bank_account_name: string;
+  bank_account_number: string;
+  bank_swift: string;
+  bank_currency: string;
+  default_currency: string;
+  default_valid_days: number;
+  default_tax_percent: number;
+  default_receipt_share: number;
+  payment_terms: string;
+  invoice_notes: string;
+  invoice_next_step: string;
+  quote_notes: string;
+  quote_next_step: string;
+  receipt_terms: string;
+}
+
+/** The letterhead half of the settings, for the PDF renderer. */
+export function brandFrom(settings: DocSettings): Brand {
+  return {
+    name: settings.company_name,
+    tagline: settings.tagline,
+    website: settings.website,
+    email: settings.email,
+    signatory_name: settings.signatory_name,
+    signatory_title: settings.signatory_title,
+  };
+}
+
+/** The lines of a document, as the papers write them: quantity and money. */
+export function docTotals(items: { line_total: number }[], taxPercent: number) {
+  const subtotal = items.reduce((sum, i) => sum + (i.line_total || 0), 0);
   const tax = subtotal * ((taxPercent || 0) / 100);
   return {
     subtotal: Math.round(subtotal * 100) / 100,
@@ -1245,6 +1718,8 @@ export interface SavedView {
   id: number;
   name: string;
   query: string;
+  /** Which list the filters belong to: leads, deals or tasks. */
+  scope?: "leads" | "deals" | "tasks";
 }
 
 export type TemplateChannel = "note" | "email" | "whatsapp";

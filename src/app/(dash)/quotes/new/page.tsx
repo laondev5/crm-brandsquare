@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { getLeadFull, getWaThread } from "@/lib/queries";
+import { getLeadFull, getOrganization, getWaThread } from "@/lib/queries";
 import { isAdminRole } from "@/lib/types";
 import QuoteEditor from "../editor";
 
@@ -15,7 +15,7 @@ import QuoteEditor from "../editor";
 export default async function NewQuotePage({
   searchParams,
 }: {
-  searchParams: Promise<{ lead?: string; c?: string }>;
+  searchParams: Promise<{ lead?: string; c?: string; org?: string }>;
 }) {
   const me = await requireMember();
   if (!isAdminRole(me.role) && me.role !== "subadmin") notFound();
@@ -23,23 +23,27 @@ export default async function NewQuotePage({
   const sp = await searchParams;
   const leadId = Number(sp.lead) || null;
   const conversationId = Number(sp.c) || null;
+  const orgId = Number(sp.org) || null;
 
-  const [lead, thread] = await Promise.all([
+  const [lead, thread, org] = await Promise.all([
     leadId ? getLeadFull(leadId).catch(() => null) : Promise.resolve(null),
     conversationId ? getWaThread(conversationId).catch(() => null) : Promise.resolve(null),
+    orgId ? getOrganization(me, orgId).catch(() => null) : Promise.resolve(null),
   ]);
 
   // A thread usually knows its lead, and the lead has the fuller record.
   const fromLead = lead?.lead ?? null;
   const threadLead = thread?.lead ?? null;
 
+  const orgRow = org?.organization ?? null;
   const prefill = {
     lead_id: leadId ?? threadLead?.id ?? null,
     conversation_id: conversationId,
-    name: fromLead?.name || threadLead?.name || thread?.conversation.contact_name || "",
-    company: fromLead?.company || "",
-    email: fromLead?.email || threadLead?.email || "",
-    phone: fromLead?.phone || (thread?.conversation.phone ? `+${thread.conversation.phone}` : ""),
+    org_id: orgRow?.id ?? null,
+    name: fromLead?.name || threadLead?.name || thread?.conversation.contact_name || orgRow?.contact_name || "",
+    company: orgRow?.name || fromLead?.company || "",
+    email: fromLead?.email || threadLead?.email || orgRow?.contact_email || "",
+    phone: fromLead?.phone || (thread?.conversation.phone ? `+${thread.conversation.phone}` : "") || orgRow?.contact_phone || "",
   };
 
   return (
@@ -55,6 +59,11 @@ export default async function NewQuotePage({
         {conversationId && (
           <Link href={`/whatsapp?c=${conversationId}`} className="btn ghost">
             The chat
+          </Link>
+        )}
+        {prefill.org_id && (
+          <Link href={`/organizations/${prefill.org_id}`} className="btn ghost">
+            The organisation
           </Link>
         )}
         <Link href="/quotes" className="btn ghost">

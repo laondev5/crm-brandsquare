@@ -6,9 +6,11 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   Activity,
   BarChart3,
+  Building2,
   Cog,
   ChevronDown,
   FileText,
+  Handshake,
   PenSquare,
   LayoutDashboard,
   Mail,
@@ -64,6 +66,17 @@ const GROUPS: NavGroup[] = [
       { href: "/campaigns", label: "Campaigns", adminOnly: true, author: true, md: true },
     ],
   },
+  // The money behind the relationships. Kept next to Leads because a deal is
+  // often the reason a lead exists, but kept separate because one company can
+  // carry several at once.
+  {
+    label: "Deals",
+    icon: Handshake,
+    children: [
+      { href: "/deals", label: "All deals" },
+      { href: "/deals/new", label: "+ New deal" },
+    ],
+  },
   // The shared mailbox and the bulk campaigns, together and on their own.
   {
     label: "Email",
@@ -75,15 +88,32 @@ const GROUPS: NavGroup[] = [
       { href: "/email/settings", label: "Campaign sender", adminOnly: true },
     ],
   },
+  // The papers that leave the business, in the order they are written:
+  // the quotation, the invoice, the receipt — and the catalogue they are
+  // chosen from.
   {
-    label: "Quotations",
+    label: "Documents",
     icon: FileText,
     children: [
-      { href: "/quotes", label: "All quotations", md: true },
-      { href: "/quotes?status=draft", label: "Drafts" },
-      { href: "/quotes?status=sent", label: "Sent", md: true },
-      { href: "/quotes?status=accepted", label: "Accepted", md: true },
+      { href: "/quotes", label: "Quotations", md: true },
       { href: "/quotes/new", label: "+ New quotation" },
+      { href: "/invoices", label: "Invoices", md: true },
+      { href: "/invoices/new", label: "+ New invoice" },
+      { href: "/receipts", label: "Receipts", md: true },
+      { href: "/receipts/new", label: "+ New receipt" },
+      { href: "/catalogue", label: "Catalogue", md: true },
+      { href: "/catalogue/new", label: "+ Catalogue item", adminOnly: true },
+      { href: "/settings/documents", label: "Document settings", adminOnly: true },
+    ],
+  },
+  // A business can send several people and buy in bulk, so it is kept apart
+  // from the one-person lead records.
+  {
+    label: "Organisations",
+    icon: Building2,
+    children: [
+      { href: "/organizations", label: "All organisations", md: true },
+      { href: "/organizations/new", label: "+ New organisation" },
     ],
   },
   // Machinery enquiries as procurement works them: the views are the queues,
@@ -145,6 +175,7 @@ const GROUPS: NavGroup[] = [
     label: "Team",
     icon: UsersRound,
     children: [
+      { href: "/tasks", label: "Tasks" },
       { href: "/work", label: "My work", author: true, md: true },
       { href: "/notifications", label: "Notifications", author: true, md: true },
       { href: "/projects", label: "Projects", author: true },
