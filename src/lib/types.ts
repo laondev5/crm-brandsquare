@@ -1521,6 +1521,23 @@ export interface CatalogueItem {
   updated_at: string;
 }
 
+/** An editable document snapshot, never a live link or a currency conversion. */
+export function catalogueDocumentLine(item: CatalogueItem, documentCurrency: string) {
+  const sourceCurrency = item.currency.trim().toUpperCase();
+  const currencyMatches = !!sourceCurrency && sourceCurrency === documentCurrency.trim().toUpperCase();
+  return {
+    description: [
+      item.name,
+      item.model ? `Model: ${item.model}` : "",
+      item.description,
+      item.specs,
+    ].filter((part) => part.trim()).join("\n\n"),
+    qty: "1",
+    price: currencyMatches && Number.isFinite(item.price) ? String(item.price) : "",
+    currencyMatches,
+  };
+}
+
 /* ---------------- document settings ---------------- */
 
 /** Who the papers are from. The settings' business fields, without the

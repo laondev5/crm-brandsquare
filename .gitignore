@@ -4,3 +4,7 @@ node_modules/
 .env
 next-env.d.ts
 *.tsbuildinfo
+
+# local run artifacts
+*.log
+build.done

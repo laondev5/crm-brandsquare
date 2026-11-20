@@ -36,18 +36,17 @@ export default async function OrganizationsPage({
   return (
     <>
       <div className="head">
-        <h1>Organisations</h1>
+        <h1>Companies</h1>
         <div className="spacer" />
         {mayAdd && (
           <Link href="/organizations/new" className="btn">
-            + New organisation
+            Create company
           </Link>
         )}
       </div>
 
       <p className="board-hint">
-        Partners and bulk buyers, kept as businesses rather than one enquiry. Their quotations,
-        invoices and receipts collect here, so a change of contact does not lose the history.
+        Manage company relationships, contact information, deals and sales documents in one place.
       </p>
 
       {!data ? (
@@ -70,7 +69,7 @@ export default async function OrganizationsPage({
               style={{ flex: 1, maxWidth: 360 }}
             />
             <select name="type" defaultValue={type} style={{ width: "auto" }}>
-              <option value="">Every kind</option>
+              <option value="">All company types</option>
               {ORG_TYPES.map((t) => (
                 <option key={t.key} value={t.key}>
                   {t.label}
@@ -80,7 +79,7 @@ export default async function OrganizationsPage({
             <select name="sort" defaultValue={sort} style={{ width: "auto" }}>
               <option value="recent">Most recent</option>
               <option value="name">Name</option>
-              <option value="quiet">Quietest first</option>
+              <option value="quiet">Oldest activity first</option>
             </select>
             <button className="btn ghost sm">Search</button>
           </form>
@@ -88,17 +87,17 @@ export default async function OrganizationsPage({
           {data.organizations.length === 0 ? (
             <p className="empty" style={{ padding: 28 }}>
               {sp.q || status || type
-                ? "No organisation matches that."
-                : "No organisations yet. Add a partner or a bulk buyer to keep their papers together."}
+                ? "No companies match these filters."
+                : "No companies yet. Create a company to organise related contacts, deals and documents."}
             </p>
           ) : (
             <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-              <table className="tbl">
+              <table className="tbl tbl-keep">
                 <thead>
                   <tr>
                     <th>Ref</th>
-                    <th>Organisation</th>
-                    <th>Kind</th>
+                    <th>Company</th>
+                    <th>Company type</th>
                     <th>Contact</th>
                     <th>Owner</th>
                     <th>Last activity</th>

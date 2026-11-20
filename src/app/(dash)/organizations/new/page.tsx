@@ -14,10 +14,10 @@ export default async function NewOrganizationPage() {
   return (
     <>
       <div className="head">
-        <h1>New organisation</h1>
+        <h1>Create company</h1>
         <div className="spacer" />
         <Link href="/organizations" className="btn ghost">
-          All organisations
+          All companies
         </Link>
       </div>
 

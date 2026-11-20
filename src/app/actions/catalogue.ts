@@ -6,6 +6,7 @@ import { isAdminRole, readMoney, type CatalogueItem } from "@/lib/types";
 import {
   createCatalogueItem,
   deleteCatalogueItem,
+  listCatalogue,
   updateCatalogueItem,
   type CatalogueInput,
 } from "@/lib/queries";
@@ -15,6 +16,16 @@ type Fail = { error: string };
 
 function fail(e: unknown, fallback: string): Fail {
   return { error: e instanceof ApiError ? e.message : fallback };
+}
+
+export async function loadDocumentCatalogueAction(): Promise<{ items: CatalogueItem[] } | Fail> {
+  await requireUser();
+  try {
+    const { items } = await listCatalogue({ active: true });
+    return { items: items.filter((item) => item.active) };
+  } catch {
+    return { error: "Could not load the catalogue. Try again, or add a line manually." };
+  }
 }
 
 function readForm(form: FormData): CatalogueInput {

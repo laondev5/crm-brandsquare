@@ -64,6 +64,9 @@ export default async function DealsPage({
   const openKeys = new Set((data?.stages ?? []).filter((s) => s.type === "open").map((s) => s.key));
   const openCount = columns.filter((c) => openKeys.has(c.stage.key)).reduce((n, c) => n + c.total, 0);
   const won = columns.find((c) => c.stage.type === "won");
+  const writableDealIds = (data?.deals ?? [])
+    .filter((deal) => admin || (canAdd && (deal.owner_id === me.id || deal.created_by === me.id)))
+    .map((deal) => deal.id);
 
   return (
     <>
@@ -71,9 +74,9 @@ export default async function DealsPage({
         <h1>Deals</h1>
         <div className="spacer" />
         <span className="board-legend">
-          <b>{data?.open_value ? money(data.open_value, data.deals[0]?.currency ?? "NGN") : "—"}</b> in play
+          Open pipeline value: <b>{data ? money(data.open_value, data.deals[0]?.currency ?? "NGN") : "—"}</b>
           {" · "}
-          <b>{openCount}</b> open
+          <b>{data ? openCount : "—"}</b> open deals
           {won && won.total > 0 && (
             <>
               {" · "}
@@ -88,13 +91,15 @@ export default async function DealsPage({
         )}
       </div>
 
-      <p className="board-hint">
-        The money side of a conversation: who is buying, how much, and how far along it is. A deal
-        hangs off an organisation or a lead, and its quotation, invoice and receipts live on the
-        same page.
-      </p>
-
       <div className="row" style={{ gap: 10, marginBottom: 10 }}>
+        <nav className="tabs" aria-label="Deal ownership" style={{ marginBottom: 0 }}>
+          <Link href={qs({ owner: undefined })} className={!owner ? "on" : ""} aria-current={!owner ? "page" : undefined}>
+            All deals
+          </Link>
+          <Link href={qs({ owner: String(me.id) })} className={owner === me.id ? "on" : ""} aria-current={owner === me.id ? "page" : undefined}>
+            My deals
+          </Link>
+        </nav>
         <div className="tabs" style={{ marginBottom: 0 }}>
           <Link href={qs({ view: undefined })} className={asList ? "" : "on"}>
             Board
@@ -109,6 +114,8 @@ export default async function DealsPage({
 
       <form className="row" style={{ gap: 8, marginBottom: 14 }}>
         {asList && <input type="hidden" name="view" value="list" />}
+        {!asList && stage && <input type="hidden" name="stage" value={stage} />}
+        {!admin && owner && <input type="hidden" name="owner" value={owner} />}
         <input
           type="search"
           name="q"
@@ -118,8 +125,8 @@ export default async function DealsPage({
           aria-label="Search deals"
         />
         {asList && (
-          <select name="stage" defaultValue={stage} style={{ width: "auto" }}>
-            <option value="">Every stage</option>
+          <select name="stage" defaultValue={stage} style={{ width: "auto" }} aria-label="Filter by deal stage">
+            <option value="">All stages</option>
             {(data?.stages ?? []).map((s) => (
               <option key={s.key} value={s.key}>
                 {s.label}
@@ -128,8 +135,8 @@ export default async function DealsPage({
           </select>
         )}
         {admin && (
-          <select name="owner" defaultValue={sp.owner ?? ""} style={{ width: "auto" }}>
-            <option value="">Every owner</option>
+          <select name="owner" defaultValue={sp.owner ?? ""} style={{ width: "auto" }} aria-label="Filter by deal owner">
+            <option value="">All owners</option>
             {owners.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
@@ -137,13 +144,13 @@ export default async function DealsPage({
             ))}
           </select>
         )}
-        <select name="sort" defaultValue={sort} style={{ width: "auto" }}>
-          <option value="recent">Recently active</option>
-          <option value="amount">Biggest first</option>
-          <option value="close">Soonest close</option>
-          <option value="created">Newest added</option>
+        <select name="sort" defaultValue={sort} style={{ width: "auto" }} aria-label="Sort deals">
+          <option value="recent">Last activity</option>
+          <option value="amount">Amount: high to low</option>
+          <option value="close">Expected close date: earliest first</option>
+          <option value="created">Created date: newest first</option>
         </select>
-        <button className="btn ghost sm">Filter</button>
+        <button className="btn ghost sm">Apply filters</button>
       </form>
 
       {!data ? (
@@ -152,7 +159,7 @@ export default async function DealsPage({
         </div>
       ) : asList ? (
         <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-          <table className="tbl">
+          <table className="tbl tbl-keep">
             <thead>
               <tr>
                 <th>Deal</th>
@@ -168,7 +175,9 @@ export default async function DealsPage({
                 <tr>
                   <td colSpan={6}>
                     <p className="empty" style={{ padding: 24, margin: 0 }}>
-                      {term || stage ? "No deal matches that." : "No deals yet. Add one to start the board."}
+                      {term || stage || owner
+                        ? "No deals match the selected filters."
+                        : canAdd ? "No deals found. Create a deal to get started." : "No deals available."}
                     </p>
                   </td>
                 </tr>
@@ -214,7 +223,7 @@ export default async function DealsPage({
           </table>
         </div>
       ) : (
-        <DealsBoard columns={columns} />
+        <DealsBoard columns={columns} writableDealIds={writableDealIds} />
       )}
     </>
   );

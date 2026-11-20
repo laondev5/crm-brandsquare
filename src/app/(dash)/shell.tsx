@@ -1,93 +1,83 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { HelpCircle, Menu, X } from "lucide-react";
 
-/**
- * Dashboard frame. On a wide screen this is just the two-column grid the
- * sidebar has always used. Below 900px the sidebar becomes an off-canvas
- * drawer behind a hamburger instead of collapsing into a horizontal strip —
- * a strip pushed the nav links off screen as soon as there were more than a
- * few of them, and hid which page you were on.
- */
-export default function Shell({
-  sidebar,
-  bell,
-  children,
-}: {
+const SECTIONS: Record<string, string> = {
+  leads: "Leads", organizations: "Companies", deals: "Deals", pipeline: "Lead pipeline",
+  quotes: "Quotations", invoices: "Proforma invoices", receipts: "Payment receipts", catalogue: "Machine catalogue",
+  tasks: "Tasks", work: "My work", agenda: "Follow-up agenda", requests: "Machine requests", projects: "Projects",
+  meetings: "Meetings", announcements: "Announcements", notifications: "Notifications", team: "Team members",
+  mail: "Email inbox", whatsapp: "WhatsApp", email: "Email campaigns", templates: "Templates",
+  campaigns: "Lead campaigns", blog: "Blog", analytics: "Website analytics", executive: "Executive report",
+  settings: "Settings", sites: "Connected websites", guide: "CRM guide", "my-work": "My follow-ups",
+};
+
+export default function Shell({ sidebar, bell, search, homeHref = "/", children }: {
   sidebar: React.ReactNode;
-  /** The notification bell, repeated in the phone top bar where the sidebar is hidden. */
   bell?: React.ReactNode;
+  search?: React.ReactNode;
+  homeHref?: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [mobile, setMobile] = useState(false);
   const path = usePathname();
   const asideRef = useRef<HTMLElement>(null);
   const burgerRef = useRef<HTMLButtonElement>(null);
+  const segments = path.split("/").filter(Boolean);
+  const section = SECTIONS[segments[0]] ?? "Overview";
 
-  // Tapping a nav link should navigate *and* get the drawer out of the way.
+  useEffect(() => { setOpen(false); }, [path]);
   useEffect(() => {
-    setOpen(false);
-  }, [path]);
+    const media = window.matchMedia("(max-width: 900px)");
+    const sync = () => { setMobile(media.matches); if (!media.matches) setOpen(false); };
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        burgerRef.current?.focus();
+    if (!open || !mobile) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setOpen(false); requestAnimationFrame(() => burgerRef.current?.focus()); }
+      if (event.key === "Tab") {
+        const elements = Array.from(asideRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex="0"]') ?? []).filter((element) => element.getClientRects().length);
+        const first = elements[0];
+        const last = elements[elements.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
       }
     };
     window.addEventListener("keydown", onKey);
-
-    // The drawer sits over the page, so the page behind it must not scroll.
-    const prev = document.body.style.overflow;
+    const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    asideRef.current?.querySelector<HTMLElement>("button, a")?.focus();
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = previous; };
+  }, [open, mobile]);
 
-    asideRef.current?.querySelector<HTMLElement>("a, button")?.focus();
-
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
+  function close() { setOpen(false); requestAnimationFrame(() => burgerRef.current?.focus()); }
 
   return (
     <div className={`shell${open ? " is-open" : ""}`}>
-      <header className="topbar">
-        <button
-          ref={burgerRef}
-          type="button"
-          className="burger"
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          aria-controls="dash-side"
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span aria-hidden="true" />
-          <span aria-hidden="true" />
-          <span aria-hidden="true" />
-        </button>
-        <span className="topbar__title">Brandsquare</span>
-        {bell && <span className="topbar__bell">{bell}</span>}
-      </header>
-
-      <aside id="dash-side" className="side" ref={asideRef} aria-hidden={undefined}>
+      <a href="#workspace-content" className="skip-link">Skip to content</a>
+      <aside id="dash-side" className="side" ref={asideRef} inert={mobile && !open ? true : undefined} role={mobile && open ? "dialog" : undefined} aria-modal={mobile && open ? true : undefined} aria-label="Workspace navigation">
+        <button type="button" className="drawer-close" onClick={close} aria-label="Close menu"><X size={18} /></button>
         {sidebar}
       </aside>
-
-      {/* Only rendered when open, so it can never swallow clicks on desktop. */}
-      {open && (
-        <button
-          type="button"
-          className="scrim"
-          aria-label="Close menu"
-          onClick={() => setOpen(false)}
-        />
-      )}
-
-      <main className="main">{children}</main>
+      {open && mobile && <button type="button" className="scrim" aria-label="Close menu" tabIndex={-1} onClick={close} />}
+      <div className="workspace-body" inert={mobile && open ? true : undefined}>
+        <header className="workspace-topbar">
+          <button ref={burgerRef} type="button" className="burger" aria-label="Open menu" aria-expanded={open} aria-controls="dash-side" onClick={() => setOpen(true)}><Menu size={20} /></button>
+          <div className="workspace-context"><span>Workspace</span><nav aria-label="Breadcrumb"><Link href={homeHref}>BrandSquare</Link><span aria-hidden="true">/</span>{segments.length > 1 ? <><Link href={`/${segments[0]}`}>{section}</Link><span aria-hidden="true">/</span><b>{segments[1] === "new" ? "Create" : "Details"}</b></> : <b>{section}</b>}</nav></div>
+          <div className="workspace-search">{search}</div>
+          <Link href="/guide" className="topbar-help" aria-label="CRM help and guide"><HelpCircle size={19} /></Link>
+          {bell}
+        </header>
+        <main className="main" id="workspace-content" tabIndex={-1}>{children}</main>
+      </div>
     </div>
   );
 }

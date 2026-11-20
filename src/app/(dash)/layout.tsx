@@ -19,16 +19,16 @@ export default async function DashLayout({ children }: { children: React.ReactNo
     <PulseProvider>
     <Shell
       bell={<NotificationBell />}
+      search={me.role !== "author" && me.role !== "md" ? <Palette isAdmin={isAdminRole(me.role)} /> : undefined}
+      homeHref={me.role === "author" ? "/blog" : me.role === "md" ? "/executive" : "/"}
       sidebar={
         <>
           <div className="brand-row">
-            <Link href="/" className="brand">
-              <Image src="/logo-icon.webp" alt="" width={22} height={22} className="brand-mark" priority /> Brandsquare
+            <Link href={me.role === "author" ? "/blog" : me.role === "md" ? "/executive" : "/"} className="brand">
+              <Image src="/logo-icon.webp" alt="" width={30} height={30} className="brand-mark" priority /> Brandsquare
             </Link>
-            <NotificationBell />
           </div>
-
-          {me.role !== "author" && me.role !== "md" && <Palette isAdmin={isAdminRole(me.role)} />}
+          <div className="workspace-label"><span>BS</span><div><b>BrandSquare CRM</b><small>Connected workspace</small></div></div>
 
           <NavLinks
             isAdmin={isAdminRole(me.role)}
@@ -37,15 +37,19 @@ export default async function DashLayout({ children }: { children: React.ReactNo
             isMd={me.role === "md"}
           />
 
+          <div className="side-help">
+            <b>Everything in one place</b>
+            <p>Customer records, sales and your team's next steps.</p>
+            <Link href="/guide">Explore the CRM guide <span aria-hidden="true">↗</span></Link>
+          </div>
           <div className="side-foot">
+            <div className="profile-avatar" aria-hidden="true">{me.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join("")}</div>
             <div className="who">
               <b>{me.name}</b>
               <span>{ROLE_LABEL[me.role]}</span>
             </div>
             <form action={logoutAction}>
-              <button className="btn ghost" style={{ width: "100%", justifyContent: "center" }}>
-                Sign out
-              </button>
+              <button className="signout-button" title="Sign out" aria-label="Sign out">↪</button>
             </form>
           </div>
         </>

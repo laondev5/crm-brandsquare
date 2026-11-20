@@ -30,10 +30,9 @@ export default function OrganizationForm({
       {state?.error && <div className="msg err">{state.error}</div>}
       {state?.ok && <div className="msg ok">Saved.</div>}
 
-      <h2>{organization ? "The organisation" : "Add an organisation"}</h2>
+      <h2>{organization ? "Company details" : "Create company"}</h2>
       <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 14px", lineHeight: 1.5 }}>
-        A partner or bulk buyer that outlives any one enquiry. Quotations, invoices and receipts are
-        made out to this record, and everyone can find the history in one place.
+        Maintain company information, contact details and ownership for related sales and documents.
       </p>
 
       <div className="qt-grid">
@@ -80,12 +79,12 @@ export default function OrganizationForm({
           <input type="text" name="location" defaultValue={organization?.location ?? ""} placeholder="Port Harcourt, Rivers" />
         </label>
         <label className="f">
-          <span>How they came to us</span>
+          <span>Company source</span>
           <input type="text" name="source" defaultValue={organization?.source ?? ""} placeholder="Referral, exhibition, website" />
         </label>
       </div>
 
-      <h2 style={{ marginTop: 18 }}>The person we deal with</h2>
+      <h2 style={{ marginTop: 18 }}>Primary contact</h2>
       <div className="qt-grid">
         <label className="f">
           <span>Contact name</span>
@@ -103,7 +102,7 @@ export default function OrganizationForm({
           <label className="f">
             <span>Owner</span>
             <select name="assigned_to" defaultValue={organization?.assigned_to ?? ""}>
-              <option value="">Nobody yet</option>
+              <option value="">Unassigned</option>
               {owners.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
@@ -126,7 +125,7 @@ export default function OrganizationForm({
 
       <div className="row" style={{ gap: 10, marginTop: 8 }}>
         <button className="btn" disabled={pending}>
-          {pending ? "Saving…" : organization ? "Save changes" : "Add organisation"}
+          {pending ? "Saving…" : organization ? "Save changes" : "Create company"}
         </button>
         {organization && (
           <small style={{ color: "var(--muted)" }}>

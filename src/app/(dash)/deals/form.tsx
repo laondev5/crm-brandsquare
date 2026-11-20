@@ -50,18 +50,14 @@ export default function DealForm({
       <input type="hidden" name="id" value={deal?.id ?? ""} />
 
       {state?.error && <div className="msg err">{state.error}</div>}
-      {state?.ok && <div className="msg ok">Saved.</div>}
+      {state?.ok && <div className="msg ok">Deal saved.</div>}
 
-      <h2>{deal ? "The deal" : "Add a deal"}</h2>
-      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 14px", lineHeight: 1.5 }}>
-        A deal is the amount on the table. Move it through the pipeline as the conversation
-        progresses; the board and the forecast read this same record.
-      </p>
+      <h2>Deal details</h2>
 
       <div className="qt-grid">
         <label className="f" style={{ gridColumn: "1 / -1" }}>
           <span>
-            Name <b style={{ color: "var(--p)" }}>*</b>
+            Deal name <b style={{ color: "var(--p)" }}>*</b>
           </span>
           <input
             type="text"
@@ -93,7 +89,7 @@ export default function DealForm({
           />
         </label>
         <label className="f">
-          <span>Stage</span>
+          <span>Deal stage</span>
           <select
             name="stage"
             value={stage}
@@ -107,13 +103,13 @@ export default function DealForm({
           </select>
         </label>
         <label className="f">
-          <span>Expected close</span>
+          <span>Expected close date</span>
           <input type="date" name="close_date" defaultValue={deal?.close_date?.slice(0, 10) ?? ""} />
         </label>
         <label className="f">
-          <span>Organisation</span>
+          <span>Associated company</span>
           <select name="org_id" defaultValue={deal?.org_id ?? defaultOrgId ?? ""}>
-            <option value="">No organisation</option>
+            <option value="">No associated company</option>
             {organizations.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
@@ -122,9 +118,9 @@ export default function DealForm({
           </select>
         </label>
         <label className="f">
-          <span>Lead</span>
+          <span>Associated lead</span>
           <select name="lead_id" defaultValue={deal?.lead_id ?? defaultLeadId ?? ""}>
-            <option value="">No lead</option>
+            <option value="">No associated lead</option>
             {leads.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name || "(no name)"}
@@ -135,9 +131,9 @@ export default function DealForm({
         </label>
         {canAssignOwner && (
           <label className="f">
-            <span>Owner</span>
+            <span>Deal owner</span>
             <select name="owner_id" defaultValue={deal?.owner_id ?? ""}>
-              <option value="">Nobody yet</option>
+              <option value="">Unassigned</option>
               {owners.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
@@ -147,7 +143,7 @@ export default function DealForm({
           </label>
         )}
         <label className="f">
-          <span>How it came about</span>
+          <span>Deal source</span>
           <input
             type="text"
             name="source"
@@ -157,24 +153,24 @@ export default function DealForm({
         </label>
         {stageType === "lost" && (
           <label className="f" style={{ gridColumn: "1 / -1" }}>
-            <span>Why it was lost</span>
+            <span>Closed lost reason</span>
             <input
               type="text"
               name="lost_reason"
               defaultValue={deal?.lost_reason ?? ""}
-              placeholder="Price, timing, bought elsewhere…"
+              placeholder="Price, timing or competitor"
             />
           </label>
         )}
       </div>
 
       <label className="f" style={{ marginTop: 8 }}>
-        <span>Notes</span>
+        <span>Description</span>
         <textarea
           name="notes"
           rows={4}
           defaultValue={deal?.notes ?? ""}
-          placeholder="What they need, who signs off, what has been promised."
+          placeholder="Requirements, decision-makers and next steps"
         />
       </label>
 
@@ -184,7 +180,7 @@ export default function DealForm({
         </button>
         {deal && (
           <small style={{ color: "var(--muted)" }}>
-            Currently {deal.stage_label} · {money(deal.amount, deal.currency)} · {deal.probability}% likely
+            {deal.stage_label} · {money(deal.amount, deal.currency)} · {deal.probability}% probability
           </small>
         )}
       </div>

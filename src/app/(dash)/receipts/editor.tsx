@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { saveReceiptAction, type ReceiptFormState } from "@/app/actions/receipts";
 import { money, readMoney, type DocSettings, type Receipt } from "@/lib/types";
+import DocumentCataloguePicker from "@/components/document-catalogue-picker";
 import CurrencyPicker from "../quotes/currency-picker";
 
 interface Line {
@@ -123,7 +124,7 @@ export default function ReceiptEditor({
       {state?.error && <div className="msg err">{state.error}</div>}
       {state?.ok && <div className="msg ok">Saved.</div>}
 
-      <h2>Who paid</h2>
+      <h2>Customer details</h2>
       <div className="qt-grid">
         <label className="f">
           <span>
@@ -164,7 +165,7 @@ export default function ReceiptEditor({
         </label>
       </div>
 
-      <h2 style={{ marginTop: 18 }}>The payment</h2>
+      <h2 style={{ marginTop: 18 }}>Payment details</h2>
       <div className="qt-grid">
         <label className="f">
           <span>Receipt number</span>
@@ -175,10 +176,10 @@ export default function ReceiptEditor({
             placeholder="Leave blank for the next number"
           />
         </label>
-        <label className="f">
+        <div className="f-picker">
           <span>Currency</span>
           <CurrencyPicker value={currencyCode} onChange={setCurrencyCode} />
-        </label>
+        </div>
         <label className="f">
           <span>Receipt date</span>
           <input type="date" name="receipt_date" defaultValue={receipt?.receipt_date ?? today} />
@@ -246,7 +247,31 @@ export default function ReceiptEditor({
         </label>
       </div>
 
-      <h2 style={{ marginTop: 18 }}>What the money was for</h2>
+      <div className="row" style={{ alignItems: "center", margin: "18px 0 8px" }}>
+        <h2 style={{ margin: 0 }}>Line items</h2>
+        <div style={{ flex: 1 }} />
+        <button type="button" className="btn ghost sm" disabled={!canEdit || pending} onClick={() => setLines((all) => [...all, blank()])}>
+          <Plus className="size-3" /> Add a line
+        </button>
+      </div>
+      <DocumentCataloguePicker
+        currency={currencyCode}
+        canEdit={canEdit && !pending}
+        onAdd={({ description, qty, price }) => {
+          if (!canEdit || pending) return;
+          const line: Line = { ...blank(), description, qty, line_total: price };
+          setLines((all) => {
+            const first = all[0];
+            return first && first.description === "" && first.qty === "1" && first.line_total === ""
+              ? [line, ...all.slice(1)]
+              : [...all, line];
+          });
+        }}
+      />
+      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 8px" }}>
+        Review line amounts against the agreed order value. A catalogue price is not proof of payment;
+        adding a machine does not change Amount received or Order total.
+      </p>
       <table className="tbl qt-lines">
         <thead>
           <tr>
@@ -262,7 +287,9 @@ export default function ReceiptEditor({
               <td>
                 <textarea
                   name="item_description"
-                  rows={2}
+                  aria-label={`Line ${i + 1} description`}
+                  readOnly={!canEdit}
+                  rows={Math.min(10, Math.max(2, line.description.split("\n").length))}
                   value={line.description}
                   onChange={(e) => set(i, { description: e.target.value })}
                   placeholder="GD-60B flour mill — deposit"
@@ -273,6 +300,8 @@ export default function ReceiptEditor({
                   type="text"
                   inputMode="decimal"
                   name="item_qty"
+                  aria-label={`Line ${i + 1} quantity`}
+                  readOnly={!canEdit}
                   value={line.qty}
                   onChange={(e) => set(i, { qty: e.target.value })}
                 />
@@ -282,6 +311,8 @@ export default function ReceiptEditor({
                   type="text"
                   inputMode="decimal"
                   name="item_amount"
+                  aria-label={`Line ${i + 1} amount (${currencyCode})`}
+                  readOnly={!canEdit}
                   value={line.line_total}
                   onChange={(e) => set(i, { line_total: e.target.value })}
                 />
@@ -292,7 +323,7 @@ export default function ReceiptEditor({
                   className="btn ghost sm"
                   style={{ color: "var(--err)" }}
                   aria-label={`Remove line ${i + 1}`}
-                  disabled={lines.length === 1}
+                  disabled={!canEdit || pending || lines.length === 1}
                   onClick={() => setLines((all) => all.filter((_, n) => n !== i))}
                 >
                   <Trash2 className="size-3" />
@@ -303,14 +334,11 @@ export default function ReceiptEditor({
         </tbody>
       </table>
       <div className="row" style={{ marginTop: 8 }}>
-        <button type="button" className="btn ghost sm" onClick={() => setLines((all) => [...all, blank()])}>
-          <Plus className="size-3" /> Add a line
-        </button>
         <div style={{ flex: 1 }} />
         <strong style={{ fontSize: 13.5 }}>Lines total {money(itemsTotal, currencyCode)}</strong>
       </div>
 
-      <h2 style={{ marginTop: 20 }}>What goes on the paper</h2>
+      <h2 style={{ marginTop: 20 }}>Document content</h2>
       <label className="f">
         <span>Summary</span>
         <textarea

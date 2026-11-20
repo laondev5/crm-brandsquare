@@ -13,7 +13,8 @@ export interface DealColumn {
   deals: Deal[];
 }
 
-export default function DealsBoard({ columns }: { columns: DealColumn[] }) {
+export default function DealsBoard({ columns, writableDealIds }: { columns: DealColumn[]; writableDealIds: number[] }) {
+  const writable = new Set(writableDealIds);
   const [cols, setCols] = useState(columns);
   const [dragId, setDragId] = useState<number | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
@@ -32,6 +33,7 @@ export default function DealsBoard({ columns }: { columns: DealColumn[] }) {
   }, [sig, columns]);
 
   function move(dealId: number, to: string) {
+    if (!writable.has(dealId)) return;
     const from = cols.find((c) => c.deals.some((d) => d.id === dealId));
     if (!from || from.stage.key === to) return;
     const deal = from.deals.find((d) => d.id === dealId)!;
@@ -85,6 +87,7 @@ export default function DealsBoard({ columns }: { columns: DealColumn[] }) {
             key={col.stage.key}
             className={`board-col${overCol === col.stage.key ? " is-over" : ""}`}
             onDragOver={(e) => {
+              if (dragId === null || !writable.has(dragId)) return;
               e.preventDefault();
               if (overCol !== col.stage.key) setOverCol(col.stage.key);
             }}
@@ -102,7 +105,7 @@ export default function DealsBoard({ columns }: { columns: DealColumn[] }) {
             <header className="board-col__head is-stage" style={{ ["--stage" as string]: col.stage.colour }}>
               <span className="board-dot is-stage" aria-hidden="true" />
               <h2>{col.stage.label}</h2>
-              <b title={`${col.total} deal${col.total === 1 ? "" : "s"} · ${col.stage.probability}% likely`}>
+              <b title={`${col.total} deal${col.total === 1 ? "" : "s"} · ${col.stage.probability}% probability`}>
                 {col.total}
               </b>
             </header>
@@ -113,14 +116,18 @@ export default function DealsBoard({ columns }: { columns: DealColumn[] }) {
               </p>
 
               {col.deals.length === 0 ? (
-                <p className="board-msg">Nothing here.</p>
+                <p className="board-msg">No deals in this stage.</p>
               ) : (
                 col.deals.map((deal) => (
                   <article
                     key={deal.id}
                     className={`board-card${dragId === deal.id ? " is-dragging" : ""}`}
-                    draggable
+                    draggable={writable.has(deal.id)}
                     onDragStart={(e) => {
+                      if (!writable.has(deal.id)) {
+                        e.preventDefault();
+                        return;
+                      }
                       e.dataTransfer.setData("text/plain", String(deal.id));
                       e.dataTransfer.effectAllowed = "move";
                       setDragId(deal.id);
@@ -146,16 +153,18 @@ export default function DealsBoard({ columns }: { columns: DealColumn[] }) {
                       </span>
                     </div>
 
-                    <label className="board-card__move">
-                      <span className="sr-only">Move {deal.title} to another stage</span>
-                      <select value={deal.stage} onChange={(e) => move(deal.id, e.target.value)}>
-                        {cols.map((c) => (
-                          <option key={c.stage.key} value={c.stage.key}>
-                            {c.stage.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    {writable.has(deal.id) && (
+                      <label className="board-card__move">
+                        <span className="sr-only">Move {deal.title} to another stage</span>
+                        <select value={deal.stage} onChange={(e) => move(deal.id, e.target.value)}>
+                          {cols.map((c) => (
+                            <option key={c.stage.key} value={c.stage.key}>
+                              {c.stage.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                   </article>
                 ))
               )}

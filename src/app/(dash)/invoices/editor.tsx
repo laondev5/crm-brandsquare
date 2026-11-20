@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { saveInvoiceAction, type InvoiceFormState } from "@/app/actions/invoices";
 import { docTotals, money, readMoney, type DocSettings, type Invoice } from "@/lib/types";
+import DocumentCataloguePicker from "@/components/document-catalogue-picker";
 import CurrencyPicker from "../quotes/currency-picker";
 
 interface Line {
@@ -97,7 +98,7 @@ export default function InvoiceEditor({
       {state?.error && <div className="msg err">{state.error}</div>}
       {state?.ok && <div className="msg ok">Saved.</div>}
 
-      <h2>Who it is for</h2>
+      <h2>Customer details</h2>
       <div className="qt-grid">
         <label className="f">
           <span>
@@ -149,21 +150,29 @@ export default function InvoiceEditor({
         </label>
       </div>
 
-      <h2 style={{ marginTop: 18 }}>The invoice</h2>
+      <h2 style={{ marginTop: 18 }}>Invoice details</h2>
       <div className="qt-grid">
         <label className="f">
           <span>Invoice number</span>
-          <input
-            type="text"
-            name="invoice_no"
-            defaultValue={invoice?.invoice_no ?? ""}
-            placeholder="Leave blank for the next number"
-          />
+          {invoice ? (
+            <input type="text" name="invoice_no" defaultValue={invoice.invoice_no} readOnly />
+          ) : (
+            <>
+              <input type="hidden" name="invoice_no" value="" />
+              <input
+                type="text"
+                value="Assigned automatically when you save"
+                readOnly
+                tabIndex={-1}
+                style={{ background: "var(--band, #f0f2f6)" }}
+              />
+            </>
+          )}
         </label>
-        <label className="f">
+        <div className="f-picker">
           <span>Currency</span>
           <CurrencyPicker value={currencyCode} onChange={setCurrencyCode} />
-        </label>
+        </div>
         <label className="f">
           <span>Date</span>
           <input type="date" name="issued_on" defaultValue={invoice?.issued_on ?? today} />
@@ -186,12 +195,26 @@ export default function InvoiceEditor({
       </div>
 
       <div className="row" style={{ alignItems: "center", margin: "18px 0 8px" }}>
-        <h2 style={{ margin: 0 }}>What is being invoiced</h2>
+        <h2 style={{ margin: 0 }}>Line items</h2>
         <div style={{ flex: 1 }} />
-        <button type="button" className="btn ghost sm" onClick={() => setLines((all) => [...all, blank()])}>
+        <button type="button" className="btn ghost sm" disabled={!canEdit || pending} onClick={() => setLines((all) => [...all, blank()])}>
           <Plus className="size-3" /> Add a line
         </button>
       </div>
+      <DocumentCataloguePicker
+        currency={currencyCode}
+        canEdit={canEdit && !pending}
+        onAdd={({ description, qty, price }) => {
+          if (!canEdit || pending) return;
+          const line: Line = { ...blank(), description, qty, unit_price: price };
+          setLines((all) => {
+            const first = all[0];
+            return first && first.description === "" && first.qty === "1" && first.unit_price === ""
+              ? [line, ...all.slice(1)]
+              : [...all, line];
+          });
+        }}
+      />
 
       <table className="tbl qt-lines">
         <thead>
@@ -211,7 +234,9 @@ export default function InvoiceEditor({
                 <td>
                   <textarea
                     name="item_description"
-                    rows={2}
+                    aria-label={`Line ${i + 1} description`}
+                    readOnly={!canEdit}
+                    rows={Math.min(10, Math.max(2, line.description.split("\n").length))}
                     value={line.description}
                     onChange={(e) => set(i, { description: e.target.value })}
                     placeholder="GD-60B flour mill, complete with destoner and polisher"
@@ -222,6 +247,8 @@ export default function InvoiceEditor({
                     type="text"
                     inputMode="decimal"
                     name="item_qty"
+                    aria-label={`Line ${i + 1} quantity`}
+                    readOnly={!canEdit}
                     value={line.qty}
                     onChange={(e) => set(i, { qty: e.target.value })}
                   />
@@ -231,6 +258,8 @@ export default function InvoiceEditor({
                     type="text"
                     inputMode="decimal"
                     name="item_price"
+                    aria-label={`Line ${i + 1} unit price (${currencyCode})`}
+                    readOnly={!canEdit}
                     value={line.unit_price}
                     onChange={(e) => set(i, { unit_price: e.target.value })}
                     placeholder="12,500,000"
@@ -243,7 +272,7 @@ export default function InvoiceEditor({
                     className="btn ghost sm"
                     style={{ color: "var(--err)" }}
                     aria-label={`Remove line ${i + 1}`}
-                    disabled={lines.length === 1}
+                    disabled={!canEdit || pending || lines.length === 1}
                     onClick={() => setLines((all) => all.filter((_, n) => n !== i))}
                   >
                     <Trash2 className="size-3" />
@@ -272,7 +301,7 @@ export default function InvoiceEditor({
         </div>
       </div>
 
-      <h2 style={{ marginTop: 22 }}>Where the money goes</h2>
+      <h2 style={{ marginTop: 22 }}>Bank details</h2>
       <div className="qt-grid">
         <label className="f">
           <span>Bank</span>
@@ -309,7 +338,7 @@ export default function InvoiceEditor({
         </label>
       </div>
 
-      <h2 style={{ marginTop: 18 }}>What goes on the paper</h2>
+      <h2 style={{ marginTop: 18 }}>Document content</h2>
       <label className="f">
         <span>Payment terms</span>
         <textarea

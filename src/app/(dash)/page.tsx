@@ -33,12 +33,16 @@ export default async function Overview({
   return (
     <>
       <div className="head">
-        <h1>Dashboard</h1>
+        <h1>Overview</h1>
         <div className="spacer" />
         <Link href={here ? `/leads?site=${here}` : "/leads"} className="btn ghost">
           View all leads
         </Link>
       </div>
+      <section className="overview-welcome" aria-label="Workspace overview">
+        <div><div className="record-kicker">Your connected workspace</div><h2>Welcome, {me.name.split(" ")[0]}</h2><p>Keep customer relationships, sales and follow-ups moving.</p></div>
+        <div className="row" style={{ gap: 8 }}><Link href="/tasks" className="btn ghost">View tasks</Link><Link href="/deals" className="btn">Open deals</Link></div>
+      </section>
 
       {/* One picker, the same one as on Traffic, so "which website" is asked
           the same way wherever it is asked. */}

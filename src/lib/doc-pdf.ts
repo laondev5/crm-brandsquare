@@ -149,8 +149,8 @@ interface CellStyle {
   middle?: boolean;
 }
 
-/** A ruled table cell, wrapping its words rather than spilling into the next. */
-function cell(doc: jsPDF, content: string, x: number, y: number, w: number, h: number, s: CellStyle = {}) {
+/** A ruled table cell; pre-wrapped lines keep continuation rows lossless. */
+function cell(doc: jsPDF, content: string | string[], x: number, y: number, w: number, h: number, s: CellStyle = {}) {
   if (s.fill) {
     doc.setFillColor(s.fill);
     doc.rect(x, y, w, h, "F");
@@ -160,12 +160,12 @@ function cell(doc: jsPDF, content: string, x: number, y: number, w: number, h: n
     doc.setLineWidth(0.2);
     doc.rect(x, y, w, h, "S");
   }
-  if (!content) return;
+  if (!content.length) return;
 
   const size = s.size ?? 9;
   const pad = s.pad ?? 2.6;
   font(doc, s.bold ? "bold" : "normal", size, s.color ?? INK);
-  const lines = doc.splitTextToSize(content, w - pad * 2) as string[];
+  const lines = Array.isArray(content) ? content : doc.splitTextToSize(content, w - pad * 2) as string[];
   const lineH = size * 0.3528 * 1.28;
   const first =
     s.middle === false
@@ -379,6 +379,54 @@ function newPage(doc: jsPDF, y: number, need: number): number {
   return 24;
 }
 
+/** Split one logical row, not one item per page. Only its first fragment has money. */
+function continuationRow(
+  doc: jsPDF,
+  y: number,
+  columns: { text?: string; x: number; w: number; style?: CellStyle }[],
+  layout: {
+    height: (lines: number) => number;
+    header: (y: number) => number;
+    first?: (y: number, h: number, multiline: boolean) => void;
+  }
+): number {
+  const wrapped = columns.map(({ text = "", w, style = {} }) => {
+    const size = style.size ?? 9;
+    const pad = style.pad ?? 2.6;
+    font(doc, style.bold ? "bold" : "normal", size, style.color ?? INK);
+    return { lines: text ? doc.splitTextToSize(text, w - pad * 2) as string[] : [], size, pad };
+  });
+  const lineCount = Math.max(1, ...wrapped.map(({ lines }) => lines.length));
+  const multiline = lineCount > 1;
+  // Retain the templates' compact single-line heights. For wrapped text, also
+  // honour cell()'s actual top padding, baseline and line spacing.
+  const height = (count: number) => Math.max(layout.height(count), ...wrapped.map(({ size, pad }) =>
+    multiline ? pad * 2 + size * 0.3528 + (count - 1) * size * 0.3528 * 1.28 : 0
+  ));
+
+  let offset = 0;
+  while (offset < lineCount) {
+    const nextY = newPage(doc, y, height(1));
+    if (nextY !== y) y = layout.header(nextY);
+
+    let count = 1;
+    while (count < lineCount - offset && y + height(count + 1) <= BOTTOM) count++;
+    const h = height(count);
+    columns.forEach(({ x, w, style }, i) => {
+      cell(doc, wrapped[i].lines.slice(offset, offset + count), x, y, w, h, {
+        ...style, middle: multiline ? false : style?.middle,
+      });
+    });
+    if (offset === 0) layout.first?.(y, h, multiline);
+    y += h;
+    offset += count;
+    if (offset < lineCount) {
+      y = layout.header(newPage(doc, BOTTOM, height(1)));
+    }
+  }
+  return y;
+}
+
 /* ---------------- the quotation ---------------- */
 
 export interface Letterhead extends Brand {
@@ -420,7 +468,10 @@ export function quotePdf(quote: Quote, business: Letterhead, preparedBy = ""): B
 
   // ---- machine details
   const firstItem = quote.items[0];
-  const machineName = (firstItem?.description ?? "").split("\n")[0] || "Machinery";
+  const firstLine = (firstItem?.description ?? "").split(/\r?\n/)[0] || "Machinery";
+  // Catalogue descriptions can start with a whole paragraph. Keep headings
+  // short; the complete, unabridged description is in the pricing table.
+  const machineName = firstLine.length > 80 ? `${firstLine.slice(0, 77).trimEnd()}...` : firstLine;
   const description =
     quote.details ||
     (quote.items.length > 1 ? quote.items.map((i) => i.description).filter(Boolean).join("\n") : "");
@@ -430,42 +481,48 @@ export function quotePdf(quote: Quote, business: Letterhead, preparedBy = ""): B
   if (description) detailRows.push(["DESCRIPTION", description]);
   if (suitable) detailRows.push(["SUITABLE FOR", suitable]);
 
+  y = newPage(doc, y, 17);
   y = section(doc, "Machine details", M, y);
   const labelW = 68;
   for (const [label, value] of detailRows) {
-    font(doc, "normal", 9, INK);
-    const lines = doc.splitTextToSize(value, CONTENT - labelW - 6) as string[];
-    const rh = Math.max(10, lines.length * 4.4 + 6);
-    y = newPage(doc, y, rh);
-    cell(doc, label, M, y, labelW, rh, { fill: SOFT, stroke: LINE, bold: true, size: 8.8, color: INK });
-    cell(doc, value, M + labelW, y, CONTENT - labelW, rh, { stroke: LINE, size: 9, middle: false });
-    y += rh;
+    y = continuationRow(doc, y, [
+      { text: label, x: M, w: labelW, style: { fill: SOFT, stroke: LINE, bold: true, size: 8.8, color: INK } },
+      { text: value, x: M + labelW, w: CONTENT - labelW, style: { stroke: LINE, size: 9, middle: false } },
+    ], {
+      height: (n) => Math.max(10, n * 4.4 + 6),
+      header: (top) => section(doc, `Machine details — ${label} (continued)`, M, top),
+    });
   }
   y += 9;
 
   // ---- what it costs
+  y = newPage(doc, y, 24);
   y = section(doc, `Model & pricing (${cur})`, M, y);
   const priceW = [96, 50, 34];
-  cell(doc, "ITEM", M, y, priceW[0], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
-  cell(doc, "NOTES", M + priceW[0], y, priceW[1], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
-  cell(doc, `PRICE (${cur})`, M + priceW[0] + priceW[1], y, priceW[2], 8, {
-    fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center",
-  });
-  y += 8;
+  const priceHeader = (top: number) => {
+    cell(doc, "ITEM", M, top, priceW[0], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
+    cell(doc, "NOTES", M + priceW[0], top, priceW[1], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
+    cell(doc, `PRICE (${cur})`, M + priceW[0] + priceW[1], top, priceW[2], 8, {
+      fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center",
+    });
+    return top + 8;
+  };
+  y = priceHeader(y);
 
   quote.items.forEach((item, i) => {
-    const itemNote = item.note || (item.qty !== 1 ? `Qty ${item.qty}` : "");
-    font(doc, "normal", 9, INK);
-    const descLines = doc.splitTextToSize(item.description || "—", priceW[0] - 5.2) as string[];
-    const noteLines = doc.splitTextToSize(itemNote, priceW[1] - 5.2) as string[];
-    const rh = Math.max(10, Math.max(descLines.length, noteLines.length, 1) * 4.4 + 5.6);
-
-    y = newPage(doc, y, rh);
-    cell(doc, item.description || "—", M, y, priceW[0], rh, { stroke: LINE, size: 9 });
-    cell(doc, itemNote, M + priceW[0], y, priceW[1], rh, { stroke: LINE, size: 8.8, color: MUTED });
-    cell(doc, "", M + priceW[0] + priceW[1], y, priceW[2], rh, { stroke: LINE, fill: i % 2 ? SOFT : WHITE });
-    money(doc, item.line_total, cur, RIGHT - 2.4, y + rh / 2 + 1.2, { bold: true, size: 9.5, color: ORANGE });
-    y += rh;
+    const itemNote = item.note
+      ? `${item.qty !== 1 ? `Qty ${item.qty}\n` : ""}${item.note}`
+      : item.qty !== 1 ? `Qty ${item.qty}` : "";
+    y = continuationRow(doc, y, [
+      { text: item.description || "—", x: M, w: priceW[0], style: { stroke: LINE, size: 9 } },
+      { text: itemNote, x: M + priceW[0], w: priceW[1], style: { stroke: LINE, size: 8.8, color: MUTED } },
+      { x: M + priceW[0] + priceW[1], w: priceW[2], style: { stroke: LINE, fill: i % 2 ? SOFT : WHITE } },
+    ], {
+      height: (n) => Math.max(10, n * 4.4 + 5.6),
+      header: priceHeader,
+      first: (top, h, multiline) => money(doc, item.line_total, cur, RIGHT - 2.4,
+        top + (multiline ? 2.6 + 9 * 0.3528 : h / 2 + 1.2), { bold: true, size: 9.5, color: ORANGE }),
+    });
   });
 
   // Totals: the same table, with the label column merged.
@@ -510,7 +567,13 @@ export function quotePdf(quote: Quote, business: Letterhead, preparedBy = ""): B
     noteItems = notes.slice(1);
   }
 
-  y = newPage(doc, y, 32);
+  // Keep the unchanged notes box and its heading together after long rows.
+  const noteLineH = 8.8 * 0.3528 * 1.34;
+  font(doc, "bold", 9.2, ORANGE);
+  const noteHeadingH = doc.splitTextToSize(notesHeading, CONTENT - 8).length * noteLineH;
+  font(doc, "normal", 8.8, INK);
+  const noteBodyH = noteItems.reduce((h, text) => h + doc.splitTextToSize(text, CONTENT - 12.6).length * noteLineH + 1.2, 0);
+  y = newPage(doc, y, 6 + 8 + noteHeadingH + 2.4 + noteBodyH);
   y = section(doc, "Important notes", M, y);
   y = creamBox(doc, notesHeading, noteItems, M, y, CONTENT);
   y += 10;
@@ -606,32 +669,38 @@ export function invoicePdf(inv: Invoice, business: Letterhead): Blob {
   y += 10;
 
   // ---- the lines
+  y = newPage(doc, y, 27);
   y = section(doc, "Item details", M, y, { color: ORANGE, size: 9.5 });
   const itemW = [81, 25, 38, 36];
   const xQty = M + itemW[0];
   const xUnit = xQty + itemW[1];
   const xTotal = xUnit + itemW[2];
 
-  cell(doc, "Description", M, y, itemW[0], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
-  cell(doc, "Quantity", xQty, y, itemW[1], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
-  cell(doc, "Unit Price", xUnit, y, itemW[2], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
-  cell(doc, "Total", xTotal, y, itemW[3], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
-  y += 8;
+  const itemHeader = (top: number) => {
+    cell(doc, "Description", M, top, itemW[0], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
+    cell(doc, "Quantity", xQty, top, itemW[1], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
+    cell(doc, "Unit Price", xUnit, top, itemW[2], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
+    cell(doc, "Total", xTotal, top, itemW[3], 8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
+    return top + 8;
+  };
+  y = itemHeader(y);
 
   inv.items.forEach((item, i) => {
-    font(doc, "normal", 9, INK);
-    const lines = doc.splitTextToSize(item.description || "—", itemW[0] - 5.2) as string[];
-    const rh = Math.max(13, lines.length * 4.6 + 6);
-    y = newPage(doc, y, rh);
-
     const fill = i % 2 ? SOFT : WHITE;
-    cell(doc, item.description || "—", M, y, itemW[0], rh, { stroke: LINE, size: 9, fill });
-    cell(doc, String(item.qty), xQty, y, itemW[1], rh, { stroke: LINE, size: 9, align: "center", fill });
-    cell(doc, "", xUnit, y, itemW[2], rh, { stroke: LINE, fill });
-    money(doc, item.unit_price, cur, xTotal - 2.4, y + rh / 2 + 1.2, { size: 9.2, decimals: true });
-    cell(doc, "", xTotal, y, itemW[3], rh, { stroke: LINE, fill });
-    money(doc, item.line_total, cur, RIGHT - 2.4, y + rh / 2 + 1.2, { bold: true, size: 9.4, decimals: true });
-    y += rh;
+    y = continuationRow(doc, y, [
+      { text: item.description || "—", x: M, w: itemW[0], style: { stroke: LINE, size: 9, fill } },
+      { text: String(item.qty), x: xQty, w: itemW[1], style: { stroke: LINE, size: 9, align: "center", fill } },
+      { x: xUnit, w: itemW[2], style: { stroke: LINE, fill } },
+      { x: xTotal, w: itemW[3], style: { stroke: LINE, fill } },
+    ], {
+      height: (n) => Math.max(13, n * 4.6 + 6),
+      header: itemHeader,
+      first: (top, h, multiline) => {
+        const baseline = top + (multiline ? 2.6 + 9 * 0.3528 : h / 2 + 1.2);
+        money(doc, item.unit_price, cur, xTotal - 2.4, baseline, { size: 9.2, decimals: true });
+        money(doc, item.line_total, cur, RIGHT - 2.4, baseline, { bold: true, size: 9.4, decimals: true });
+      },
+    });
   });
 
   // Grand total, with the money column kept beside the figures above.
@@ -769,26 +838,34 @@ export function receiptPdf(rec: Receipt, business: Letterhead): Blob {
   y += 7;
 
   // ---- the order
+  y = newPage(doc, y, 18.3);
   y = section(doc, "Order details", M, y, { gap: 4.5 });
   const ow = [CONTENT - 62, 27, 35];
-  cell(doc, "ITEM", M, y, ow[0], 6.8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
-  cell(doc, "QTY", M + ow[0], y, ow[1], 6.8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
-  cell(doc, `ORDER TOTAL (${cur})`, M + ow[0] + ow[1], y, ow[2], 6.8, {
-    fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center",
-  });
-  y += 6.8;
+  const orderHeader = (top: number) => {
+    cell(doc, "ITEM", M, top, ow[0], 6.8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
+    cell(doc, "QTY", M + ow[0], top, ow[1], 6.8, { fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center" });
+    cell(doc, `ORDER TOTAL (${cur})`, M + ow[0] + ow[1], top, ow[2], 6.8, {
+      fill: NAVY, bold: true, size: 8.6, color: WHITE, align: "center",
+    });
+    return top + 6.8;
+  };
+  y = orderHeader(y);
 
   const lines = rec.items.length
     ? rec.items
     : [{ description: rec.summary || "Payment received", qty: 1, line_total: rec.order_total || rec.amount_received }];
 
   lines.forEach((item) => {
-    y = newPage(doc, y, 7);
-    cell(doc, item.description || "—", M, y, ow[0], 7, { stroke: LINE, size: 9 });
-    cell(doc, String(item.qty), M + ow[0], y, ow[1], 7, { stroke: LINE, size: 9, align: "center" });
-    cell(doc, "", M + ow[0] + ow[1], y, ow[2], 7, { stroke: LINE });
-    money(doc, item.line_total, cur, RIGHT - 2.4, y + 4.6, { bold: true, size: 9.2, color: ORANGE, decimals: true });
-    y += 7;
+    y = continuationRow(doc, y, [
+      { text: item.description || "—", x: M, w: ow[0], style: { stroke: LINE, size: 9 } },
+      { text: String(item.qty), x: M + ow[0], w: ow[1], style: { stroke: LINE, size: 9, align: "center" } },
+      { x: M + ow[0] + ow[1], w: ow[2], style: { stroke: LINE } },
+    ], {
+      height: (n) => n === 1 ? 7 : n * 4.4 + 5.6,
+      header: orderHeader,
+      first: (top, _h, multiline) => money(doc, item.line_total, cur, RIGHT - 2.4,
+        top + (multiline ? 2.6 + 9 * 0.3528 : 4.6), { bold: true, size: 9.2, color: ORANGE, decimals: true }),
+    });
   });
   y += 7;
 
@@ -796,6 +873,7 @@ export function receiptPdf(rec: Receipt, business: Letterhead): Blob {
   // Only where there is an order total to divide: a receipt written by hand
   // for money received on its own has no share and no balance to show.
   if (hasTotal) {
+    y = newPage(doc, y, 4.5 + 6.8 * 4);
     y = section(doc, "Payment summary", M, y, { gap: 4.5 });
     const sw = [CONTENT - 94, 27, 37, 30];
     const xSummaryAmount = M + sw[0] + sw[1] + sw[2];
@@ -832,12 +910,16 @@ export function receiptPdf(rec: Receipt, business: Letterhead): Blob {
   // ---- the terms in a sentence
   const terms = rec.terms || DEFAULT_RECEIPT_TERMS;
   font(doc, "bold", 8.6, INK);
-  doc.text("Payment terms:", M, y + 4);
   const termsX = M + doc.getTextWidth("Payment terms:") + 2;
   font(doc, "normal", 8.6, INK);
   const termLines = doc.splitTextToSize(terms, CONTENT - (termsX - M)) as string[];
+  const termsH = Math.max(8, termLines.length * 4.1 + 3) + 4;
+  y = newPage(doc, y, termsH);
+  font(doc, "bold", 8.6, INK);
+  doc.text("Payment terms:", M, y + 4);
+  font(doc, "normal", 8.6, INK);
   termLines.forEach((line, i) => doc.text(line, termsX, y + 4 + i * 4.1));
-  y += Math.max(8, termLines.length * 4.1 + 3) + 4;
+  y += termsH;
 
   // ---- important notes
   const firstLine = (rec.customer_company || rec.customer_name || "the customer").trim();
@@ -858,11 +940,19 @@ export function receiptPdf(rec: Receipt, business: Letterhead): Blob {
     ...custom,
   ];
 
-  y = newPage(doc, y, 30);
+  const statusHeading = `PAYMENT STATUS: ${hasTotal ? `${amountText(share)}% RECEIVED | ${amountText(balanceShare)}% BALANCE OUTSTANDING` : "RECEIVED"}`;
+  // Reserve the existing cream box's actual height after a continued order,
+  // including its section heading (same metrics as creamBox below).
+  const noteLineH = 8.2 * 0.3528 * 1.28;
+  font(doc, "bold", 9.2, ORANGE);
+  const noteHeadingH = doc.splitTextToSize(statusHeading, CONTENT - 6).length * noteLineH;
+  font(doc, "normal", 8.2, INK);
+  const noteBodyH = noteItems.reduce((h, text) => h + doc.splitTextToSize(text, CONTENT - 10.6).length * noteLineH + 0.9, 0);
+  y = newPage(doc, y, 4.5 + 6 + noteHeadingH + 2.4 + noteBodyH);
   y = section(doc, "Important notes & terms", M, y, { gap: 4.5 });
   y = creamBox(
     doc,
-    `PAYMENT STATUS: ${hasTotal ? `${amountText(share)}% RECEIVED | ${amountText(balanceShare)}% BALANCE OUTSTANDING` : "RECEIVED"}`,
+    statusHeading,
     noteItems,
     M,
     y,
@@ -978,14 +1068,8 @@ export function cataloguePdf(items: CatalogueItem[], business: Letterhead): Blob
   return doc.output("blob");
 }
 
-/**
- * Reads the organisation's logo into something jsPDF will take.
- *
- * The logo is a WebP, which jsPDF cannot embed, so the browser decodes it and
- * hands back a PNG. It is also why this is async and kept apart from drawing:
- * a document should still be produced if the logo cannot be loaded.
- */
-export async function loadLogo(src = "/logo.webp"): Promise<Letterhead["logo"]> {
+// Documents use the coloured artwork from the approved receipt, not the white website wordmark.
+export async function loadLogo(src = "/logo-document.png"): Promise<Letterhead["logo"]> {
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();

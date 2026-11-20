@@ -3,211 +3,108 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import {
-  Activity,
-  BarChart3,
-  Building2,
-  Cog,
-  ChevronDown,
-  FileText,
-  Handshake,
-  PenSquare,
-  LayoutDashboard,
-  Mail,
-  Megaphone,
-  Settings2,
-  Target,
-  UsersRound,
-} from "lucide-react";
-
-import { cn } from "@/lib/utils";
+import { BarChart3, BriefcaseBusiness, ChevronDown, FileText, LayoutDashboard, Megaphone, MessagesSquare, Settings2, UsersRound } from "lucide-react";
 
 interface NavChild {
   href: string;
   label: string;
   adminOnly?: boolean;
-  /** Only the top tier — connecting websites and managing admins. */
   superOnly?: boolean;
-  /** Authors, admins and super admins — not sub-admins. */
   blog?: boolean;
-  /** Also shown to authors, who otherwise see only the blog. */
   author?: boolean;
-  /** Shown to the MD, who sees only the reports. */
   md?: boolean;
 }
 
-interface NavGroup {
-  label: string;
+interface NavGroup extends Omit<NavChild, "href"> {
   icon: typeof LayoutDashboard;
-  /** A group with an href and no children is a plain link, not a menu. */
   href?: string;
   children?: NavChild[];
-  /** Gating for a top-level link. A menu is hidden by its children instead:
-   *  it disappears once nothing inside it is visible. */
-  adminOnly?: boolean;
-  superOnly?: boolean;
-  md?: boolean;
 }
 
-/**
- * Grouped by the thing you are working on rather than by page. Ten flat links
- * gave no clue that Pipeline and Campaigns are two views of the same leads, or
- * that the team's own work is not a customer's.
- */
 const GROUPS: NavGroup[] = [
-  { label: "Dashboard", icon: LayoutDashboard, href: "/" },
-  { label: "Executive report", icon: BarChart3, href: "/executive", adminOnly: true, md: true },
+  { label: "Overview", icon: LayoutDashboard, href: "/" },
   {
-    label: "Leads",
-    icon: Target,
+    label: "CRM", icon: UsersRound,
     children: [
-      { href: "/leads", label: "All leads" },
-      { href: "/pipeline", label: "Pipeline" },
-      { href: "/campaigns", label: "Campaigns", adminOnly: true, author: true, md: true },
-    ],
-  },
-  // The money behind the relationships. Kept next to Leads because a deal is
-  // often the reason a lead exists, but kept separate because one company can
-  // carry several at once.
-  {
-    label: "Deals",
-    icon: Handshake,
-    children: [
-      { href: "/deals", label: "All deals" },
-      { href: "/deals/new", label: "+ New deal" },
-    ],
-  },
-  // The shared mailbox and the bulk campaigns, together and on their own.
-  {
-    label: "Email",
-    icon: Mail,
-    children: [
-      { href: "/mail", label: "Inbox" },
-      { href: "/email", label: "Campaigns" },
-      { href: "/email/new", label: "+ New campaign" },
-      { href: "/email/settings", label: "Campaign sender", adminOnly: true },
-    ],
-  },
-  // The papers that leave the business, in the order they are written:
-  // the quotation, the invoice, the receipt — and the catalogue they are
-  // chosen from.
-  {
-    label: "Documents",
-    icon: FileText,
-    children: [
-      { href: "/quotes", label: "Quotations", md: true },
-      { href: "/quotes/new", label: "+ New quotation" },
-      { href: "/invoices", label: "Invoices", md: true },
-      { href: "/invoices/new", label: "+ New invoice" },
-      { href: "/receipts", label: "Receipts", md: true },
-      { href: "/receipts/new", label: "+ New receipt" },
-      { href: "/catalogue", label: "Catalogue", md: true },
-      { href: "/catalogue/new", label: "+ Catalogue item", adminOnly: true },
-      { href: "/settings/documents", label: "Document settings", adminOnly: true },
-    ],
-  },
-  // A business can send several people and buy in bulk, so it is kept apart
-  // from the one-person lead records.
-  {
-    label: "Organisations",
-    icon: Building2,
-    children: [
-      { href: "/organizations", label: "All organisations", md: true },
-      { href: "/organizations/new", label: "+ New organisation" },
-    ],
-  },
-  // Machinery enquiries as procurement works them: the views are the queues,
-  // so "what is waiting on me" is a menu item rather than a search.
-  {
-    label: "Machine requests",
-    icon: Cog,
-    children: [
-      { href: "/requests?view=open", label: "Open requests", md: true },
-      { href: "/requests?view=", label: "All requests", md: true },
-      { href: "/requests?view=new", label: "New requests" },
-      { href: "/requests?view=sourcing", label: "Currently sourcing" },
-      { href: "/requests?view=breakdown_pending", label: "Breakdown pending" },
-      { href: "/requests?view=breakdown_ready", label: "Breakdown ready", md: true },
-      { href: "/requests?view=sent_to_sales", label: "Sent to sales", md: true },
-      { href: "/requests?new=1", label: "+ New request" },
+      { href: "/leads", label: "Leads" },
+      { href: "/organizations", label: "Companies", md: true },
+      { href: "/deals", label: "Deals" },
+      { href: "/pipeline", label: "Lead pipeline" },
     ],
   },
   {
-    label: "Templates",
-    icon: FileText,
+    label: "Communications", icon: MessagesSquare,
     children: [
-      { href: "/templates/whatsapp", label: "WhatsApp" },
-      { href: "/templates/email", label: "Email" },
-      { href: "/templates/notes", label: "Notes" },
+      { href: "/mail", label: "Email inbox" },
+      { href: "/whatsapp", label: "WhatsApp inbox" },
+      { href: "/templates/whatsapp", label: "WhatsApp templates" },
+      { href: "/templates/email", label: "Email templates" },
+      { href: "/templates/notes", label: "Note templates" },
       { href: "/templates/responses", label: "Response templates" },
       { href: "/templates/faq", label: "FAQs" },
     ],
   },
   {
-    label: "Blog",
-    icon: PenSquare,
+    label: "Documents", icon: FileText,
     children: [
-      { href: "/blog", label: "All posts", blog: true },
-      { href: "/blog/new", label: "New post", blog: true },
-      { href: "/blog/categories", label: "Categories", blog: true },
-      { href: "/blog/analytics", label: "Analytics", blog: true },
+      { href: "/quotes", label: "Quotations", md: true },
+      { href: "/invoices", label: "Proforma invoices", md: true },
+      { href: "/receipts", label: "Payment receipts", md: true },
+      { href: "/catalogue", label: "Machine catalogue", md: true },
     ],
   },
   {
-    label: "Traffic",
-    icon: Activity,
-    children: [
-      { href: "/analytics", label: "Overview", author: true, md: true },
-      { href: "/sites", label: "Websites", superOnly: true },
-    ],
-  },
-  {
-    label: "Meta",
-    icon: Megaphone,
-    children: [
-      { href: "/whatsapp", label: "WhatsApp inbox" },
-      { href: "/whatsapp/settings", label: "WhatsApp settings", superOnly: true },
-      { href: "/settings/meta", label: "Ads", author: true, md: true },
-      { href: "/settings/meta/datasets", label: "Ad datasets", superOnly: true },
-    ],
-  },
-  {
-    label: "Team",
-    icon: UsersRound,
+    label: "Work & team", icon: BriefcaseBusiness,
     children: [
       { href: "/tasks", label: "Tasks" },
+      { href: "/agenda", label: "Follow-up agenda" },
       { href: "/work", label: "My work", author: true, md: true },
-      { href: "/notifications", label: "Notifications", author: true, md: true },
+      { href: "/requests", label: "Machine requests", md: true },
       { href: "/projects", label: "Projects", author: true },
       { href: "/meetings", label: "Meetings", author: true, md: true },
       { href: "/announcements", label: "Announcements", author: true, md: true },
+      { href: "/notifications", label: "Notifications", author: true, md: true },
       { href: "/work/team", label: "Team overview", adminOnly: true },
-      { href: "/guide", label: "How this works", author: true, md: true },
-      { href: "/team", label: "Members", adminOnly: true },
+      { href: "/team", label: "Team members", adminOnly: true },
     ],
   },
-  // How the CRM itself behaves, as opposed to the work going through it.
-  // Last, because it is the section you visit least.
   {
-    label: "Settings",
-    icon: Settings2,
+    label: "Marketing", icon: Megaphone,
+    children: [
+      { href: "/campaigns", label: "Lead campaigns", adminOnly: true, author: true, md: true },
+      { href: "/email", label: "Email campaigns" },
+      { href: "/blog", label: "Blog posts", blog: true },
+      { href: "/blog/categories", label: "Blog categories", blog: true },
+      { href: "/settings/meta", label: "Meta ads", author: true, md: true },
+    ],
+  },
+  {
+    label: "Reports", icon: BarChart3,
+    children: [
+      { href: "/executive", label: "Executive report", adminOnly: true, md: true },
+      { href: "/analytics", label: "Website analytics", author: true, md: true },
+      { href: "/blog/analytics", label: "Blog analytics", blog: true },
+    ],
+  },
+  {
+    label: "Settings", icon: Settings2,
     children: [
       { href: "/settings/stages", label: "Pipeline stages", adminOnly: true },
       { href: "/settings/lead-properties", label: "Lead properties", adminOnly: true },
+      { href: "/settings/documents", label: "Document settings", adminOnly: true },
       { href: "/settings/request-sources", label: "Request sources", adminOnly: true },
       { href: "/settings/responses", label: "Response templates", adminOnly: true },
       { href: "/settings/faq", label: "FAQs", adminOnly: true },
+      { href: "/email/settings", label: "Campaign sender", adminOnly: true },
+      { href: "/whatsapp/settings", label: "WhatsApp settings", superOnly: true },
+      { href: "/settings/meta/datasets", label: "Ad datasets", superOnly: true },
       { href: "/meetings/settings", label: "Google account", superOnly: true },
+      { href: "/sites", label: "Connected websites", superOnly: true },
     ],
   },
 ];
 
-export default function NavLinks({
-  isAdmin,
-  isSuper,
-  isAuthor = false,
-  isMd = false,
-}: {
+export default function NavLinks({ isAdmin, isSuper, isAuthor = false, isMd = false }: {
   isAdmin: boolean;
   isSuper?: boolean;
   isAuthor?: boolean;
@@ -215,131 +112,45 @@ export default function NavLinks({
 }) {
   const path = usePathname();
   const params = useSearchParams();
+  const [expanded, setExpanded] = useState<string | null | undefined>(undefined);
+  const query = params.toString();
 
-  // The most specific link wins: on /whatsapp/settings only "WhatsApp
-  // settings" is lit, not the inbox at /whatsapp as well.
-  const view = params.get("view");
-  const matches = (href: string) => {
-    if (href === "/") return path === "/";
-    // Several menu items point at one page with a different view; the lit one
-    // is the view actually being shown.
-    const [base, query] = href.split("?");
-    if (query) {
-      if (path !== base) return false;
-      const want = new URLSearchParams(query).get("view");
-      if (want === null) return false;
-      return (view ?? (base === "/requests" ? "open" : "")) === want;
-    }
-    return path === base || path.startsWith(base + "/");
-  };
-  const best = GROUPS.flatMap((g) => [g.href, ...(g.children ?? []).map((c) => c.href)])
-    .filter((h): h is string => !!h && matches(h))
+  useEffect(() => { setExpanded(undefined); }, [path, query]);
+
+  const allowed = (item: Omit<NavChild, "href" | "label">) => isMd
+    ? !!item.md
+    : isAuthor
+      ? !!(item.blog || item.author)
+      : (isAdmin || !item.adminOnly) && (isSuper || !item.superOnly) && (isAdmin || !item.blog);
+  const visible = GROUPS.map((group) => ({ ...group, children: group.children?.filter(allowed) }))
+    .filter((group) => group.children ? group.children.length > 0 : allowed(group));
+  const best = visible.flatMap((group) => [group.href, ...(group.children ?? []).map((child) => child.href)])
+    .filter((href): href is string => !!href && (href === "/" ? path === "/" : path === href || path.startsWith(href + "/")))
     .sort((a, b) => b.length - a.length)[0];
-  const isActive = (href: string) => href === best;
-
-  // An author sees the blog and their own working day, nothing else. Everyone
-  // else sees what their rank allows, and the blog only if they are an admin.
-  // The MD sees the reports and nothing else.
-  const allowed = (x: { adminOnly?: boolean; superOnly?: boolean; blog?: boolean; author?: boolean; md?: boolean }) =>
-    isMd
-      ? !!x.md
-      : isAuthor
-        ? !!(x.blog || x.author)
-        : (isAdmin || !x.adminOnly) && (isSuper || !x.superOnly) && (isAdmin || !x.blog);
-
-  // A menu is judged by its links, not by itself: it has no blog or author
-  // flag of its own, so filtering it first would hide the Blog menu from an
-  // author before its links were ever looked at.
-  const visible = GROUPS.filter((g) =>
-    g.children ? isMd || ((isAdmin || !g.adminOnly) && (isSuper || !g.superOnly)) : allowed(g)
-  )
-    .map((g) => ({ ...g, children: g.children?.filter(allowed) }))
-    .filter((g) => g.href || (g.children && g.children.length > 0));
-
-  const groupIsActive = (g: (typeof visible)[number]) =>
-    g.children?.some((c) => isActive(c.href)) ?? false;
-
-  // Manual toggles are intentionally dropped on navigation, so the menu always
-  // settles back to showing where you actually are rather than wherever you
-  // last went looking.
-  const [toggled, setToggled] = useState<Record<string, boolean>>({});
-  useEffect(() => {
-    setToggled({});
-  }, [path]);
 
   return (
-    <nav className="grid gap-0.5" aria-label="Sections">
-      {visible.map((g) => {
-        const Icon = g.icon;
-
-        if (g.href) {
-          const on = isActive(g.href);
-          return (
-            <Link
-              key={g.label}
-              href={g.href}
-              aria-current={on ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                on
-                  ? "bg-accent font-semibold text-primary"
-                  : "font-medium text-[var(--txt)] hover:bg-[#f4f4f8] hover:text-foreground"
-              )}
-            >
-              <Icon className="size-4 shrink-0" aria-hidden="true" />
-              {g.label}
-            </Link>
-          );
-        }
-
-        const active = groupIsActive(g);
-        const open = toggled[g.label] ?? active;
-
+    <nav className="workspace-nav" aria-label="Main navigation">
+      <span className="nav-caption">Workspace</span>
+      {visible.map((group) => {
+        const Icon = group.icon;
+        const active = group.href === best || !!group.children?.some((child) => child.href === best);
+        if (group.href) return (
+          <Link key={group.label} href={group.href} className={`nav-item${active ? " is-active" : ""}`} aria-current={active ? "page" : undefined}>
+            <Icon size={18} aria-hidden="true" /><span>{group.label}</span>
+          </Link>
+        );
+        const open = expanded === undefined ? active : expanded === group.label;
+        const id = `nav-${group.label.toLowerCase().replace(/[^a-z]+/g, "-")}`;
         return (
-          <div key={g.label}>
-            <button
-              type="button"
-              onClick={() => setToggled((t) => ({ ...t, [g.label]: !open }))}
-              aria-expanded={open}
-              className={cn(
-                "flex w-full cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-3 py-2.5 text-left text-sm transition-colors",
-                active
-                  ? "font-semibold text-foreground"
-                  : "font-medium text-[var(--txt)] hover:bg-[#f4f4f8] hover:text-foreground"
-              )}
-            >
-              <Icon className="size-4 shrink-0" aria-hidden="true" />
-              <span className="flex-1">{g.label}</span>
-              <ChevronDown
-                className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")}
-                aria-hidden="true"
-              />
+          <div key={group.label} className="nav-group">
+            <button type="button" className={`nav-item${active ? " is-active" : ""}`} aria-expanded={open} aria-controls={id} onClick={() => setExpanded(open ? null : group.label)}>
+              <Icon size={18} aria-hidden="true" /><span>{group.label}</span><ChevronDown size={14} className={open ? "is-rotated" : ""} aria-hidden="true" />
             </button>
-
-            {open && (
-              <div className="mt-0.5 grid gap-0.5 pl-3">
-                {g.children!.map((c) => {
-                  const on = isActive(c.href);
-                  return (
-                    <Link
-                      key={c.href}
-                      href={c.href}
-                      aria-current={on ? "page" : undefined}
-                      className={cn(
-                        // The rail makes the indent read as containment rather
-                        // than as an arbitrary gap.
-                        "border-l-[2px] border-solid py-2 pl-4 text-[13px] transition-colors",
-                        on
-                          ? "border-primary font-semibold text-primary"
-                          : "border-[var(--line)] font-medium text-[var(--txt)] hover:border-[#c9c9d4] hover:text-foreground"
-                      )}
-                    >
-                      {c.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+            <div id={id} className="nav-children" hidden={!open}>
+              {group.children!.map((child) => (
+                <Link key={child.href} href={child.href} className={child.href === best ? "is-active" : ""} aria-current={child.href === best ? "page" : undefined}>{child.label}</Link>
+              ))}
+            </div>
           </div>
         );
       })}

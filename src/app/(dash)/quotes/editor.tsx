@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { saveQuoteAction, type QuoteFormState } from "@/app/actions/quotes";
 import { money, readMoney, quoteTotals, type Quote } from "@/lib/types";
+import DocumentCataloguePicker from "@/components/document-catalogue-picker";
 import CurrencyPicker from "./currency-picker";
 
 interface Line {
@@ -35,14 +36,8 @@ function linesFrom(quote: Quote | null): Line[] {
 }
 
 /**
- * Writing a quotation.
- *
- * There is no price list behind this and no figure is filled in for anyone:
- * machinery is quoted per enquiry — capacity, spares, installation, whatever
- * was negotiated — so every number on the page is typed by the person
- * quoting. The totals update as they type, which is the only arithmetic done
- * here; the saved figures are the plugin's own, so what is stored can never
- * disagree with what was added up.
+ * Catalogue breakdowns are copied into editable lines, then tailored to the
+ * enquiry. Totals update locally; the plugin still calculates saved figures.
  */
 export default function QuoteEditor({
   quote = null,
@@ -111,7 +106,7 @@ export default function QuoteEditor({
       {state?.error && <div className="msg err">{state.error}</div>}
       {state?.ok && <div className="msg ok">Saved.</div>}
 
-      <h2>Who it is for</h2>
+      <h2>Customer details</h2>
       <div className="qt-grid">
         <label className="f">
           <span>
@@ -154,12 +149,12 @@ export default function QuoteEditor({
         </label>
       </div>
 
-      <h2 style={{ marginTop: 18 }}>The quotation</h2>
+      <h2 style={{ marginTop: 18 }}>Quotation details</h2>
       <div className="qt-grid">
-        <label className="f">
+        <div className="f-picker">
           <span>Currency</span>
           <CurrencyPicker value={currencyCode} onChange={setCurrencyCode} />
-        </label>
+        </div>
         <label className="f">
           <span>Date</span>
           <input type="date" name="issued_on" defaultValue={quote?.issued_on ?? today} />
@@ -182,12 +177,26 @@ export default function QuoteEditor({
       </div>
 
       <div className="row" style={{ alignItems: "center", margin: "18px 0 8px" }}>
-        <h2 style={{ margin: 0 }}>What you are quoting</h2>
+        <h2 style={{ margin: 0 }}>Line items</h2>
         <div style={{ flex: 1 }} />
-        <button type="button" className="btn ghost sm" onClick={() => setLines((all) => [...all, blank()])}>
+        <button type="button" className="btn ghost sm" disabled={!canEdit || pending} onClick={() => setLines((all) => [...all, blank()])}>
           <Plus className="size-3" /> Add a line
         </button>
       </div>
+      <DocumentCataloguePicker
+        currency={currencyCode}
+        canEdit={canEdit && !pending}
+        onAdd={({ description, qty, price }) => {
+          if (!canEdit || pending) return;
+          const line: Line = { ...blank(), description, qty, unit_price: price };
+          setLines((all) => {
+            const first = all[0];
+            return first && first.description === "" && first.note === "" && first.qty === "1" && first.unit_price === ""
+              ? [line, ...all.slice(1)]
+              : [...all, line];
+          });
+        }}
+      />
 
       <table className="tbl qt-lines">
         <thead>
@@ -208,7 +217,9 @@ export default function QuoteEditor({
                 <td>
                   <textarea
                     name="item_description"
-                    rows={2}
+                    aria-label={`Line ${i + 1} description`}
+                    readOnly={!canEdit}
+                    rows={Math.min(10, Math.max(2, line.description.split("\n").length))}
                     value={line.description}
                     onChange={(e) => set(i, { description: e.target.value })}
                     placeholder="Rice milling machine, complete line — 2 TPH, with destoner and polisher"
@@ -218,6 +229,8 @@ export default function QuoteEditor({
                   <input
                     type="text"
                     name="item_note"
+                    aria-label={`Line ${i + 1} note`}
+                    readOnly={!canEdit}
                     value={line.note}
                     onChange={(e) => set(i, { note: e.target.value })}
                     placeholder="Main unit"
@@ -228,6 +241,8 @@ export default function QuoteEditor({
                     type="text"
                     inputMode="decimal"
                     name="item_qty"
+                    aria-label={`Line ${i + 1} quantity`}
+                    readOnly={!canEdit}
                     value={line.qty}
                     onChange={(e) => set(i, { qty: e.target.value })}
                   />
@@ -237,6 +252,8 @@ export default function QuoteEditor({
                     type="text"
                     inputMode="decimal"
                     name="item_price"
+                    aria-label={`Line ${i + 1} unit price (${currencyCode})`}
+                    readOnly={!canEdit}
                     value={line.unit_price}
                     onChange={(e) => set(i, { unit_price: e.target.value })}
                     placeholder="12,500,000"
@@ -249,7 +266,7 @@ export default function QuoteEditor({
                     className="btn ghost sm"
                     style={{ color: "var(--err)" }}
                     aria-label={`Remove line ${i + 1}`}
-                    disabled={lines.length === 1}
+                    disabled={!canEdit || pending || lines.length === 1}
                     onClick={() => setLines((all) => all.filter((_, n) => n !== i))}
                   >
                     <Trash2 className="size-3" />
@@ -278,10 +295,10 @@ export default function QuoteEditor({
         </div>
       </div>
 
-      <h2 style={{ marginTop: 22 }}>What goes on the paper</h2>
+      <h2 style={{ marginTop: 22 }}>Document content</h2>
       <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
-        These are the words around the figures on the PDF. The machine name is taken from the first
-        line above; everything else is read exactly as written here.
+        Optional content around the pricing table. Catalogue breakdowns are already in the line descriptions
+        above; add only the extra details this quotation needs.
       </p>
       <label className="f">
         <span>Description</span>

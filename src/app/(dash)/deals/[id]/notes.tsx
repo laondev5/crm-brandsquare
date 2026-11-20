@@ -57,12 +57,13 @@ export default function DealNotes({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={3}
-            placeholder="What was agreed, what they asked for, who signs off."
+            placeholder="Add a deal note"
+            aria-label="Deal note"
             style={{ width: "100%" }}
           />
           <div className="row" style={{ marginTop: 8 }}>
             <button type="button" className="btn sm" onClick={add} disabled={busy || !body.trim()}>
-              {busy ? "Saving…" : "Add a note"}
+              {busy ? "Saving…" : "Add note"}
             </button>
           </div>
         </div>
@@ -70,7 +71,7 @@ export default function DealNotes({
 
       {notes.length === 0 ? (
         <p className="empty" style={{ padding: "12px 0", margin: 0 }}>
-          Nothing written about this deal yet.
+          No notes recorded for this deal.
         </p>
       ) : (
         <div style={{ display: "grid", gap: 10 }}>
