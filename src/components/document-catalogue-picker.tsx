@@ -4,13 +4,18 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { loadDocumentCatalogueAction } from "@/app/actions/catalogue";
+import { convertMoney, unitRate } from "@/lib/fx";
+import { useMarketRates, rateDay } from "@/lib/use-market-rates";
+import type { CatalogueBasis } from "@/lib/use-catalogue-pricing";
 import { catalogueDocumentLine, money, type CatalogueItem } from "@/lib/types";
 import {
   Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 
-type CatalogueLine = Pick<ReturnType<typeof catalogueDocumentLine>, "description" | "qty" | "price">;
+type CatalogueLine = Pick<ReturnType<typeof catalogueDocumentLine>, "description" | "qty" | "price"> & {
+  basis?: CatalogueBasis | null;
+};
 
 export default function DocumentCataloguePicker({
   currency,
@@ -29,6 +34,8 @@ export default function DocumentCataloguePicker({
   const [omittedPrice, setOmittedPrice] = useState(false);
   const search = useRef<HTMLInputElement>(null);
   const id = useId();
+  const fx = useMarketRates();
+  const day = rateDay(fx.updated);
 
   useEffect(() => {
     if (!open || !canEdit) return;
@@ -52,19 +59,50 @@ export default function DocumentCataloguePicker({
     });
   }, [items, query]);
 
+  /** The catalogue's price in the document's currency, or null when the market
+   *  table cannot price it (yet). */
+  function priceIn(item: CatalogueItem): number | null {
+    const source = (item.currency || "").trim().toUpperCase();
+    const target = (currency || "").trim().toUpperCase();
+    if (!source || source === target) return Number.isFinite(item.price) ? item.price : null;
+    if (!Number.isFinite(item.price)) return null;
+    return convertMoney(item.price, source, target, fx.rates);
+  }
+
+  /** The sentence under a machine: what its price will be on this document. */
+  function noteFor(item: CatalogueItem, line: ReturnType<typeof catalogueDocumentLine>): string {
+    const source = (item.currency || "").trim().toUpperCase();
+    const target = (currency || "").trim().toUpperCase();
+
+    if (line.currencyMatches) {
+      return line.price === "" ? "No valid catalogue price; enter the amount." : `Price copied in ${currency}.`;
+    }
+    if (line.price === "") {
+      return fx.loading
+        ? "Fetching today's market rate…"
+        : `No market rate for ${source || "that currency"} → ${target}; enter the amount.`;
+    }
+
+    const rate = unitRate(source, target, fx.rates);
+    const at = rate === null
+      ? ""
+      : ` at 1 ${source} = ${rate.toLocaleString("en-NG", { maximumFractionDigits: 4 })} ${target}`;
+    return `${money(Number(line.price), currency)}${at}${day ? ` · ${day}` : ""}`;
+  }
+
   function add(item: CatalogueItem) {
     if (!canEdit) return;
-    const line = catalogueDocumentLine(item, currency);
-    onAdd({ description: line.description, qty: line.qty, price: line.price });
-    const priceNote = !line.currencyMatches
-      ? `Catalogue currency ${item.currency || "not specified"} differs from ${currency}. Price left blank; no conversion performed.`
-      : line.price === ""
-        ? "No valid catalogue price; price left blank."
-        : `Price copied in ${currency}.`;
+    const line = catalogueDocumentLine(item, currency, priceIn(item));
+    const basis: CatalogueBasis | null = item.currency && Number.isFinite(item.price)
+      ? { price: item.price, currency: item.currency.trim().toUpperCase() }
+      : null;
+
+    onAdd({ description: line.description, qty: line.qty, price: line.price, basis });
+
     if (line.price === "") setOmittedPrice(true);
     setNotice((previous) => ({
       count: previous.count + 1,
-      text: `Added ${item.name}${item.model ? ` (${item.model})` : ""}. ${priceNote}`,
+      text: `Added ${item.name}${item.model ? ` (${item.model})` : ""}. ${noteFor(item, line)}`,
     }));
   }
 
@@ -75,8 +113,8 @@ export default function DocumentCataloguePicker({
       </p>
       {omittedPrice && (
         <p role="alert" className="msg err" style={{ margin: "8px 0" }}>
-          Some catalogue prices were left blank because the currency differed or the price was unavailable.
-          Enter amounts in the document currency for those lines before saving. No currency conversion is performed.
+          Some catalogue prices were left blank because no market rate was available.
+          Enter amounts in the document currency for those lines before saving.
         </p>
       )}
     </>
@@ -89,8 +127,7 @@ export default function DocumentCataloguePicker({
         <Link href="/catalogue" target="_blank" rel="noopener noreferrer" className="underline">
           catalogue (opens in a new tab)
         </Link>.
-        {" "}Add a copy here and edit it for this customer. Save the quote, raise its proforma invoice,
-        then create a receipt from that invoice to reuse the line items without retyping.
+        {" "}A machine is copied in with its price already in {currency}, converted at today&apos;s market rate.
       </p>
       <Dialog open={open && canEdit} onOpenChange={(next) => {
         if (next && !canEdit) return;
@@ -110,7 +147,7 @@ export default function DocumentCataloguePicker({
             <DialogTitle>Add from catalogue</DialogTitle>
             <DialogDescription>
               Copy the machine name, model, description and full specifications into an editable line,
-              with quantity 1. Prices are copied only when they match the document currency ({currency}).
+              with quantity 1. The price is converted to {currency} at today&apos;s market rate.
               You can add the same machine more than once.
             </DialogDescription>
           </DialogHeader>
@@ -146,7 +183,7 @@ export default function DocumentCataloguePicker({
             {items && shown.length > 0 && (
               <ul aria-label="Catalogue machines" style={{ listStyle: "none", margin: 0, padding: 0, maxHeight: "40vh", overflowY: "auto" }}>
                 {shown.map((item) => {
-                  const line = catalogueDocumentLine(item, currency);
+                  const line = catalogueDocumentLine(item, currency, priceIn(item));
                   const priceId = `${id}-price-${item.id}`;
                   return (
                     <li key={item.id} style={{ borderBottom: "1px solid var(--line)", padding: "12px 0" }}>
@@ -167,11 +204,9 @@ export default function DocumentCataloguePicker({
                           <Plus className="size-3" aria-hidden="true" /> Add
                         </button>
                       </div>
-                      <p id={priceId} style={{ fontSize: 12.5, margin: "6px 0 0", color: line.currencyMatches ? "var(--muted)" : "var(--err)" }}>
-                        Catalogue price: {Number.isFinite(item.price) && item.currency ? money(item.price, item.currency, false) : "Unavailable"}.
-                        {!line.currencyMatches
-                          ? ` Currency differs from ${currency}: price will be left blank. Enter it manually; no conversion.`
-                          : line.price === "" ? " Price will be left blank; enter it manually." : " Price will be copied."}
+                      <p id={priceId} style={{ fontSize: 12.5, margin: "6px 0 0", color: line.price === "" ? "var(--err)" : "var(--muted)" }}>
+                        Catalogue price: {Number.isFinite(item.price) && item.currency ? money(item.price, item.currency) : "Unavailable"}.
+                        {" "}{noteFor(item, line)}
                       </p>
                     </li>
                   );
@@ -189,8 +224,8 @@ export default function DocumentCataloguePicker({
       </Dialog>
       {!open && feedback}
       <p style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 0" }}>
-        Catalogue prices are starting points. Review them before saving. Changing the document currency
-        does not convert existing line amounts.
+        Catalogue prices are starting points converted at the market rate. Review them before saving;
+        a hand-typed amount is never changed by a later rate.
       </p>
     </div>
   );

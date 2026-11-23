@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { listQuotes } from "@/lib/queries";
 import { isAdminRole, money, QUOTE_STATUSES, type QuoteStatus } from "@/lib/types";
+import TablePager, { PAGE_SIZE, pageHref, pageOf } from "@/components/table-pager";
 
 /**
  * Every quotation the business has written.
@@ -13,15 +15,27 @@ import { isAdminRole, money, QUOTE_STATUSES, type QuoteStatus } from "@/lib/type
 export default async function QuotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; mine?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; mine?: string; page?: string }>;
 }) {
   const me = await requireMember();
   const sp = await searchParams;
   const status = (QUOTE_STATUSES.find((s) => s.key === sp.status)?.key ?? "") as QuoteStatus | "";
   const mine = sp.mine === "1";
 
-  const data = await listQuotes(me, { status: status || undefined, q: sp.q, mine }).catch(() => null);
+  const requested = Math.max(1, Number(sp.page) || 1);
+  const filters = { status: status || undefined, q: sp.q, mine: mine ? "1" : undefined };
+
+  const data = await listQuotes(me, { status: status || undefined, q: sp.q, mine }, {
+    limit: PAGE_SIZE,
+    offset: (requested - 1) * PAGE_SIZE,
+  }).catch(() => null);
   const canWrite = isAdminRole(me.role) || me.role === "subadmin";
+
+  const view = pageOf(data?.quotes ?? [], data?.total, requested);
+  // A hand-edited page past the end is sent to the last page it can show.
+  if (data?.total !== undefined && requested !== view.page) {
+    redirect(pageHref("/quotes", filters, view.page));
+  }
 
   const tab = (key: string, label: string, count?: number) => {
     const params = new URLSearchParams();
@@ -83,7 +97,8 @@ export default async function QuotesPage({
                 : "No quotations yet. Write one from a lead, from a WhatsApp chat, or with the button above."}
             </p>
           ) : (
-            <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+            <div className="card" style={{ padding: 0 }}>
+              <div style={{ overflowX: "auto" }}>
               <table className="tbl">
                 <thead>
                   <tr>
@@ -97,7 +112,7 @@ export default async function QuotesPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {data.quotes.map((quote) => (
+                  {view.rows.map((quote) => (
                     <tr key={quote.id}>
                       <td>
                         <Link href={`/quotes/${quote.id}`} style={{ fontWeight: 600 }}>
@@ -126,6 +141,15 @@ export default async function QuotesPage({
                   ))}
                 </tbody>
               </table>
+              </div>
+              <TablePager
+                page={view.page}
+                pageCount={view.pageCount}
+                total={view.total}
+                basePath="/quotes"
+                params={filters}
+                label="Quotation"
+              />
             </div>
           )}
         </>

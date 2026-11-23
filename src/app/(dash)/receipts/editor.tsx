@@ -4,8 +4,10 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { saveReceiptAction, type ReceiptFormState } from "@/app/actions/receipts";
+import { useCataloguePricing, type CatalogueBasis } from "@/lib/use-catalogue-pricing";
 import { money, readMoney, type DocSettings, type Receipt } from "@/lib/types";
 import DocumentCataloguePicker from "@/components/document-catalogue-picker";
+import { DocumentForm, DocumentSection } from "@/components/document-form";
 import CurrencyPicker from "../quotes/currency-picker";
 
 interface Line {
@@ -13,6 +15,9 @@ interface Line {
   description: string;
   qty: string;
   line_total: string;
+  /** Set on lines copied from the catalogue, so a currency change can re-price
+   *  them from the catalogue's own figure instead of from a converted one. */
+  basis?: CatalogueBasis | null;
 }
 
 const blank = (): Line => ({
@@ -20,6 +25,7 @@ const blank = (): Line => ({
   description: "",
   qty: "1",
   line_total: "",
+  basis: null,
 });
 
 function linesFrom(receipt: Receipt | null): Line[] {
@@ -31,6 +37,13 @@ function linesFrom(receipt: Receipt | null): Line[] {
     line_total: String(item.line_total),
   }));
 }
+
+const SECTIONS = [
+  { id: "rcpt-who", label: "Who paid" },
+  { id: "rcpt-payment", label: "Payment" },
+  { id: "rcpt-lines", label: "What it covers" },
+  { id: "rcpt-words", label: "Words" },
+];
 
 /**
  * A receipt: what actually arrived.
@@ -72,6 +85,7 @@ export default function ReceiptEditor({
           description: item.description,
           qty: String(item.qty),
           line_total: String(item.line_total),
+          basis: null,
         }))
       : linesFrom(receipt)
   );
@@ -84,6 +98,15 @@ export default function ReceiptEditor({
   const [orderTotal, setOrderTotal] = useState(
     receipt ? String(receipt.order_total) : prefill?.order_total ? String(prefill.order_total) : ""
   );
+
+  // Catalogue prices are re-priced when the currency changes; typed amounts
+  // and saved lines are left alone.
+  const pricing = useCataloguePricing<Line>({
+    setLines,
+    currency: currencyCode,
+    setCurrency: setCurrencyCode,
+    amount: "line_total",
+  });
 
   // The amount that arrived is the fact and the percentage is only its
   // description, so the share follows the two figures instead of being typed
@@ -109,13 +132,72 @@ export default function ReceiptEditor({
     [lines]
   );
 
+  const received = readMoney(amount);
+  const total = readMoney(orderTotal);
+  const balance = Math.max(0, Math.round((total - received) * 100) / 100);
+  const overpaid = total > 0 && received > total + 0.005;
+  const percent = total > 0 ? Math.min(100, Math.max(0, Math.round((received / total) * 100))) : 0;
+
   const set = (i: number, patch: Partial<Line>) =>
     setLines((all) => all.map((l, n) => (n === i ? { ...l, ...patch } : l)));
 
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <form action={action} className="card qt-form">
+    <DocumentForm
+      action={action}
+      title="Payment receipt"
+      number={receipt?.receipt_no || "New receipt"}
+      meta={[
+        `${currencyCode} · ${receipt?.receipt_date ?? today}`,
+        receipt?.invoice_no ? `Against ${receipt.invoice_no}` : "",
+      ].filter(Boolean)}
+      sections={SECTIONS}
+      summaryTitle="On this receipt"
+      summary={
+        <>
+          <div className="doc-form__row">
+            <span>Amount received</span>
+            <b>{money(received, currencyCode)}</b>
+          </div>
+          <div className="doc-form__row">
+            <span>Order total</span>
+            <b>{money(total, currencyCode)}</b>
+          </div>
+          <div className="doc-form__bar" aria-hidden="true">
+            <i style={{ width: `${percent}%` }} />
+          </div>
+          <div className="doc-form__row">
+            <span>Share of the order</span>
+            <b>{share ? `${share}%` : "—"}</b>
+          </div>
+          <div className="doc-form__row doc-form__grand">
+            <span>Balance</span>
+            <b>{money(balance, currencyCode)}</b>
+          </div>
+          {overpaid && (
+            <p className="doc-form__warn" role="alert">
+              The amount received is more than the order total. Check both figures.
+            </p>
+          )}
+          <input type="hidden" name="share_percent" value={share} />
+          <p className="doc-form__hint">
+            A receipt confirms money that arrived. It does not change the invoice until it is saved.
+          </p>
+        </>
+      }
+      save={
+        canEdit ? (
+          <button className="btn doc-form__save" disabled={pending}>
+            {pending ? "Saving…" : receipt ? "Save changes" : "Save receipt"}
+          </button>
+        ) : (
+          <p className="doc-form__hint" style={{ marginTop: 14 }}>
+            You can read receipts but not write them.
+          </p>
+        )
+      }
+    >
       <input type="hidden" name="id" value={receipt?.id ?? ""} />
       <input type="hidden" name="invoice_id" value={receipt?.invoice_id ?? prefill?.invoice_id ?? ""} />
       <input type="hidden" name="org_id" value={receipt?.org_id ?? prefill?.org_id ?? ""} />
@@ -124,254 +206,239 @@ export default function ReceiptEditor({
       {state?.error && <div className="msg err">{state.error}</div>}
       {state?.ok && <div className="msg ok">Saved.</div>}
 
-      <h2>Customer details</h2>
-      <div className="qt-grid">
-        <label className="f">
-          <span>
-            Customer name <b style={{ color: "var(--p)" }}>*</b>
-          </span>
-          <input
-            type="text"
-            name="customer_name"
-            required
-            defaultValue={receipt?.customer_name ?? prefill?.customer_name ?? ""}
-            placeholder="Abubakar Suleiman"
-          />
-        </label>
-        <label className="f">
-          <span>Company</span>
-          <input
-            type="text"
-            name="customer_company"
-            defaultValue={receipt?.customer_company ?? prefill?.customer_company ?? ""}
-            placeholder="Kano Agro Ltd"
-          />
-        </label>
-        <label className="f">
-          <span>Phone</span>
-          <input
-            type="text"
-            name="customer_phone"
-            defaultValue={receipt?.customer_phone ?? prefill?.customer_phone ?? ""}
-          />
-        </label>
-        <label className="f">
-          <span>Email</span>
-          <input
-            type="text"
-            name="customer_email"
-            defaultValue={receipt?.customer_email ?? prefill?.customer_email ?? ""}
-          />
-        </label>
-      </div>
-
-      <h2 style={{ marginTop: 18 }}>Payment details</h2>
-      <div className="qt-grid">
-        <label className="f">
-          <span>Receipt number</span>
-          <input
-            type="text"
-            name="receipt_no"
-            defaultValue={receipt?.receipt_no ?? ""}
-            placeholder="Leave blank for the next number"
-          />
-        </label>
-        <div className="f-picker">
-          <span>Currency</span>
-          <CurrencyPicker value={currencyCode} onChange={setCurrencyCode} />
+      <DocumentSection id="rcpt-who" step={1} title="Who paid">
+        <div className="qt-grid">
+          <label className="f">
+            <span>Customer name <b style={{ color: "var(--p)" }}>*</b></span>
+            <input
+              type="text"
+              name="customer_name"
+              required
+              defaultValue={receipt?.customer_name ?? prefill?.customer_name ?? ""}
+              placeholder="Abubakar Suleiman"
+            />
+          </label>
+          <label className="f">
+            <span>Company</span>
+            <input
+              type="text"
+              name="customer_company"
+              defaultValue={receipt?.customer_company ?? prefill?.customer_company ?? ""}
+              placeholder="Kano Agro Ltd"
+            />
+          </label>
+          <label className="f">
+            <span>Phone</span>
+            <input
+              type="text"
+              name="customer_phone"
+              defaultValue={receipt?.customer_phone ?? prefill?.customer_phone ?? ""}
+              placeholder="0803 000 0000"
+            />
+          </label>
+          <label className="f">
+            <span>Email</span>
+            <input
+              type="text"
+              name="customer_email"
+              defaultValue={receipt?.customer_email ?? prefill?.customer_email ?? ""}
+              placeholder="customer@example.com"
+            />
+          </label>
         </div>
-        <label className="f">
-          <span>Receipt date</span>
-          <input type="date" name="receipt_date" defaultValue={receipt?.receipt_date ?? today} />
-        </label>
-        <label className="f">
-          <span>Payment date</span>
-          <input type="date" name="payment_date" defaultValue={receipt?.payment_date ?? today} />
-        </label>
-        <label className="f">
-          <span>
-            Amount received <b style={{ color: "var(--p)" }}>*</b>
-          </span>
-          <input
-            type="text"
-            inputMode="decimal"
-            name="amount_received"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="5,000,000"
-          />
-        </label>
-        <label className="f">
-          <span>Share of the order</span>
-          <input
-            type="text"
-            value={share ? `${share}%` : "—"}
-            readOnly
-            tabIndex={-1}
-            aria-live="polite"
-            style={{ background: "var(--band, #f0f2f6)" }}
-          />
-          <input type="hidden" name="share_percent" value={share} />
-        </label>
-        <label className="f">
-          <span>
-            Order total <b style={{ color: "var(--p)" }}>*</b>
-          </span>
-          <input
-            type="text"
-            inputMode="decimal"
-            name="order_total"
-            required
-            value={orderTotal}
-            onChange={(e) => setOrderTotal(e.target.value)}
-            placeholder="12,500,000"
-          />
-        </label>
-        <label className="f">
-          <span>Payment method</span>
-          <input
-            type="text"
-            name="payment_method"
-            defaultValue={receipt?.payment_method ?? ""}
-            placeholder="Bank transfer"
-          />
-        </label>
-        <label className="f">
-          <span>Reference</span>
-          <input
-            type="text"
-            name="payment_reference"
-            defaultValue={receipt?.payment_reference ?? ""}
-            placeholder="Transfer reference or cheque number"
-          />
-        </label>
-      </div>
+      </DocumentSection>
 
-      <div className="row" style={{ alignItems: "center", margin: "18px 0 8px" }}>
-        <h2 style={{ margin: 0 }}>Line items</h2>
-        <div style={{ flex: 1 }} />
-        <button type="button" className="btn ghost sm" disabled={!canEdit || pending} onClick={() => setLines((all) => [...all, blank()])}>
-          <Plus className="size-3" /> Add a line
-        </button>
-      </div>
-      <DocumentCataloguePicker
-        currency={currencyCode}
-        canEdit={canEdit && !pending}
-        onAdd={({ description, qty, price }) => {
-          if (!canEdit || pending) return;
-          const line: Line = { ...blank(), description, qty, line_total: price };
-          setLines((all) => {
-            const first = all[0];
-            return first && first.description === "" && first.qty === "1" && first.line_total === ""
-              ? [line, ...all.slice(1)]
-              : [...all, line];
-          });
-        }}
-      />
-      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 8px" }}>
-        Review line amounts against the agreed order value. A catalogue price is not proof of payment;
-        adding a machine does not change Amount received or Order total.
-      </p>
-      <table className="tbl qt-lines">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th style={{ width: 90 }}>Qty</th>
-            <th style={{ width: 150, textAlign: "right" }}>Amount</th>
-            <th style={{ width: 40 }} />
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((line, i) => (
-            <tr key={line.key}>
-              <td>
-                <textarea
-                  name="item_description"
-                  aria-label={`Line ${i + 1} description`}
-                  readOnly={!canEdit}
-                  rows={Math.min(10, Math.max(2, line.description.split("\n").length))}
-                  value={line.description}
-                  onChange={(e) => set(i, { description: e.target.value })}
-                  placeholder="GD-60B flour mill — deposit"
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  name="item_qty"
-                  aria-label={`Line ${i + 1} quantity`}
-                  readOnly={!canEdit}
-                  value={line.qty}
-                  onChange={(e) => set(i, { qty: e.target.value })}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  name="item_amount"
-                  aria-label={`Line ${i + 1} amount (${currencyCode})`}
-                  readOnly={!canEdit}
-                  value={line.line_total}
-                  onChange={(e) => set(i, { line_total: e.target.value })}
-                />
-              </td>
-              <td>
-                <button
-                  type="button"
-                  className="btn ghost sm"
-                  style={{ color: "var(--err)" }}
-                  aria-label={`Remove line ${i + 1}`}
-                  disabled={!canEdit || pending || lines.length === 1}
-                  onClick={() => setLines((all) => all.filter((_, n) => n !== i))}
-                >
-                  <Trash2 className="size-3" />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="row" style={{ marginTop: 8 }}>
-        <div style={{ flex: 1 }} />
-        <strong style={{ fontSize: 13.5 }}>Lines total {money(itemsTotal, currencyCode)}</strong>
-      </div>
+      <DocumentSection id="rcpt-payment" step={2} title="Payment">
+        <div className="qt-grid">
+          <label className="f">
+            <span>Receipt number</span>
+            <input
+              type="text"
+              name="receipt_no"
+              defaultValue={receipt?.receipt_no ?? ""}
+              placeholder="Leave blank for the next number"
+            />
+          </label>
+          <div className="f-picker">
+            <span>Currency</span>
+            <CurrencyPicker value={currencyCode} onChange={pricing.onCurrencyChange} />
+          </div>
+          <label className="f">
+            <span>Receipt date</span>
+            <input type="date" name="receipt_date" defaultValue={receipt?.receipt_date ?? today} />
+          </label>
+          <label className="f">
+            <span>Payment date</span>
+            <input type="date" name="payment_date" defaultValue={receipt?.payment_date ?? today} />
+          </label>
+          <label className="f">
+            <span>Amount received <b style={{ color: "var(--p)" }}>*</b></span>
+            <input
+              type="text"
+              inputMode="decimal"
+              name="amount_received"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="5,000,000"
+            />
+          </label>
+          <label className="f">
+            <span>Order total <b style={{ color: "var(--p)" }}>*</b></span>
+            <input
+              type="text"
+              inputMode="decimal"
+              name="order_total"
+              required
+              value={orderTotal}
+              onChange={(e) => setOrderTotal(e.target.value)}
+              placeholder="12,500,000"
+            />
+          </label>
+          <label className="f">
+            <span>Payment method</span>
+            <input
+              type="text"
+              name="payment_method"
+              defaultValue={receipt?.payment_method ?? ""}
+              placeholder="Bank transfer"
+            />
+          </label>
+          <label className="f">
+            <span>Reference</span>
+            <input
+              type="text"
+              name="payment_reference"
+              defaultValue={receipt?.payment_reference ?? ""}
+              placeholder="Transfer reference or cheque number"
+            />
+          </label>
+        </div>
+        <p className="doc-form__hint">
+          The share of the order is worked out from these two figures — it is not typed on its own.
+        </p>
+      </DocumentSection>
 
-      <h2 style={{ marginTop: 20 }}>Document content</h2>
-      <label className="f">
-        <span>Summary</span>
-        <textarea
-          name="summary"
-          rows={2}
-          defaultValue={receipt?.summary ?? prefill?.summary ?? ""}
-          placeholder="Part payment towards the GD-60B flour mill."
-        />
-      </label>
-      <label className="f">
-        <span>Terms</span>
-        <textarea
-          name="terms"
-          rows={3}
-          defaultValue={receipt?.terms ?? defaults?.receipt_terms ?? ""}
-        />
-      </label>
-      <label className="f">
-        <span>Notes</span>
-        <textarea name="notes" rows={2} defaultValue={receipt?.notes ?? ""} />
-      </label>
-
-      {canEdit ? (
-        <div className="row" style={{ gap: 10, marginTop: 16 }}>
-          <button className="btn" disabled={pending}>
-            {pending ? "Saving…" : receipt ? "Save changes" : "Save receipt"}
+      <DocumentSection id="rcpt-lines" step={3} title="What it covers">
+        <div className="row" style={{ alignItems: "center", margin: "0 0 6px" }}>
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            className="btn ghost sm"
+            disabled={!canEdit || pending}
+            onClick={() => setLines((all) => [...all, blank()])}
+          >
+            <Plus className="size-3" /> Add a line
           </button>
         </div>
-      ) : (
-        <p className="empty" style={{ marginTop: 16 }}>
-          You can read receipts but not write them.
-        </p>
-      )}
-    </form>
+        <DocumentCataloguePicker
+          currency={currencyCode}
+          canEdit={canEdit && !pending}
+          onAdd={({ description, qty, price, basis }) => {
+            if (!canEdit || pending) return;
+            const line: Line = { ...blank(), description, qty, line_total: price, basis: basis ?? null };
+            setLines((all) => {
+              const first = all[0];
+              return first && first.description === "" && first.qty === "1" && first.line_total === ""
+                ? [line, ...all.slice(1)]
+                : [...all, line];
+            });
+          }}
+        />
+        {pricing.convertedTo && (
+          <p className="doc-converted" role="status">
+            Catalogue prices converted to {pricing.convertedTo} at today&apos;s market rate. Check the amounts before saving.
+          </p>
+        )}
+        <table className="tbl qt-lines">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th style={{ width: 90 }}>Qty</th>
+              <th style={{ width: 150, textAlign: "right" }}>Amount</th>
+              <th style={{ width: 40 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((line, i) => (
+              <tr key={line.key}>
+                <td>
+                  <textarea
+                    name="item_description"
+                    aria-label={`Line ${i + 1} description`}
+                    readOnly={!canEdit}
+                    rows={Math.min(10, Math.max(2, line.description.split("\n").length))}
+                    value={line.description}
+                    onChange={(e) => set(i, { description: e.target.value })}
+                    placeholder="GD-60B flour mill — deposit"
+                  />
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    name="item_qty"
+                    aria-label={`Line ${i + 1} quantity`}
+                    readOnly={!canEdit}
+                    value={line.qty}
+                    onChange={(e) => set(i, { qty: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    name="item_amount"
+                    aria-label={`Line ${i + 1} amount (${currencyCode})`}
+                    readOnly={!canEdit}
+                    value={line.line_total}
+                    onChange={(e) => set(i, { line_total: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    style={{ color: "var(--err)" }}
+                    aria-label={`Remove line ${i + 1}`}
+                    disabled={!canEdit || pending || lines.length === 1}
+                    onClick={() => setLines((all) => all.filter((_, n) => n !== i))}
+                  >
+                    <Trash2 className="size-3" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="row" style={{ margin: "10px 0 12px" }}>
+          <div style={{ flex: 1 }} />
+          <strong style={{ fontSize: 13.5 }}>Lines total {money(itemsTotal, currencyCode)}</strong>
+        </div>
+      </DocumentSection>
+
+      <DocumentSection id="rcpt-words" step={4} title="Words on the receipt">
+        <label className="f">
+          <span>Summary</span>
+          <textarea
+            name="summary"
+            rows={2}
+            defaultValue={receipt?.summary ?? prefill?.summary ?? ""}
+            placeholder="Part payment towards the GD-60B flour mill."
+          />
+        </label>
+        <label className="f">
+          <span>Terms</span>
+          <textarea
+            name="terms"
+            rows={3}
+            defaultValue={receipt?.terms ?? defaults?.receipt_terms ?? ""}
+          />
+        </label>
+        <label className="f">
+          <span>Notes</span>
+          <textarea name="notes" rows={2} defaultValue={receipt?.notes ?? ""} />
+        </label>
+      </DocumentSection>
+    </DocumentForm>
   );
 }

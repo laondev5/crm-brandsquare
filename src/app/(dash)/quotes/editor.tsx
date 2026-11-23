@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { saveQuoteAction, type QuoteFormState } from "@/app/actions/quotes";
 import { money, readMoney, quoteTotals, type Quote } from "@/lib/types";
+import { useCataloguePricing, type CatalogueBasis } from "@/lib/use-catalogue-pricing";
 import DocumentCataloguePicker from "@/components/document-catalogue-picker";
+import { DocumentForm, DocumentSection } from "@/components/document-form";
 import CurrencyPicker from "./currency-picker";
 
 interface Line {
@@ -14,6 +16,9 @@ interface Line {
   note: string;
   qty: string;
   unit_price: string;
+  /** Set on lines copied from the catalogue, so a currency change can re-price
+   *  them from the catalogue's own figure instead of from a converted one. */
+  basis?: CatalogueBasis | null;
 }
 
 const blank = (): Line => ({
@@ -22,6 +27,7 @@ const blank = (): Line => ({
   note: "",
   qty: "1",
   unit_price: "",
+  basis: null,
 });
 
 function linesFrom(quote: Quote | null): Line[] {
@@ -34,6 +40,13 @@ function linesFrom(quote: Quote | null): Line[] {
     unit_price: String(item.unit_price),
   }));
 }
+
+const SECTIONS = [
+  { id: "qt-customer", label: "Customer" },
+  { id: "qt-details", label: "Details" },
+  { id: "qt-lines", label: "Line items" },
+  { id: "qt-content", label: "Content" },
+];
 
 /**
  * Catalogue breakdowns are copied into editable lines, then tailored to the
@@ -67,6 +80,15 @@ export default function QuoteEditor({
   const [tax, setTax] = useState(String(quote ? quote.tax_percent : 7.5));
   const [currencyCode, setCurrencyCode] = useState(quote?.currency ?? "NGN");
 
+  // A currency change re-prices the lines that came from the catalogue; typed
+  // amounts and saved lines are left alone.
+  const pricing = useCataloguePricing<Line>({
+    setLines,
+    currency: currencyCode,
+    setCurrency: setCurrencyCode,
+    amount: "unit_price",
+  });
+
   // A new quotation lands on its own page once it has an id to live at --
   // unless the caller asked to be told instead, which is how the chat keeps
   // the rep in the conversation they are quoting for.
@@ -93,7 +115,56 @@ export default function QuoteEditor({
   const inTwoWeeks = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
 
   return (
-    <form action={action} className="card qt-form">
+    <DocumentForm
+      action={action}
+      title="Quotation"
+      number={quote?.ref || "New quotation"}
+      meta={[
+        `${currencyCode} · ${quote?.issued_on ?? today}`,
+        quote?.valid_until ? `Valid until ${quote.valid_until}` : "",
+      ].filter(Boolean)}
+      sections={SECTIONS}
+      summaryTitle="What it comes to"
+      summary={
+        <>
+          <div className="doc-form__row">
+            <span>Subtotal</span>
+            <b>{money(totals.subtotal, currencyCode)}</b>
+          </div>
+          {readMoney(tax) > 0 && (
+            <div className="doc-form__row">
+              <span>VAT {readMoney(tax)}%</span>
+              <b>{money(totals.tax_amount, currencyCode)}</b>
+            </div>
+          )}
+          <div className="doc-form__row doc-form__grand">
+            <span>Total</span>
+            <b>{money(totals.total, currencyCode)}</b>
+          </div>
+          <p className="doc-form__hint">
+            Figures update as you type; the plugin calculates what is saved.
+          </p>
+        </>
+      }
+      save={
+        canEdit ? (
+          <>
+            <button className="btn doc-form__save" disabled={pending}>
+              {pending ? "Saving…" : quote ? "Save changes" : "Save quotation"}
+            </button>
+            {quote && (
+              <p className="doc-form__hint">
+                Saving again after it has gone out changes the record, not the copy the customer has.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="doc-form__hint" style={{ marginTop: 14 }}>
+            You can read quotations but not write them.
+          </p>
+        )
+      }
+    >
       <input type="hidden" name="id" value={quote?.id ?? ""} />
       <input type="hidden" name="lead_id" value={quote?.lead_id ?? prefill?.lead_id ?? ""} />
       <input
@@ -106,262 +177,240 @@ export default function QuoteEditor({
       {state?.error && <div className="msg err">{state.error}</div>}
       {state?.ok && <div className="msg ok">Saved.</div>}
 
-      <h2>Customer details</h2>
-      <div className="qt-grid">
-        <label className="f">
-          <span>
-            Customer name <b style={{ color: "var(--p)" }}>*</b>
-          </span>
-          <input
-            type="text"
-            name="customer_name"
-            required
-            defaultValue={quote?.customer_name ?? prefill?.name ?? ""}
-            placeholder="Abubakar Suleiman"
-          />
-        </label>
-        <label className="f">
-          <span>Company</span>
-          <input
-            type="text"
-            name="customer_company"
-            defaultValue={quote?.customer_company ?? prefill?.company ?? ""}
-            placeholder="Kano Agro Ltd"
-          />
-        </label>
-        <label className="f">
-          <span>Phone</span>
-          <input
-            type="text"
-            name="customer_phone"
-            defaultValue={quote?.customer_phone ?? prefill?.phone ?? ""}
-            placeholder="+234 801 234 5678"
-          />
-        </label>
-        <label className="f">
-          <span>Email</span>
-          <input
-            type="text"
-            name="customer_email"
-            defaultValue={quote?.customer_email ?? prefill?.email ?? ""}
-            placeholder="name@company.com"
-          />
-        </label>
-      </div>
-
-      <h2 style={{ marginTop: 18 }}>Quotation details</h2>
-      <div className="qt-grid">
-        <div className="f-picker">
-          <span>Currency</span>
-          <CurrencyPicker value={currencyCode} onChange={setCurrencyCode} />
+      <DocumentSection id="qt-customer" step={1} title="Customer">
+        <div className="qt-grid">
+          <label className="f">
+            <span>Customer name <b style={{ color: "var(--p)" }}>*</b></span>
+            <input
+              type="text"
+              name="customer_name"
+              required
+              defaultValue={quote?.customer_name ?? prefill?.name ?? ""}
+              placeholder="Abubakar Suleiman"
+            />
+          </label>
+          <label className="f">
+            <span>Company</span>
+            <input
+              type="text"
+              name="customer_company"
+              defaultValue={quote?.customer_company ?? prefill?.company ?? ""}
+              placeholder="Kano Agro Ltd"
+            />
+          </label>
+          <label className="f">
+            <span>Phone</span>
+            <input
+              type="text"
+              name="customer_phone"
+              defaultValue={quote?.customer_phone ?? prefill?.phone ?? ""}
+              placeholder="+234 801 234 5678"
+            />
+          </label>
+          <label className="f">
+            <span>Email</span>
+            <input
+              type="text"
+              name="customer_email"
+              defaultValue={quote?.customer_email ?? prefill?.email ?? ""}
+              placeholder="name@company.com"
+            />
+          </label>
         </div>
-        <label className="f">
-          <span>Date</span>
-          <input type="date" name="issued_on" defaultValue={quote?.issued_on ?? today} />
-        </label>
-        <label className="f">
-          <span>Valid until</span>
-          <input type="date" name="valid_until" defaultValue={quote?.valid_until ?? inTwoWeeks} />
-        </label>
-        <label className="f">
-          <span>VAT %</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            name="tax_percent"
-            value={tax}
-            onChange={(e) => setTax(e.target.value)}
-            placeholder="7.5"
-          />
-        </label>
-      </div>
+      </DocumentSection>
 
-      <div className="row" style={{ alignItems: "center", margin: "18px 0 8px" }}>
-        <h2 style={{ margin: 0 }}>Line items</h2>
-        <div style={{ flex: 1 }} />
-        <button type="button" className="btn ghost sm" disabled={!canEdit || pending} onClick={() => setLines((all) => [...all, blank()])}>
-          <Plus className="size-3" /> Add a line
-        </button>
-      </div>
-      <DocumentCataloguePicker
-        currency={currencyCode}
-        canEdit={canEdit && !pending}
-        onAdd={({ description, qty, price }) => {
-          if (!canEdit || pending) return;
-          const line: Line = { ...blank(), description, qty, unit_price: price };
-          setLines((all) => {
-            const first = all[0];
-            return first && first.description === "" && first.note === "" && first.qty === "1" && first.unit_price === ""
-              ? [line, ...all.slice(1)]
-              : [...all, line];
-          });
-        }}
-      />
-
-      <table className="tbl qt-lines">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th style={{ width: 130 }}>Note</th>
-            <th style={{ width: 90 }}>Qty</th>
-            <th style={{ width: 150 }}>Unit price</th>
-            <th style={{ width: 140, textAlign: "right" }}>Amount</th>
-            <th style={{ width: 40 }} />
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((line, i) => {
-            const amount = (readMoney(line.qty) || 0) * readMoney(line.unit_price);
-            return (
-              <tr key={line.key}>
-                <td>
-                  <textarea
-                    name="item_description"
-                    aria-label={`Line ${i + 1} description`}
-                    readOnly={!canEdit}
-                    rows={Math.min(10, Math.max(2, line.description.split("\n").length))}
-                    value={line.description}
-                    onChange={(e) => set(i, { description: e.target.value })}
-                    placeholder="Rice milling machine, complete line — 2 TPH, with destoner and polisher"
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    name="item_note"
-                    aria-label={`Line ${i + 1} note`}
-                    readOnly={!canEdit}
-                    value={line.note}
-                    onChange={(e) => set(i, { note: e.target.value })}
-                    placeholder="Main unit"
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    name="item_qty"
-                    aria-label={`Line ${i + 1} quantity`}
-                    readOnly={!canEdit}
-                    value={line.qty}
-                    onChange={(e) => set(i, { qty: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    name="item_price"
-                    aria-label={`Line ${i + 1} unit price (${currencyCode})`}
-                    readOnly={!canEdit}
-                    value={line.unit_price}
-                    onChange={(e) => set(i, { unit_price: e.target.value })}
-                    placeholder="12,500,000"
-                  />
-                </td>
-                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{money(amount, currencyCode)}</td>
-                <td>
-                  <button
-                    type="button"
-                    className="btn ghost sm"
-                    style={{ color: "var(--err)" }}
-                    aria-label={`Remove line ${i + 1}`}
-                    disabled={!canEdit || pending || lines.length === 1}
-                    onClick={() => setLines((all) => all.filter((_, n) => n !== i))}
-                  >
-                    <Trash2 className="size-3" />
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-
-      <div className="qt-totals">
-        <div>
-          <span>Subtotal</span>
-          <strong>{money(totals.subtotal, currencyCode)}</strong>
-        </div>
-        {readMoney(tax) > 0 && (
-          <div>
-            <span>VAT {readMoney(tax)}%</span>
-            <strong>{money(totals.tax_amount, currencyCode)}</strong>
+      <DocumentSection id="qt-details" step={2} title="Quotation details">
+        <div className="qt-grid">
+          <div className="f-picker">
+            <span>Currency</span>
+            <CurrencyPicker value={currencyCode} onChange={pricing.onCurrencyChange} />
           </div>
-        )}
-        <div className="qt-totals__grand">
-          <span>Total</span>
-          <strong>{money(totals.total, currencyCode)}</strong>
+          <label className="f">
+            <span>Date</span>
+            <input type="date" name="issued_on" defaultValue={quote?.issued_on ?? today} />
+          </label>
+          <label className="f">
+            <span>Valid until</span>
+            <input type="date" name="valid_until" defaultValue={quote?.valid_until ?? inTwoWeeks} />
+          </label>
+          <label className="f">
+            <span>VAT %</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              name="tax_percent"
+              value={tax}
+              onChange={(e) => setTax(e.target.value)}
+              placeholder="7.5"
+            />
+          </label>
         </div>
-      </div>
+      </DocumentSection>
 
-      <h2 style={{ marginTop: 22 }}>Document content</h2>
-      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
-        Optional content around the pricing table. Catalogue breakdowns are already in the line descriptions
-        above; add only the extra details this quotation needs.
-      </p>
-      <label className="f">
-        <span>Description</span>
-        <textarea
-          name="details"
-          rows={3}
-          defaultValue={quote?.details ?? ""}
-          placeholder="High-speed industrial flour mill designed for grinding rice, beans, plantain, corn and sorghum. Capacity 400–800 kg/hr, adjustable fineness 1.5–0.7 mm."
-        />
-      </label>
-      <label className="f">
-        <span>Suitable for</span>
-        <textarea
-          name="suitable_for"
-          rows={2}
-          defaultValue={quote?.suitable_for ?? ""}
-          placeholder="Commercial flour production, bakery flour, rice flour, animal feed meal and multi-grain processing."
-        />
-      </label>
-      <label className="f">
-        <span>Key specifications — one per line</span>
-        <textarea
-          name="specs"
-          rows={5}
-          defaultValue={quote?.specs ?? ""}
-          placeholder={"Capacity: 400–800 kg/hr\nGrinding motor: 22 kW\nTotal power: 34.1 kW\nFineness: 0.7–1.5 mm"}
-        />
-      </label>
-      <label className="f">
-        <span>Important notes — one per line</span>
-        <textarea
-          name="notes"
-          rows={4}
-          defaultValue={quote?.notes ?? ""}
-          placeholder={"Prices are in USD. Local currency equivalent is calculated on the day of order.\nShipping is NOT included.\nQuotation validity: 7 days."}
-        />
-      </label>
-      <label className="f">
-        <span>Next step</span>
-        <textarea
-          name="next_step"
-          rows={2}
-          defaultValue={quote?.next_step ?? ""}
-          placeholder="Please reply to confirm your order and we will prepare the full proforma invoice."
-        />
-      </label>
-
-      {canEdit ? (
-        <div className="row" style={{ gap: 10, marginTop: 16 }}>
-          <button className="btn" disabled={pending}>
-            {pending ? "Saving…" : quote ? "Save changes" : "Save quotation"}
+      <DocumentSection id="qt-lines" step={3} title="Line items">
+        <div className="row" style={{ alignItems: "center", margin: "0 0 6px" }}>
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            className="btn ghost sm"
+            disabled={!canEdit || pending}
+            onClick={() => setLines((all) => [...all, blank()])}
+          >
+            <Plus className="size-3" /> Add a line
           </button>
-          {quote && (
-            <small style={{ color: "var(--muted)", alignSelf: "center" }}>
-              Saving again after it has gone out changes the record, not the copy the customer has.
-            </small>
-          )}
         </div>
-      ) : (
-        <p className="empty" style={{ marginTop: 16 }}>
-          You can read quotations but not write them.
+        <DocumentCataloguePicker
+          currency={currencyCode}
+          canEdit={canEdit && !pending}
+          onAdd={({ description, qty, price, basis }) => {
+            if (!canEdit || pending) return;
+            const line: Line = { ...blank(), description, qty, unit_price: price, basis: basis ?? null };
+            setLines((all) => {
+              const first = all[0];
+              return first && first.description === "" && first.note === "" && first.qty === "1" && first.unit_price === ""
+                ? [line, ...all.slice(1)]
+                : [...all, line];
+            });
+          }}
+        />
+        {pricing.convertedTo && (
+          <p className="doc-converted" role="status">
+            Catalogue prices converted to {pricing.convertedTo} at today&apos;s market rate. Check the amounts before saving.
+          </p>
+        )}
+
+        <table className="tbl qt-lines">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th style={{ width: 130 }}>Note</th>
+              <th style={{ width: 90 }}>Qty</th>
+              <th style={{ width: 150 }}>Unit price</th>
+              <th style={{ width: 140, textAlign: "right" }}>Amount</th>
+              <th style={{ width: 40 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((line, i) => {
+              const amount = (readMoney(line.qty) || 0) * readMoney(line.unit_price);
+              return (
+                <tr key={line.key}>
+                  <td>
+                    <textarea
+                      name="item_description"
+                      aria-label={`Line ${i + 1} description`}
+                      readOnly={!canEdit}
+                      rows={Math.min(10, Math.max(2, line.description.split("\n").length))}
+                      value={line.description}
+                      onChange={(e) => set(i, { description: e.target.value })}
+                      placeholder="Rice milling machine, complete line — 2 TPH, with destoner and polisher"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      name="item_note"
+                      aria-label={`Line ${i + 1} note`}
+                      readOnly={!canEdit}
+                      value={line.note}
+                      onChange={(e) => set(i, { note: e.target.value })}
+                      placeholder="Main unit"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      name="item_qty"
+                      aria-label={`Line ${i + 1} quantity`}
+                      readOnly={!canEdit}
+                      value={line.qty}
+                      onChange={(e) => set(i, { qty: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      name="item_price"
+                      aria-label={`Line ${i + 1} unit price (${currencyCode})`}
+                      readOnly={!canEdit}
+                      value={line.unit_price}
+                      onChange={(e) => set(i, { unit_price: e.target.value })}
+                      placeholder="12,500,000"
+                    />
+                  </td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{money(amount, currencyCode)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn ghost sm"
+                      style={{ color: "var(--err)" }}
+                      aria-label={`Remove line ${i + 1}`}
+                      disabled={!canEdit || pending || lines.length === 1}
+                      onClick={() => setLines((all) => all.filter((_, n) => n !== i))}
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </DocumentSection>
+
+      <DocumentSection id="qt-content" step={4} title="Document content">
+        <p className="doc-form__hint">
+          Optional content around the pricing table. Catalogue breakdowns are already in the line descriptions
+          above; add only the extra details this quotation needs.
         </p>
-      )}
-    </form>
+        <label className="f">
+          <span>Description</span>
+          <textarea
+            name="details"
+            rows={3}
+            defaultValue={quote?.details ?? ""}
+            placeholder="High-speed industrial flour mill designed for grinding rice, beans, plantain, corn and sorghum. Capacity 400–800 kg/hr, adjustable fineness 1.5–0.7 mm."
+          />
+        </label>
+        <label className="f">
+          <span>Suitable for</span>
+          <textarea
+            name="suitable_for"
+            rows={2}
+            defaultValue={quote?.suitable_for ?? ""}
+            placeholder="Commercial flour production, bakery flour, rice flour, animal feed meal and multi-grain processing."
+          />
+        </label>
+        <label className="f">
+          <span>Key specifications — one per line</span>
+          <textarea
+            name="specs"
+            rows={5}
+            defaultValue={quote?.specs ?? ""}
+            placeholder={"Capacity: 400–800 kg/hr\nGrinding motor: 22 kW\nTotal power: 34.1 kW\nFineness: 0.7–1.5 mm"}
+          />
+        </label>
+        <label className="f">
+          <span>Important notes — one per line</span>
+          <textarea
+            name="notes"
+            rows={4}
+            defaultValue={quote?.notes ?? ""}
+            placeholder={"Prices are in USD. Local currency equivalent is calculated on the day of order.\nShipping is NOT included.\nQuotation validity: 7 days."}
+          />
+        </label>
+        <label className="f">
+          <span>Next step</span>
+          <textarea
+            name="next_step"
+            rows={2}
+            defaultValue={quote?.next_step ?? ""}
+            placeholder="Please reply to confirm your order and we will prepare the full proforma invoice."
+          />
+        </label>
+      </DocumentSection>
+    </DocumentForm>
   );
 }

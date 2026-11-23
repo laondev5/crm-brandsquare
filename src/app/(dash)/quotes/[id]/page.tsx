@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { getQuote, getWaMode } from "@/lib/queries";
-import { hasPermission, isAdminRole, money } from "@/lib/types";
+import { hasPermission, isAdminRole } from "@/lib/types";
 import QuoteEditor from "../editor";
 import SendQuote from "./send";
 import QuoteStatus from "./status";
@@ -49,57 +49,36 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         </Link>
       </div>
 
-      <div className="qt-page">
-        <div className="qt-page__main">
-          <QuoteEditor quote={quote} canEdit={canWrite} />
+      <QuoteEditor quote={quote} canEdit={canWrite} />
+
+      <div className="doc-form__footcards">
+        <div className="card">
+          <h2>Record</h2>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
+            Written by {quote.created_by_name || "—"} on {quote.created_at?.slice(0, 10)}
+            {quote.sent_at ? `, sent ${quote.sent_at.slice(0, 10)}` : ""}.
+          </p>
         </div>
 
-        <aside className="qt-page__side">
+        <SendQuote
+          quote={quote}
+          meName={me.name}
+          canSend={canWrite && hasPermission(me, "send_whatsapp")}
+          external={!!waMode && !waMode.internal}
+        />
+
+        {canWrite && (
           <div className="card">
-            <h2>What it comes to</h2>
-            <dl className="qt-summary">
-              <div>
-                <dt>Subtotal</dt>
-                <dd>{money(quote.subtotal, quote.currency)}</dd>
-              </div>
-              {quote.tax_percent > 0 && (
-                <div>
-                  <dt>VAT {quote.tax_percent}%</dt>
-                  <dd>{money(quote.tax_amount, quote.currency)}</dd>
-                </div>
-              )}
-              <div className="qt-summary__grand">
-                <dt>Total</dt>
-                <dd>{money(quote.total, quote.currency)}</dd>
-              </div>
-            </dl>
-            <p style={{ fontSize: 11.5, color: "var(--muted)", margin: "12px 0 0", lineHeight: 1.5 }}>
-              Written by {quote.created_by_name || "—"} on{" "}
-              {quote.created_at?.slice(0, 10)}
-              {quote.sent_at ? `, sent ${quote.sent_at.slice(0, 10)}` : ""}.
+            <h2>From this quotation</h2>
+            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
+              Once they agree, raise the proforma invoice from these same lines. Nothing is retyped,
+              and pressing it again returns the invoice already written.
             </p>
+            <RaiseInvoice quoteId={quote.id} canWrite={canWrite} />
           </div>
+        )}
 
-          <SendQuote
-            quote={quote}
-            meName={me.name}
-            canSend={canWrite && hasPermission(me, "send_whatsapp")}
-            external={!!waMode && !waMode.internal}
-          />
-
-          {canWrite && (
-            <div className="card">
-              <h2>From this quotation</h2>
-              <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
-                Once they agree, raise the proforma invoice from these same lines. Nothing is retyped,
-                and pressing it again returns the invoice already written.
-              </p>
-              <RaiseInvoice quoteId={quote.id} canWrite={canWrite} />
-            </div>
-          )}
-
-          {canWrite && <QuoteStatus quote={quote} canDelete={isAdminRole(me.role)} />}
-        </aside>
+        {canWrite && <QuoteStatus quote={quote} canDelete={isAdminRole(me.role)} />}
       </div>
     </>
   );

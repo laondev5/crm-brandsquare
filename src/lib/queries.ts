@@ -1076,10 +1076,12 @@ export interface QuoteInput {
 
 export async function listQuotes(
   actor: DashUser,
-  params: { lead?: number; conversation?: number; status?: string; q?: string; mine?: boolean } = {}
+  params: { lead?: number; conversation?: number; status?: string; q?: string; mine?: boolean } = {},
+  window?: { limit: number; offset: number }
 ) {
-  return api.get<{ quotes: Quote[]; counts: QuoteCounts }>("/quotes", {
+  return api.get<{ quotes: Quote[]; counts: QuoteCounts; total?: number }>("/quotes", {
     ...params,
+    ...window,
     mine: params.mine ? 1 : undefined,
     actor_id: actor.id,
   });
@@ -1900,14 +1902,17 @@ export interface InvoiceInput {
 
 export async function listInvoices(
   actor: DashUser,
-  params: { status?: string; org?: number; q?: string; mine?: boolean } = {}
+  params: { status?: string; org?: number; q?: string; mine?: boolean } = {},
+  window?: { limit: number; offset: number }
 ) {
   return api.get<{
     invoices: Invoice[];
     counts: InvoiceCounts;
     statuses: { key: string; label: string }[];
+    total?: number;
   }>("/invoices", {
     ...params,
+    ...window,
     org: params.org || undefined,
     mine: params.mine ? 1 : undefined,
     actor_id: actor.id,
@@ -1972,10 +1977,12 @@ export interface ReceiptInput {
 
 export async function listReceipts(
   actor: DashUser,
-  params: { invoice?: number; org?: number; q?: string } = {}
+  params: { invoice?: number; org?: number; q?: string } = {},
+  window?: { limit: number; offset: number }
 ) {
-  return api.get<{ receipts: Receipt[] }>("/receipts", {
+  return api.get<{ receipts: Receipt[]; total?: number }>("/receipts", {
     ...params,
+    ...window,
     invoice: params.invoice || undefined,
     org: params.org || undefined,
     actor_id: actor.id,

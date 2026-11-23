@@ -289,10 +289,12 @@ function creamBox(
 function letterhead(doc: jsPDF, brand: Letterhead, title: string): number {
   // The navy masthead, edge to edge inside the margins.
   doc.setFillColor(NAVY);
-  doc.rect(M, 14, CONTENT, 33, "F");
+  doc.rect(M, 14, CONTENT, 27, "F");
 
-  // The logo sits in a white panel, the same shape whatever the image is.
-  const panel = { x: M + 4, y: 18, w: 36, h: 25 };
+  // The logo and the business name share the top edge of the masthead: both
+  // start at the same height, so the header reads as one mark rather than a
+  // logo floating in the middle of a band.
+  const panel = { x: M + 4, y: 16, w: 27, h: 23 };
   doc.setFillColor(WHITE);
   doc.rect(panel.x, panel.y, panel.w, panel.h, "F");
 
@@ -310,9 +312,9 @@ function letterhead(doc: jsPDF, brand: Letterhead, title: string): number {
     );
   } else {
     // No image is not a reason for a blank panel; the name goes in it.
-    let size = 13;
+    let size = 11;
     font(doc, "bold", size, NAVY);
-    while (size > 8 && doc.getTextWidth(brand.name) > panel.w - 6) {
+    while (size > 7 && doc.getTextWidth(brand.name) > panel.w - 5) {
       size -= 0.5;
       font(doc, "bold", size, NAVY);
     }
@@ -321,13 +323,18 @@ function letterhead(doc: jsPDF, brand: Letterhead, title: string): number {
     });
   }
 
-  // The title, right aligned, in the space the panel leaves.
-  font(doc, "bold", 18, WHITE);
-  doc.text(title, RIGHT - 2, 29.8, { align: "right" });
+  // The name sits beside the logo, level with its top. The title takes the
+  // same top line on the right, so the eye crosses the header in one pass.
+  const nameX = panel.x + panel.w + 6;
+  font(doc, "bold", 15, WHITE);
+  doc.text(brand.name, nameX, 22.4);
   if (brand.tagline) {
-    font(doc, "normal", 8.8, "#d9ddea");
-    doc.text(brand.tagline, RIGHT - 2, 36.6, { align: "right" });
+    font(doc, "normal", 8.6, "#d9ddea");
+    doc.text(brand.tagline, nameX, 28.2);
   }
+
+  font(doc, "bold", 17, WHITE);
+  doc.text(title, RIGHT - 2, 22.4, { align: "right" });
 
   // Website and email, gold labels against white values.
   const parts: { label: string; value: string }[] = [];
@@ -336,7 +343,7 @@ function letterhead(doc: jsPDF, brand: Letterhead, title: string): number {
 
   if (parts.length) {
     let cursor = RIGHT - 3;
-    const y = 44;
+    const y = 34.4;
     for (let i = parts.length - 1; i >= 0; i--) {
       font(doc, "normal", 7.8, WHITE);
       const vw = doc.getTextWidth(parts[i].value);
@@ -357,7 +364,7 @@ function letterhead(doc: jsPDF, brand: Letterhead, title: string): number {
     }
   }
 
-  return 54;
+  return 48;
 }
 
 /** The one line at the foot of every page. */

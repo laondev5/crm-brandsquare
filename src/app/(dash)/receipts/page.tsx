@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { listReceipts } from "@/lib/queries";
 import { isAdminRole, money } from "@/lib/types";
+import TablePager, { PAGE_SIZE, pageHref, pageOf } from "@/components/table-pager";
 
 /**
  * Every payment the business has confirmed.
@@ -12,15 +14,31 @@ import { isAdminRole, money } from "@/lib/types";
 export default async function ReceiptsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; invoice?: string; org?: string }>;
+  searchParams: Promise<{ q?: string; invoice?: string; org?: string; page?: string }>;
 }) {
   const me = await requireMember();
   const sp = await searchParams;
   const invoiceId = Number(sp.invoice) || undefined;
   const orgId = Number(sp.org) || undefined;
 
-  const data = await listReceipts(me, { q: sp.q, invoice: invoiceId, org: orgId }).catch(() => null);
+  const requested = Math.max(1, Number(sp.page) || 1);
+  const filters = {
+    q: sp.q,
+    invoice: invoiceId ? String(invoiceId) : undefined,
+    org: orgId ? String(orgId) : undefined,
+  };
+
+  const data = await listReceipts(me, { q: sp.q, invoice: invoiceId, org: orgId }, {
+    limit: PAGE_SIZE,
+    offset: (requested - 1) * PAGE_SIZE,
+  }).catch(() => null);
   const canWrite = isAdminRole(me.role) || me.role === "subadmin";
+
+  const view = pageOf(data?.receipts ?? [], data?.total, requested);
+  // A hand-edited page past the end is sent to the last page it can show.
+  if (data?.total !== undefined && requested !== view.page) {
+    redirect(pageHref("/receipts", filters, view.page));
+  }
 
   const newHref = invoiceId
     ? `/receipts/new?invoice=${invoiceId}`
@@ -66,7 +84,8 @@ export default async function ReceiptsPage({
                 : "No receipts yet. Record one from an invoice, or with the button above."}
             </p>
           ) : (
-            <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+            <div className="card" style={{ padding: 0 }}>
+              <div style={{ overflowX: "auto" }}>
               <table className="tbl">
                 <thead>
                   <tr>
@@ -80,7 +99,7 @@ export default async function ReceiptsPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {data.receipts.map((receipt) => (
+                  {view.rows.map((receipt) => (
                     <tr key={receipt.id}>
                       <td>
                         <Link href={`/receipts/${receipt.id}`} style={{ fontWeight: 600 }}>
@@ -113,6 +132,15 @@ export default async function ReceiptsPage({
                   ))}
                 </tbody>
               </table>
+              </div>
+              <TablePager
+                page={view.page}
+                pageCount={view.pageCount}
+                total={view.total}
+                basePath="/receipts"
+                params={filters}
+                label="Receipt"
+              />
             </div>
           )}
         </>

@@ -1438,3 +1438,100 @@
 .blog-prose img.ProseMirror-selectednode { outline: 3px solid var(--p); }
 .blog-prose hr { border: 0; border-top: 1px solid var(--line); margin: 1.6em 0; }
 .blog-prose p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--muted); float: left; height: 0; pointer-events: none; }
+
+/* ---------- payment receipt form ---------- */
+.doc-form { background: var(--card); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
+.doc-form__head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
+  padding: 22px 24px; color: #fff;
+  background: linear-gradient(135deg, #0a1c3d 0%, #143566 58%, #0a1c3d 100%);
+}
+.doc-form__brand { display: flex; align-items: flex-start; gap: 12px; }
+.doc-form__brand img { width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 11px; padding: 5px; }
+.doc-form__brand b { display: block; font-size: 17px; line-height: 1.15; letter-spacing: -.01em; }
+.doc-form__brand span { font-size: 12px; color: #c7d2e6; }
+.doc-form__marks { text-align: right; display: grid; gap: 3px; }
+.doc-form__marks b { font-size: 13px; letter-spacing: .04em; }
+.doc-form__marks span { font-size: 12px; color: #c7d2e6; }
+
+.doc-form__nav {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  padding: 11px 24px; background: #fbfbfd; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 4;
+}
+.doc-form__nav a {
+  font-size: 12px; font-weight: 600; color: var(--txt);
+  padding: 6px 11px; border-radius: 999px; border: 1px solid transparent;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.doc-form__nav a:hover { background: #fff; border-color: var(--line); color: var(--ink); }
+
+.doc-form__grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; padding: 20px 24px 24px; }
+.doc-form__main { min-width: 0; display: grid; gap: 16px; align-content: start; }
+.doc-form__section {
+  border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 8px;
+  background: #fff; scroll-margin-top: 64px;
+}
+.doc-form__section h2 { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; color: var(--ink); margin: 0 0 14px; }
+.doc-form__step {
+  width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; flex: none;
+  background: #fff1e6; color: var(--p); font-size: 11.5px; font-weight: 700;
+}
+.doc-form__hint { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 4px 0 10px; }
+/* A conversion happened: say so once, on whichever document was open. */
+.doc-converted {
+  font-size: 12.5px; line-height: 1.5; margin: 0 0 10px; padding: 8px 11px;
+  border-radius: 9px; background: #eef6ff; border: 1px solid #cfe1f7; color: #174a7c;
+}
+
+.doc-form__aside { position: sticky; top: 58px; align-self: start; }
+.doc-form__summary { border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: #fbfbfd; }
+.doc-form__summary h2 {
+  font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 12px; font-weight: 700;
+}
+.doc-form__row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 5px 0; }
+.doc-form__row span { color: var(--muted); }
+.doc-form__row b { color: var(--ink); font-size: 13px; font-weight: 600; text-align: right; }
+.doc-form__bar { height: 6px; border-radius: 999px; background: #ecebf2; overflow: hidden; margin: 9px 0 4px; }
+.doc-form__bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--p), #ffb202); transition: width .3s ease; }
+.doc-form__grand { border-top: 1px solid var(--line); margin-top: 7px; padding-top: 11px; }
+.doc-form__grand b { font-size: 18px; }
+.doc-form__warn { font-size: 12px; line-height: 1.45; color: #a32d2d; background: #fef3f3; border: 1px solid #f5c9c9; border-radius: 8px; padding: 8px 10px; margin: 10px 0 0; }
+.doc-form__save { width: 100%; justify-content: center; margin-top: 14px; }
+
+.doc-form__footcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 16px; }
+
+@media (max-width: 1000px) {
+  .doc-form__grid { grid-template-columns: 1fr; }
+  .doc-form__aside { position: static; }
+  .doc-form__nav { position: static; }
+}
+@media (max-width: 600px) {
+  .doc-form__head { flex-direction: column; }
+  .doc-form__marks { text-align: left; }
+  .doc-form__grid { padding: 16px 14px 18px; }
+  .doc-form__brand img { width: 38px; height: 38px; }
+}
+
+/* The quotation written inside the chat is the same sheet in a narrower
+   frame: one column, no sticky furniture competing with the conversation. */
+.qt-modal__body .doc-form__grid { grid-template-columns: 1fr; padding: 16px; }
+.qt-modal__body .doc-form__head { padding: 16px; }
+.qt-modal__body .doc-form__nav { position: static; padding: 9px 16px; }
+.qt-modal__body .doc-form__aside { position: static; }
+
+/* ---------- document table pager ---------- */
+.pager { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 11px 14px; border-top: 1px solid var(--line); }
+.pager__info { font-size: 12.5px; color: var(--muted); margin-right: auto; }
+.pager__nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.pager__btn {
+  min-width: 32px; height: 32px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 9px; background: #fff;
+  font-size: 12.5px; font-weight: 600; color: var(--txt);
+  transition: background .15s, border-color .15s, color .15s;
+}
+.pager__btn:hover { background: #fafafd; border-color: #d7d7e2; color: var(--ink); }
+.pager__btn.is-on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.pager__btn.is-off { opacity: .4; pointer-events: none; }
+.pager__gap { color: var(--muted); padding: 0 2px; font-size: 12.5px; }

@@ -1521,10 +1521,28 @@ export interface CatalogueItem {
   updated_at: string;
 }
 
-/** An editable document snapshot, never a live link or a currency conversion. */
-export function catalogueDocumentLine(item: CatalogueItem, documentCurrency: string) {
+/**
+ * An editable document snapshot.
+ *
+ * The catalogue keeps its price in the currency the machine is sold in. When
+ * the document is written in another one, `convertedPrice` is that price at
+ * today's market rate; without it the line is left blank rather than guessed.
+ */
+export function catalogueDocumentLine(
+  item: CatalogueItem,
+  documentCurrency: string,
+  convertedPrice?: number | null
+) {
   const sourceCurrency = item.currency.trim().toUpperCase();
   const currencyMatches = !!sourceCurrency && sourceCurrency === documentCurrency.trim().toUpperCase();
+  const price = currencyMatches
+    ? Number.isFinite(item.price)
+      ? String(item.price)
+      : ""
+    : typeof convertedPrice === "number" && Number.isFinite(convertedPrice) && convertedPrice > 0
+      ? String(convertedPrice)
+      : "";
+
   return {
     description: [
       item.name,
@@ -1533,7 +1551,7 @@ export function catalogueDocumentLine(item: CatalogueItem, documentCurrency: str
       item.specs,
     ].filter((part) => part.trim()).join("\n\n"),
     qty: "1",
-    price: currencyMatches && Number.isFinite(item.price) ? String(item.price) : "",
+    price,
     currencyMatches,
   };
 }
