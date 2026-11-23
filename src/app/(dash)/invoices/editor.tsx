@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { saveInvoiceAction, type InvoiceFormState } from "@/app/actions/invoices";
-import { docTotals, money, readMoney, type DocSettings, type Invoice } from "@/lib/types";
+import { cleanDocumentLine, docTotals, money, readMoney, type DocSettings, type Invoice } from "@/lib/types";
 import { useCataloguePricing, type CatalogueBasis } from "@/lib/use-catalogue-pricing";
 import DocumentCataloguePicker from "@/components/document-catalogue-picker";
 import MachineDetailsFields from "@/components/machine-details-fields";
@@ -35,14 +35,17 @@ const blank = (): Line => ({
 
 function linesFrom(invoice: Invoice | null): Line[] {
   if (!invoice?.items.length) return [blank()];
-  return invoice.items.map((item, i) => ({
-    key: `saved-${item.id ?? i}`,
-    description: item.description,
-    machine_description: item.machine_description ?? "",
-    suitable_for: item.suitable_for ?? "",
-    qty: String(item.qty),
-    unit_price: String(item.unit_price),
-  }));
+  return invoice.items.map((item, i) => {
+    const clean = cleanDocumentLine(item);
+    return {
+      key: `saved-${item.id ?? i}`,
+      description: clean.description,
+      machine_description: clean.machine_description ?? "",
+      suitable_for: clean.suitable_for ?? "",
+      qty: String(clean.qty),
+      unit_price: String(clean.unit_price),
+    };
+  });
 }
 
 const SECTIONS = [

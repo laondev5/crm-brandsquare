@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { currency } from "./currencies";
+import { cleanDocumentLine } from "./types";
 import type {
   Brand,
   CatalogueItem,
@@ -440,46 +441,59 @@ interface DetailLine {
   suitable_for?: string;
 }
 
-function machineDetails(doc: jsPDF, from: number, items: DetailLine[]): number {
-  const blocks = items
-    .map((item, i) => ({ item, number: i + 1 }))
-    .filter(({ item }) => !!(item.machine_description || "").trim() || !!(item.suitable_for || "").trim());
-  if (!blocks.length) return from;
+/**
+ * Documents saved before descriptions had their own field carry the whole
+ * catalogue entry in the line description. Read that apart so the table shows
+ * just a name and model, with the prose moved to its own section. A hand-typed
+ * line with no "Model:" part stays exactly as it was written.
+ */
+function cleanMachineLines<T extends DetailLine>(items: T[]): T[] {
+  return items.map(cleanDocumentLine);
+}
 
+function machineDetails(doc: jsPDF, from: number, items: DetailLine[]): number {
   const labelW = 27;
   const valueW = CONTENT - labelW;
   const size = 8.8;
   const pad = 2.6;
   const lineH = size * 0.3528 * 1.28;
 
-  let y = newPage(doc, from, 16);
+  const blocks = items
+    .map((item, i) => ({ item, number: i + 1 }))
+    .filter(({ item }) => !!(item.machine_description || "").trim() || !!(item.suitable_for || "").trim())
+    .map(({ item, number }) => {
+      font(doc, "bold", 9.2, NAVY);
+      const titleLines = doc.splitTextToSize(
+        `${number}.  ${(item.description || "—").split("\n")[0].trim()}`, CONTENT
+      ) as string[];
+      const rows: { label: string; lines: string[] }[] = [];
+      for (const [label, value] of [
+        ["DESCRIPTION", item.machine_description || ""],
+        ["SUITABLE FOR", item.suitable_for || ""],
+      ] as [string, string][]) {
+        if (!value.trim()) continue;
+        font(doc, "normal", size, INK);
+        rows.push({ label, lines: doc.splitTextToSize(value.trim(), valueW - pad * 2) as string[] });
+      }
+      const height =
+        titleLines.length * 4.2 + 2 +
+        rows.reduce((h, row) => h + Math.max(7, row.lines.length * lineH + pad * 2) + 1.4, 0);
+      return { number, titleLines, rows, height };
+    });
+  if (!blocks.length) return from;
+
+  // Keep the heading with at least the first block; a heading alone at the
+  // foot of a page is worse than moving the whole section over.
+  let y = newPage(doc, from, 12 + blocks[0].height);
   y = section(doc, "Machine details", M, y, { gap: 5 });
 
-  for (const { item, number } of blocks) {
-    const title = (item.description || "—").split("\n")[0].trim();
+  for (const block of blocks) {
+    y = newPage(doc, y, block.height + 3);
     font(doc, "bold", 9.2, NAVY);
-    const titleLines = doc.splitTextToSize(`${number}.  ${title}`, CONTENT) as string[];
+    block.titleLines.forEach((line, i) => doc.text(line, M, y + 3 + i * 4.2));
+    y += block.titleLines.length * 4.2 + 2;
 
-    const rows: { label: string; lines: string[] }[] = [];
-    for (const [label, value] of [
-      ["DESCRIPTION", item.machine_description || ""],
-      ["SUITABLE FOR", item.suitable_for || ""],
-    ] as [string, string][]) {
-      if (!value.trim()) continue;
-      font(doc, "normal", size, INK);
-      rows.push({ label, lines: doc.splitTextToSize(value.trim(), valueW - pad * 2) as string[] });
-    }
-
-    const blockH =
-      titleLines.length * 4.2 + 2 +
-      rows.reduce((h, row) => h + Math.max(7, row.lines.length * lineH + pad * 2) + 1.4, 0);
-    y = newPage(doc, y, blockH + 3);
-
-    font(doc, "bold", 9.2, NAVY);
-    titleLines.forEach((line, i) => doc.text(line, M, y + 3 + i * 4.2));
-    y += titleLines.length * 4.2 + 2;
-
-    for (const row of rows) {
+    for (const row of block.rows) {
       const h = Math.max(7, row.lines.length * lineH + pad * 2);
       y = newPage(doc, y, h);
       cell(doc, row.label, M, y, labelW, h, {
@@ -504,6 +518,7 @@ export function quotePdf(quote: Quote, business: Letterhead, preparedBy = ""): B
   const brand: Letterhead = { ...BUSINESS, ...business };
   const author = preparedBy || quote.created_by_name;
   const cur = quote.currency || "NGN";
+  const items = cleanMachineLines(quote.items);
 
   let y = letterhead(doc, brand, "QUOTATION");
 
@@ -558,7 +573,7 @@ export function quotePdf(quote: Quote, business: Letterhead, preparedBy = ""): B
   };
   y = priceHeader(y);
 
-  quote.items.forEach((item, i) => {
+  items.forEach((item, i) => {
     const itemNote = item.note
       ? `${item.qty !== 1 ? `Qty ${item.qty}\n` : ""}${item.note}`
       : item.qty !== 1 ? `Qty ${item.qty}` : "";
@@ -601,15 +616,15 @@ export function quotePdf(quote: Quote, business: Letterhead, preparedBy = ""): B
   // ---- the words about each machine
   // Older quotations carry their description on the document rather than on
   // the lines. Show those once, as a single block, so the section is not lost.
-  const detailLines: DetailLine[] = quote.items.some((item) => item.machine_description || item.suitable_for)
-    ? quote.items
+  const detailLines: DetailLine[] = items.some((item) => item.machine_description || item.suitable_for)
+    ? items
     : quote.details || quote.suitable_for || quote.specs
       ? [{
-          description: quote.items[0]?.description || "Machine",
+          description: items[0]?.description || "Machine",
           machine_description: [quote.details, quote.specs].filter(Boolean).join("\n"),
           suitable_for: quote.suitable_for,
         }]
-      : quote.items;
+      : items;
   y = machineDetails(doc, y, detailLines);
 
   // ---- important notes
@@ -652,13 +667,14 @@ export function quoteMessage(quote: Quote, businessName: string, preparedBy = ""
     return symbol && !SYMBOL_OK.has(symbol) ? `${quote.currency} ${figure}` : `${symbol ?? quote.currency + " "}${figure}`;
   };
   const author = preparedBy || quote.created_by_name;
+  const items = cleanMachineLines(quote.items);
   const lines: string[] = [`*QUOTATION ${quote.ref}*`, businessName, ""];
 
   if (quote.customer_name) lines.push(`For: ${quote.customer_name}`);
   if (quote.valid_until) lines.push(`Valid until: ${longDate(quote.valid_until)}`);
   lines.push("");
 
-  quote.items.forEach((item, i) => {
+  items.forEach((item, i) => {
     lines.push(`${i + 1}. ${item.description || "—"}`);
     lines.push(`   ${item.qty} × ${amount(item.unit_price)} = ${amount(item.line_total)}`);
   });
@@ -681,6 +697,7 @@ export function invoicePdf(inv: Invoice, business: Letterhead): Blob {
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
   const brand: Letterhead = { ...BUSINESS, ...business };
   const cur = inv.currency || "NGN";
+  const items = cleanMachineLines(inv.items);
 
   let y = letterhead(doc, brand, "PROFORMA INVOICE");
 
@@ -739,7 +756,7 @@ export function invoicePdf(inv: Invoice, business: Letterhead): Blob {
   };
   y = itemHeader(y);
 
-  inv.items.forEach((item, i) => {
+  items.forEach((item, i) => {
     const fill = i % 2 ? SOFT : WHITE;
     y = continuationRow(doc, y, [
       { text: item.description || "—", x: M, w: itemW[0], style: { stroke: LINE, size: 9, fill } },
@@ -767,7 +784,7 @@ export function invoicePdf(inv: Invoice, business: Letterhead): Blob {
   y += 11 + 10;
 
   // ---- the words about each machine
-  y = machineDetails(doc, y, inv.items);
+  y = machineDetails(doc, y, items);
 
   // ---- payment terms
   const terms = (inv.payment_terms || "").split("\n").map((s) => s.trim()).filter(Boolean);
@@ -912,9 +929,11 @@ export function receiptPdf(
   };
   y = orderHeader(y);
 
-  const lines = rec.items.length
-    ? rec.items
-    : [{ description: rec.summary || "Payment received", qty: 1, line_total: rec.order_total || rec.amount_received }];
+  const lines = cleanMachineLines(
+    rec.items.length
+      ? rec.items
+      : [{ description: rec.summary || "Payment received", qty: 1, line_total: rec.order_total || rec.amount_received }]
+  );
 
   lines.forEach((item) => {
     y = continuationRow(doc, y, [

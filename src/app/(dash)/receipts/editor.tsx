@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { saveReceiptAction, type ReceiptFormState } from "@/app/actions/receipts";
 import { useCataloguePricing, type CatalogueBasis } from "@/lib/use-catalogue-pricing";
-import { money, readMoney, type DocSettings, type Receipt } from "@/lib/types";
+import { cleanDocumentLine, money, readMoney, type DocSettings, type Receipt } from "@/lib/types";
 import DocumentCataloguePicker from "@/components/document-catalogue-picker";
 import MachineDetailsFields from "@/components/machine-details-fields";
 import { DocumentForm, DocumentSection } from "@/components/document-form";
@@ -35,14 +35,17 @@ const blank = (): Line => ({
 
 function linesFrom(receipt: Receipt | null): Line[] {
   if (!receipt?.items.length) return [blank()];
-  return receipt.items.map((item, i) => ({
-    key: `saved-${item.id ?? i}`,
-    description: item.description,
-    machine_description: item.machine_description ?? "",
-    suitable_for: item.suitable_for ?? "",
-    qty: String(item.qty),
-    line_total: String(item.line_total),
-  }));
+  return receipt.items.map((item, i) => {
+    const clean = cleanDocumentLine(item);
+    return {
+      key: `saved-${item.id ?? i}`,
+      description: clean.description,
+      machine_description: clean.machine_description ?? "",
+      suitable_for: clean.suitable_for ?? "",
+      qty: String(clean.qty),
+      line_total: String(clean.line_total),
+    };
+  });
 }
 
 const SECTIONS = [
@@ -88,15 +91,18 @@ export default function ReceiptEditor({
   const [state, action, pending] = useActionState<ReceiptFormState, FormData>(saveReceiptAction, null);
   const [lines, setLines] = useState<Line[]>(() =>
     prefill?.items?.length
-      ? prefill.items.map((item, i) => ({
-          key: `pre-${i}`,
-          description: item.description,
-          machine_description: item.machine_description ?? "",
-          suitable_for: item.suitable_for ?? "",
-          qty: String(item.qty),
-          line_total: String(item.line_total),
-          basis: null,
-        }))
+      ? prefill.items.map((item, i) => {
+          const clean = cleanDocumentLine(item);
+          return {
+            key: `pre-${i}`,
+            description: clean.description,
+            machine_description: clean.machine_description ?? "",
+            suitable_for: clean.suitable_for ?? "",
+            qty: String(clean.qty),
+            line_total: String(clean.line_total),
+            basis: null,
+          };
+        })
       : linesFrom(receipt)
   );
   const [currencyCode, setCurrencyCode] = useState(

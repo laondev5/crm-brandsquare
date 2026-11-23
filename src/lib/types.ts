@@ -1539,6 +1539,55 @@ export interface CatalogueItem {
 }
 
 /**
+ * A catalogue model field can hold a whole paragraph. A paper only has room
+ * for the identifier beside the price, so take the code (BB-N70-21, GD-60B)
+ * and the word that goes with it ( "+ Elevator" ), not the sales copy.
+ */
+export function shortModel(raw: string): string {
+  const text = (raw || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const code = text.match(/\b[A-Z][A-Z0-9]*-[A-Z0-9-]+\b/) || text.match(/\b[A-Z0-9]+-\d+[A-Z0-9-]*\b/);
+  if (!code || code.index === undefined) {
+    return text.length > 48 ? `${text.slice(0, 47).trimEnd()}…` : text;
+  }
+  const rest = text.slice(code.index + code[0].length).trim();
+  const companion = rest.match(/^\+\s*([A-Za-z][A-Za-z0-9]*)/);
+  return companion ? `${code[0]} + ${companion[1]}` : code[0];
+}
+
+/**
+ * Older documents put the name, model, description and specs into one line
+ * description. Read those apart again so the table can be cleaned up without
+ * losing the words: they move into the machine-details section instead.
+ */
+export function splitDocumentLineDescription(raw: string): { name: string; model: string; detail: string } {
+  const lines = (raw || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  if (!lines.length) return { name: "", model: "", detail: "" };
+  const name = lines[0];
+  let model = "";
+  let start = 1;
+  if (/^model\b/i.test(lines[1] || "")) {
+    model = shortModel(lines[1].replace(/^model\s*(number)?\s*[:\-]?\s*/i, ""));
+    start = 2;
+  }
+  return { name, model, detail: lines.slice(start).join("\n").trim() };
+}
+
+/** One line, with the table text separated from the section text. Used when
+ *  writing a paper and when opening an old one for editing. */
+export function cleanDocumentLine<T extends { description: string; machine_description?: string; suitable_for?: string }>(
+  item: T
+): T {
+  const parts = splitDocumentLineDescription(item.description || "");
+  if (!parts.detail && (item.machine_description || item.suitable_for)) return item;
+  return {
+    ...item,
+    description: [parts.name, parts.model ? `Model: ${parts.model}` : ""].filter(Boolean).join("\n"),
+    machine_description: item.machine_description || parts.detail,
+  };
+}
+
+/**
  * An editable document snapshot.
  *
  * The catalogue keeps its price in the currency the machine is sold in. When
@@ -1564,7 +1613,7 @@ export function catalogueDocumentLine(
     // The pricing table carries only the machine and its model. The catalogue's
     // description and suitable-for go into their own section further down the
     // paper, so a line beside a figure never becomes a paragraph of prose.
-    description: [item.name, item.model ? `Model: ${item.model}` : ""]
+    description: [item.name, item.model ? `Model: ${shortModel(item.model)}` : ""]
       .filter((part) => part.trim())
       .join("\n"),
     machine_description: (item.description || "").trim(),
