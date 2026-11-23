@@ -7,12 +7,15 @@ import { saveInvoiceAction, type InvoiceFormState } from "@/app/actions/invoices
 import { docTotals, money, readMoney, type DocSettings, type Invoice } from "@/lib/types";
 import { useCataloguePricing, type CatalogueBasis } from "@/lib/use-catalogue-pricing";
 import DocumentCataloguePicker from "@/components/document-catalogue-picker";
+import MachineDetailsFields from "@/components/machine-details-fields";
 import { DocumentForm, DocumentSection } from "@/components/document-form";
 import CurrencyPicker from "../quotes/currency-picker";
 
 interface Line {
   key: string;
   description: string;
+  machine_description: string;
+  suitable_for: string;
   qty: string;
   unit_price: string;
   /** Set on lines copied from the catalogue, so a currency change can re-price
@@ -23,6 +26,8 @@ interface Line {
 const blank = (): Line => ({
   key: Math.random().toString(36).slice(2),
   description: "",
+  machine_description: "",
+  suitable_for: "",
   qty: "1",
   unit_price: "",
   basis: null,
@@ -33,6 +38,8 @@ function linesFrom(invoice: Invoice | null): Line[] {
   return invoice.items.map((item, i) => ({
     key: `saved-${item.id ?? i}`,
     description: item.description,
+    machine_description: item.machine_description ?? "",
+    suitable_for: item.suitable_for ?? "",
     qty: String(item.qty),
     unit_price: String(item.unit_price),
   }));
@@ -42,6 +49,7 @@ const SECTIONS = [
   { id: "inv-customer", label: "Customer" },
   { id: "inv-details", label: "Details" },
   { id: "inv-lines", label: "Line items" },
+  { id: "inv-machines", label: "Machine details" },
   { id: "inv-bank", label: "Bank" },
   { id: "inv-content", label: "Content" },
 ];
@@ -274,9 +282,11 @@ export default function InvoiceEditor({
         <DocumentCataloguePicker
           currency={currencyCode}
           canEdit={canEdit && !pending}
-          onAdd={({ description, qty, price, basis }) => {
+          onAdd={({ description, machine_description, suitable_for, qty, price, basis }) => {
             if (!canEdit || pending) return;
-            const line: Line = { ...blank(), description, qty, unit_price: price, basis: basis ?? null };
+            const line: Line = {
+              ...blank(), description, machine_description, suitable_for, qty, unit_price: price, basis: basis ?? null,
+            };
             setLines((all) => {
               const first = all[0];
               return first && first.description === "" && first.qty === "1" && first.unit_price === ""
@@ -360,7 +370,20 @@ export default function InvoiceEditor({
         </table>
       </DocumentSection>
 
-      <DocumentSection id="inv-bank" step={4} title="Bank details">
+      <DocumentSection id="inv-machines" step={4} title="Machine details">
+        <MachineDetailsFields
+          rows={lines.map((line) => ({
+            key: line.key,
+            label: line.description,
+            machine_description: line.machine_description,
+            suitable_for: line.suitable_for,
+          }))}
+          canEdit={canEdit && !pending}
+          onChange={(i, patch) => set(i, patch)}
+        />
+      </DocumentSection>
+
+      <DocumentSection id="inv-bank" step={5} title="Bank details">
         <div className="qt-grid">
           <label className="f">
             <span>Bank</span>
@@ -398,7 +421,7 @@ export default function InvoiceEditor({
         </div>
       </DocumentSection>
 
-      <DocumentSection id="inv-content" step={5} title="Document content">
+      <DocumentSection id="inv-content" step={6} title="Document content">
         <label className="f">
           <span>Payment terms</span>
           <textarea

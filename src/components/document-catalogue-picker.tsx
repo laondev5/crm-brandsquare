@@ -13,7 +13,10 @@ import {
   DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 
-type CatalogueLine = Pick<ReturnType<typeof catalogueDocumentLine>, "description" | "qty" | "price"> & {
+type CatalogueLine = Pick<
+  ReturnType<typeof catalogueDocumentLine>,
+  "description" | "machine_description" | "suitable_for" | "qty" | "price"
+> & {
   basis?: CatalogueBasis | null;
 };
 
@@ -54,7 +57,7 @@ export default function DocumentCataloguePicker({
   const shown = useMemo(() => {
     const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return (items ?? []).filter((item) => {
-      const text = [item.name, item.model, item.category, item.description, item.specs].join(" ").toLowerCase();
+      const text = [item.name, item.model, item.category, item.description, item.suitable_for, item.specs].join(" ").toLowerCase();
       return terms.every((term) => text.includes(term));
     });
   }, [items, query]);
@@ -97,7 +100,14 @@ export default function DocumentCataloguePicker({
       ? { price: item.price, currency: item.currency.trim().toUpperCase() }
       : null;
 
-    onAdd({ description: line.description, qty: line.qty, price: line.price, basis });
+    onAdd({
+      description: line.description,
+      machine_description: line.machine_description,
+      suitable_for: line.suitable_for,
+      qty: line.qty,
+      price: line.price,
+      basis,
+    });
 
     if (line.price === "") setOmittedPrice(true);
     setNotice((previous) => ({
@@ -127,7 +137,7 @@ export default function DocumentCataloguePicker({
         <Link href="/catalogue" target="_blank" rel="noopener noreferrer" className="underline">
           catalogue (opens in a new tab)
         </Link>.
-        {" "}A machine is copied in with its price already in {currency}, converted at today&apos;s market rate.
+        {" "}A machine is copied in with its description and suitable-for in their own section, and its price already in {currency}, converted at today&apos;s market rate.
       </p>
       <Dialog open={open && canEdit} onOpenChange={(next) => {
         if (next && !canEdit) return;
@@ -146,9 +156,10 @@ export default function DocumentCataloguePicker({
           <DialogHeader>
             <DialogTitle>Add from catalogue</DialogTitle>
             <DialogDescription>
-              Copy the machine name, model, description and full specifications into an editable line,
-              with quantity 1. The price is converted to {currency} at today&apos;s market rate.
-              You can add the same machine more than once.
+              Copy the machine name and model into the pricing table. Its description and
+              &ldquo;Suitable for&rdquo; go into a separate Machine details section, where you can edit
+              them. Quantity starts at 1 and the price is converted to {currency} at today&apos;s
+              market rate. You can add the same machine more than once.
             </DialogDescription>
           </DialogHeader>
           <label className="f" htmlFor={`${id}-search`}>

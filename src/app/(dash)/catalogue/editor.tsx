@@ -70,6 +70,15 @@ export default function CatalogueEditor({
         />
       </label>
       <label className="f">
+        <span>Suitable for</span>
+        <textarea
+          name="suitable_for"
+          rows={2}
+          defaultValue={item?.suitable_for ?? ""}
+          placeholder="Commercial flour production, bakeries, animal feed and multi-grain processing."
+        />
+      </label>
+      <label className="f">
         <span>Key specifications — one per line</span>
         <textarea
           name="specs"

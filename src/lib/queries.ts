@@ -1071,7 +1071,14 @@ export interface QuoteInput {
   specs?: string;
   notes?: string;
   next_step?: string;
-  items?: { description: string; qty: number; unit_price: number; note?: string }[];
+  items?: {
+    description: string;
+    qty: number;
+    unit_price: number;
+    note?: string;
+    machine_description?: string;
+    suitable_for?: string;
+  }[];
 }
 
 export async function listQuotes(
@@ -1857,6 +1864,14 @@ export async function updateOrganization(actor: DashUser, id: number, input: Org
   });
 }
 
+export async function uploadOrgFile(orgId: number, actor: DashUser, file: File) {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  form.append("actor_id", String(actor.id));
+  form.append("actor_name", actor.name);
+  return api.upload<{ ok: true; files: LeadFile[] }>(`/organizations/${orgId}/files`, form);
+}
+
 export async function deleteOrganization(actor: DashUser, id: number) {
   return api.del<{ ok: true }>(`/organizations/${id}`, { actor_id: actor.id });
 }
@@ -1898,7 +1913,13 @@ export interface InvoiceInput {
   notes?: string;
   next_step?: string;
   status?: InvoiceStatus;
-  items?: { description: string; qty: number; unit_price: number }[];
+  items?: {
+    description: string;
+    qty: number;
+    unit_price: number;
+    machine_description?: string;
+    suitable_for?: string;
+  }[];
 }
 
 export async function listInvoices(
@@ -1973,7 +1994,13 @@ export interface ReceiptInput {
   summary?: string;
   terms?: string;
   notes?: string;
-  items?: { description: string; qty: number; line_total: number }[];
+  items?: {
+    description: string;
+    qty: number;
+    line_total: number;
+    machine_description?: string;
+    suitable_for?: string;
+  }[];
 }
 
 export async function listReceipts(
@@ -2028,6 +2055,7 @@ export interface CatalogueInput {
   model?: string;
   category?: string;
   description?: string;
+  suitable_for?: string;
   specs?: string;
   price?: number;
   currency?: string;

@@ -323,16 +323,9 @@ function letterhead(doc: jsPDF, brand: Letterhead, title: string): number {
     });
   }
 
-  // The name sits beside the logo, level with its top. The title takes the
-  // same top line on the right, so the eye crosses the header in one pass.
-  const nameX = panel.x + panel.w + 6;
-  font(doc, "bold", 15, WHITE);
-  doc.text(brand.name, nameX, 22.4);
-  if (brand.tagline) {
-    font(doc, "normal", 8.6, "#d9ddea");
-    doc.text(brand.tagline, nameX, 28.2);
-  }
-
+  // The mark says who is writing: the logo panel already carries the brand,
+  // so the name and tagline are not repeated beside it. The document title
+  // takes the right of the masthead, and the eye crosses it in one pass.
   font(doc, "bold", 17, WHITE);
   doc.text(title, RIGHT - 2, 22.4, { align: "right" });
 
@@ -434,6 +427,72 @@ function continuationRow(
   return y;
 }
 
+/**
+ * The words about the machines get their own section, in the same order as
+ * the pricing table. Each machine is a numbered block with two labelled rows;
+ * rows with nothing in them are left out, and a block that will not fit is
+ * moved whole to the next page. Many machines therefore stay as many tidy
+ * blocks rather than one long paragraph in a table cell.
+ */
+interface DetailLine {
+  description: string;
+  machine_description?: string;
+  suitable_for?: string;
+}
+
+function machineDetails(doc: jsPDF, from: number, items: DetailLine[]): number {
+  const blocks = items
+    .map((item, i) => ({ item, number: i + 1 }))
+    .filter(({ item }) => !!(item.machine_description || "").trim() || !!(item.suitable_for || "").trim());
+  if (!blocks.length) return from;
+
+  const labelW = 27;
+  const valueW = CONTENT - labelW;
+  const size = 8.8;
+  const pad = 2.6;
+  const lineH = size * 0.3528 * 1.28;
+
+  let y = newPage(doc, from, 16);
+  y = section(doc, "Machine details", M, y, { gap: 5 });
+
+  for (const { item, number } of blocks) {
+    const title = (item.description || "—").split("\n")[0].trim();
+    font(doc, "bold", 9.2, NAVY);
+    const titleLines = doc.splitTextToSize(`${number}.  ${title}`, CONTENT) as string[];
+
+    const rows: { label: string; lines: string[] }[] = [];
+    for (const [label, value] of [
+      ["DESCRIPTION", item.machine_description || ""],
+      ["SUITABLE FOR", item.suitable_for || ""],
+    ] as [string, string][]) {
+      if (!value.trim()) continue;
+      font(doc, "normal", size, INK);
+      rows.push({ label, lines: doc.splitTextToSize(value.trim(), valueW - pad * 2) as string[] });
+    }
+
+    const blockH =
+      titleLines.length * 4.2 + 2 +
+      rows.reduce((h, row) => h + Math.max(7, row.lines.length * lineH + pad * 2) + 1.4, 0);
+    y = newPage(doc, y, blockH + 3);
+
+    font(doc, "bold", 9.2, NAVY);
+    titleLines.forEach((line, i) => doc.text(line, M, y + 3 + i * 4.2));
+    y += titleLines.length * 4.2 + 2;
+
+    for (const row of rows) {
+      const h = Math.max(7, row.lines.length * lineH + pad * 2);
+      y = newPage(doc, y, h);
+      cell(doc, row.label, M, y, labelW, h, {
+        fill: SOFT, stroke: LINE, bold: true, size: 7.6, color: MUTED, middle: false,
+      });
+      cell(doc, row.lines, M + labelW, y, valueW, h, { stroke: LINE, size, middle: false });
+      y += h + 1.4;
+    }
+    y += 4;
+  }
+  return y + 4;
+}
+
 /* ---------------- the quotation ---------------- */
 
 export interface Letterhead extends Brand {
@@ -454,55 +513,38 @@ export function quotePdf(quote: Quote, business: Letterhead, preparedBy = ""): B
   cell(doc, "PREPARED FOR", M + metaW[0], y, metaW[1], 8, { fill: BAND, stroke: LINE, bold: true, size: 8.4, color: NAVY, align: "center" });
   y += 8;
 
-  const metaH = 14;
-  cell(doc, longDate(quote.issued_on), M, y, metaW[0], metaH, { stroke: LINE, size: 9.4, middle: true });
-  cell(doc, "", M + metaW[0], y, metaW[1], metaH, { stroke: LINE });
+  // One fact per cell, the way a form reads: name, company, email, phone are
+  // separate rows rather than three lines of prose crammed into one box.
+  const forRows = (
+    [
+      ["NAME", quote.customer_name || "—"],
+      ["COMPANY", quote.customer_company],
+      ["EMAIL", quote.customer_email],
+      ["PHONE", quote.customer_phone],
+    ] as [string, string][]
+  ).filter(([, value]) => !!value);
 
-  // Name and company on two lines, then the contact details smaller.
-  const forLines = [quote.customer_name || "—", quote.customer_company].filter(Boolean);
-  font(doc, "bold", 9.6, INK);
-  doc.text(forLines[0], M + metaW[0] + 2.8, y + 5.6);
-  if (forLines[1]) {
-    font(doc, "normal", 8.6, MUTED);
-    doc.text(forLines[1], M + metaW[0] + 2.8, y + 9.6);
-  }
-  const contact = [quote.customer_email, quote.customer_phone].filter(Boolean).join("  ·  ");
-  if (contact) {
-    font(doc, "normal", 7.8, MUTED);
-    doc.text(contact, M + metaW[0] + 2.8, y + 13);
-  }
-  y += metaH + 10;
+  const labelW = 24;
+  const rowH = 8.5;
+  const blockH = Math.max(14, forRows.length * rowH);
 
-  // ---- machine details
-  const firstItem = quote.items[0];
-  const firstLine = (firstItem?.description ?? "").split(/\r?\n/)[0] || "Machinery";
-  // Catalogue descriptions can start with a whole paragraph. Keep headings
-  // short; the complete, unabridged description is in the pricing table.
-  const machineName = firstLine.length > 80 ? `${firstLine.slice(0, 77).trimEnd()}...` : firstLine;
-  const description =
-    quote.details ||
-    (quote.items.length > 1 ? quote.items.map((i) => i.description).filter(Boolean).join("\n") : "");
-  const suitable = quote.suitable_for.trim();
+  cell(doc, longDate(quote.issued_on), M, y, metaW[0], blockH, { stroke: LINE, size: 9.4, middle: true });
 
-  const detailRows: [string, string][] = [["MACHINE NAME", machineName]];
-  if (description) detailRows.push(["DESCRIPTION", description]);
-  if (suitable) detailRows.push(["SUITABLE FOR", suitable]);
-
-  y = newPage(doc, y, 17);
-  y = section(doc, "Machine details", M, y);
-  const labelW = 68;
-  for (const [label, value] of detailRows) {
-    y = continuationRow(doc, y, [
-      { text: label, x: M, w: labelW, style: { fill: SOFT, stroke: LINE, bold: true, size: 8.8, color: INK } },
-      { text: value, x: M + labelW, w: CONTENT - labelW, style: { stroke: LINE, size: 9, middle: false } },
-    ], {
-      height: (n) => Math.max(10, n * 4.4 + 6),
-      header: (top) => section(doc, `Machine details — ${label} (continued)`, M, top),
+  let rowY = y;
+  for (const [label, value] of forRows) {
+    cell(doc, label, M + metaW[0], rowY, labelW, rowH, {
+      fill: SOFT, stroke: LINE, bold: true, size: 7.8, color: MUTED,
     });
+    cell(doc, value, M + metaW[0] + labelW, rowY, metaW[1] - labelW, rowH, {
+      stroke: LINE, size: 9, bold: label === "NAME",
+    });
+    rowY += rowH;
   }
-  y += 9;
+  y += blockH + 10;
 
   // ---- what it costs
+  // The table carries the machine and its price only. What it does is printed
+  // in its own section underneath.
   y = newPage(doc, y, 24);
   y = section(doc, `Model & pricing (${cur})`, M, y);
   const priceW = [96, 50, 34];
@@ -556,14 +598,19 @@ export function quotePdf(quote: Quote, business: Letterhead, preparedBy = ""): B
   }
   y += 10;
 
-  // ---- key specifications
-  if (quote.specs.trim()) {
-    y = newPage(doc, y, 20);
-    const shortName = machineName.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
-    y = section(doc, `Key specifications — ${shortName}`, M, y);
-    y = bullets(doc, quote.specs.split("\n").filter(Boolean), M, y + 1, CONTENT, 9.2);
-    y += 8;
-  }
+  // ---- the words about each machine
+  // Older quotations carry their description on the document rather than on
+  // the lines. Show those once, as a single block, so the section is not lost.
+  const detailLines: DetailLine[] = quote.items.some((item) => item.machine_description || item.suitable_for)
+    ? quote.items
+    : quote.details || quote.suitable_for || quote.specs
+      ? [{
+          description: quote.items[0]?.description || "Machine",
+          machine_description: [quote.details, quote.specs].filter(Boolean).join("\n"),
+          suitable_for: quote.suitable_for,
+        }]
+      : quote.items;
+  y = machineDetails(doc, y, detailLines);
 
   // ---- important notes
   const notes = (quote.notes || DEFAULT_QUOTE_NOTES).split("\n").map((s) => s.trim()).filter(Boolean);
@@ -719,6 +766,9 @@ export function invoicePdf(inv: Invoice, business: Letterhead): Blob {
   money(doc, inv.total, cur, RIGHT - 2.4, y + 7.2, { bold: true, size: 10.5, color: ORANGE, decimals: true });
   y += 11 + 10;
 
+  // ---- the words about each machine
+  y = machineDetails(doc, y, inv.items);
+
   // ---- payment terms
   const terms = (inv.payment_terms || "").split("\n").map((s) => s.trim()).filter(Boolean);
   if (terms.length) {
@@ -771,7 +821,11 @@ export function invoicePdf(inv: Invoice, business: Letterhead): Blob {
 
 /* ---------------- the payment receipt ---------------- */
 
-export function receiptPdf(rec: Receipt, business: Letterhead): Blob {
+export function receiptPdf(
+  rec: Receipt,
+  business: Letterhead,
+  stamp?: Letterhead["logo"] | null
+): Blob {
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
   const brand: Letterhead = { ...BUSINESS, ...business };
   const cur = rec.currency || "NGN";
@@ -876,6 +930,9 @@ export function receiptPdf(rec: Receipt, business: Letterhead): Blob {
   });
   y += 7;
 
+  // ---- the words about each machine
+  y = machineDetails(doc, y, lines);
+
   // ---- payment summary
   // Only where there is an order total to divide: a receipt written by hand
   // for money received on its own has no share and no balance to show.
@@ -969,24 +1026,28 @@ export function receiptPdf(rec: Receipt, business: Letterhead): Blob {
   y += 5;
 
   // ---- signed off
-  y = newPage(doc, y, 18);
+  // The company seal sits beside the signature with the date underneath, the
+  // way it appears on the approved receipt. The person signing is the MD.
+  y = newPage(doc, y, 40);
+  const signatory = "Mr Godwin";
+  const title = "Managing Director";
   font(doc, "bold", 9, INK);
   doc.text("Signed:", M, y + 2);
   font(doc, "bold", 8.8, INK);
-  doc.text(`Name: ${rec.created_by_name || brand.signatory_name || ""}`, M, y + 8.4);
-  const signatory = rec.created_by_name || brand.signatory_name;
-  const title = brand.signatory_title || "";
+  doc.text(`Name: ${signatory}`, M, y + 8.4);
   font(doc, "normal", 8.8, INK);
   doc.text(`Position: ${title}`, M, y + 13);
 
-  if (signatory) {
-    const paymentLine = `Payment of ${currencyPrefix(cur)}${amountText(rec.amount_received, 2)} received.`;
-    font(doc, "normal", 8.2, MUTED);
-    doc.text(paymentLine, M, y + 18);
-  }
+  const paymentLine = `Payment of ${currencyPrefix(cur)}${amountText(rec.amount_received, 2)} received.`;
+  font(doc, "normal", 8.2, MUTED);
+  doc.text(paymentLine, M, y + 18);
 
+  if (stamp) {
+    const seal = 34;
+    doc.addImage(stamp.dataUrl, "PNG", RIGHT - seal, y - 4, seal, seal);
+  }
   font(doc, "bold", 8.8, INK);
-  doc.text(`Date: ${dashedDate(rec.receipt_date)}`, RIGHT, y + 13, { align: "right" });
+  doc.text(`Date: ${dashedDate(rec.receipt_date)}`, RIGHT, y + 33, { align: "right" });
 
   footers(doc, brand, "Thank you for your business. This is an official payment receipt.");
   return doc.output("blob");
@@ -1075,13 +1136,14 @@ export function cataloguePdf(items: CatalogueItem[], business: Letterhead): Blob
   return doc.output("blob");
 }
 
-// Documents use the coloured artwork from the approved receipt, not the white website wordmark.
-export async function loadLogo(src = "/logo-document.png"): Promise<Letterhead["logo"]> {
+/** Read a local image into something jsPDF can draw without a network call
+ *  at draw time. Both the document logo and the receipt stamp go through it. */
+export async function loadImageData(src: string): Promise<Letterhead["logo"]> {
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("logo"));
+      img.onerror = () => reject(new Error(src));
       img.src = src;
     });
 
@@ -1098,7 +1160,17 @@ export async function loadLogo(src = "/logo-document.png"): Promise<Letterhead["
       height: image.naturalHeight,
     };
   } catch {
-    // A missing logo is not a reason to refuse a document.
+    // Artwork is decoration. A missing image is not a reason to refuse a paper.
     return null;
   }
+}
+
+// Documents use the coloured artwork from the approved receipt, not the white website wordmark.
+export function loadLogo(src = "/logo-document.png"): Promise<Letterhead["logo"]> {
+  return loadImageData(src);
+}
+
+/** The circular company seal that goes on a payment receipt. */
+export function loadReceiptStamp(): Promise<Letterhead["logo"]> {
+  return loadImageData("/receipt-stamp.png");
 }

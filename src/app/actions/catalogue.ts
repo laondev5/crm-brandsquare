@@ -35,6 +35,7 @@ function readForm(form: FormData): CatalogueInput {
     model: text("model"),
     category: text("category"),
     description: text("description"),
+    suitable_for: text("suitable_for"),
     specs: text("specs"),
     price: readMoney(text("price")),
     currency: text("currency") || "USD",

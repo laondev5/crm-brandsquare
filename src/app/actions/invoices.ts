@@ -28,12 +28,16 @@ function readForm(form: FormData): InvoiceInput {
   const descriptions = form.getAll("item_description").map(String);
   const quantities = form.getAll("item_qty").map(String);
   const prices = form.getAll("item_price").map(String);
+  const details = form.getAll("item_machine_description").map(String);
+  const suitable = form.getAll("item_suitable_for").map(String);
 
   const items = descriptions
     .map((description, i) => ({
       description: description.trim(),
       qty: readMoney(quantities[i] ?? "1") || 1,
       unit_price: readMoney(prices[i] ?? "0"),
+      machine_description: (details[i] ?? "").trim(),
+      suitable_for: (suitable[i] ?? "").trim(),
     }))
     .filter((item) => item.description !== "" || item.unit_price > 0);
 

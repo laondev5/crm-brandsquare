@@ -10,6 +10,7 @@ import {
 } from "@/lib/queries";
 import { hasPermission, isAdminRole, money } from "@/lib/types";
 import OrganizationForm from "../form";
+import OrgFiles from "./files";
 import NoteBox from "../note-box";
 import TaskMini from "../../task-mini";
 import DeleteDocument from "../../delete-document";
@@ -21,9 +22,16 @@ const DOC_HREF: Record<string, string> = {
   receipt: "receipts",
 };
 
-export default async function OrganizationPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function OrganizationPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const me = await requireMember();
   const { id } = await params;
+  const { tab } = await searchParams;
   const data = await getOrganization(me, Number(id)).catch(() => null);
   if (!data?.organization) notFound();
   const org = data.organization;
@@ -227,6 +235,13 @@ export default async function OrganizationPage({ params }: { params: Promise<{ i
     );
   }
 
+  panels.push({
+    id: "files",
+    label: "Files",
+    count: org.files?.length,
+    content: <OrgFiles orgId={org.id} initial={org.files ?? []} canWrite={canWrite} />,
+  });
+
   if (canWrite) {
     panels.push({
       id: "details",
@@ -242,6 +257,9 @@ export default async function OrganizationPage({ params }: { params: Promise<{ i
         <div className="spacer" />
         {canWrite && (
           <>
+            <Link href={`/organizations/${org.id}?tab=details`} className="btn ghost">
+              Edit company
+            </Link>
             <Link href={`/deals/new?org=${org.id}`} className="btn ghost">+ Deal</Link>
             <Link href={`/quotes/new?org=${org.id}`} className="btn ghost">+ Quotation</Link>
             <Link href={`/invoices/new?org=${org.id}`} className="btn ghost">+ Invoice</Link>
@@ -279,7 +297,11 @@ export default async function OrganizationPage({ params }: { params: Promise<{ i
 
       <div className="qt-page">
         <div className="qt-page__main">
-          <RecordTabs id={`company-${org.id}`} panels={panels} />
+          <RecordTabs
+            id={`company-${org.id}`}
+            panels={panels}
+            initial={tab && panels.some((p) => p.id === tab) ? tab : undefined}
+          />
         </div>
         <aside className="qt-page__side">
           <div className="card">

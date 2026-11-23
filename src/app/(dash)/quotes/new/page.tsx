@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { getLeadFull, getOrganization, getWaThread } from "@/lib/queries";
+import { getDocSettings, getLeadFull, getOrganization, getWaThread } from "@/lib/queries";
 import { isAdminRole } from "@/lib/types";
 import QuoteEditor from "../editor";
 
@@ -25,10 +25,11 @@ export default async function NewQuotePage({
   const conversationId = Number(sp.c) || null;
   const orgId = Number(sp.org) || null;
 
-  const [lead, thread, org] = await Promise.all([
+  const [lead, thread, org, settings] = await Promise.all([
     leadId ? getLeadFull(leadId).catch(() => null) : Promise.resolve(null),
     conversationId ? getWaThread(conversationId).catch(() => null) : Promise.resolve(null),
     orgId ? getOrganization(me, orgId).catch(() => null) : Promise.resolve(null),
+    getDocSettings().catch(() => null),
   ]);
 
   // A thread usually knows its lead, and the lead has the fuller record.
@@ -76,7 +77,7 @@ export default async function NewQuotePage({
         are quoting for, put the quantity and the price against it, and the totals follow.
       </p>
 
-      <QuoteEditor prefill={prefill} canEdit />
+      <QuoteEditor prefill={prefill} defaults={settings?.settings ?? null} canEdit />
     </>
   );
 }

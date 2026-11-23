@@ -16,6 +16,7 @@ import {
   deleteOrgNote,
   deleteOrganization,
   updateOrganization,
+  uploadOrgFile,
   type OrganizationInput,
 } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
@@ -58,7 +59,17 @@ function readForm(form: FormData): OrganizationInput {
   };
 }
 
-export type OrganizationFormState = { ok?: true; organization?: OrganizationDetail; error?: string } | null;
+/** Files chosen on the create form, before the company has an id to hang them
+ *  on. The same 20 MB ceiling the company page's Files tab uses. */
+const MAX_FILES_BYTES = 20 * 1024 * 1024;
+
+function chosenFiles(form: FormData): File[] {
+  return form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+}
+
+export type OrganizationFormState =
+  | { ok?: true; organization?: OrganizationDetail; error?: string; warning?: string }
+  | null;
 
 export async function saveOrganizationAction(
   _prev: OrganizationFormState,
@@ -77,12 +88,40 @@ export async function saveOrganizationAction(
   const input = readForm(form);
   if (!input.name) return { error: "Give the organisation a name." };
 
+  // Files only come through on a new company; an existing one attaches them
+  // from its own Files tab.
+  const files = id ? [] : chosenFiles(form);
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+  if (totalBytes > MAX_FILES_BYTES) {
+    return {
+      error: `Those files come to ${Math.round(totalBytes / 1024 / 1024)} MB. The limit is 20 MB in all.`,
+    };
+  }
+
   try {
     const res = id > 0 ? await updateOrganization(me, id, input) : await createOrganization(me, input);
+
+    // The company exists now, so its files have somewhere to go. A file that
+    // fails does not undo the record — it is named, and can be attached again.
+    const failed: string[] = [];
+    for (const file of files) {
+      try {
+        await uploadOrgFile(res.organization.id, me, file);
+      } catch {
+        failed.push(file.name);
+      }
+    }
+
     revalidatePath("/organizations");
     revalidatePath(`/organizations/${res.organization.id}`);
     if (!id) revalidatePath("/");
-    return { ok: true, organization: res.organization };
+    return {
+      ok: true,
+      organization: res.organization,
+      warning: failed.length
+        ? `The company was created, but these files did not attach: ${failed.join(", ")}. Add them from the company page.`
+        : undefined,
+    };
   } catch (e) {
     return fail(e, "Could not save the organisation.");
   }

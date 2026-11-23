@@ -7,6 +7,7 @@ import {
   cataloguePdf,
   invoicePdf,
   loadLogo,
+  loadReceiptStamp,
   receiptPdf,
   type Letterhead,
 } from "@/lib/doc-pdf";
@@ -94,8 +95,8 @@ export function ReceiptPdfButton({
     setBusy(true);
     setError(null);
     try {
-      const brand = await letterhead(settings);
-      save(receiptPdf(receipt, brand), `${clean(receipt.receipt_no)}-${clean(receipt.customer_company || receipt.customer_name)}.pdf`);
+      const [brand, stamp] = await Promise.all([letterhead(settings), loadReceiptStamp()]);
+      save(receiptPdf(receipt, brand, stamp), `${clean(receipt.receipt_no)}-${clean(receipt.customer_company || receipt.customer_name)}.pdf`);
     } catch {
       setError("Could not build the PDF.");
     } finally {

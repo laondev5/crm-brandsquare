@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 export interface RecordPanel {
   id: string;
@@ -9,8 +9,22 @@ export interface RecordPanel {
   content: ReactNode;
 }
 
-export default function RecordTabs({ id, panels }: { id: string; panels: RecordPanel[] }) {
-  const [activeId, setActiveId] = useState(panels[0]?.id);
+export default function RecordTabs({
+  id,
+  panels,
+  initial,
+}: {
+  id: string;
+  panels: RecordPanel[];
+  /** A tab to open from a link (`?tab=details`), so a button elsewhere on the
+   *  page can land on the panel it means. */
+  initial?: string;
+}) {
+  const [activeId, setActiveId] = useState(initial ?? panels[0]?.id);
+
+  useEffect(() => {
+    if (initial) setActiveId(initial);
+  }, [initial]);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const selectedId = panels.some((panel) => panel.id === activeId) ? activeId : panels[0]?.id;
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { getQuote, getWaMode } from "@/lib/queries";
+import { getDocSettings, getQuote, getWaMode } from "@/lib/queries";
 import { hasPermission, isAdminRole } from "@/lib/types";
 import QuoteEditor from "../editor";
 import SendQuote from "./send";
@@ -17,7 +17,10 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
   const quote = data.quote;
 
   const canWrite = isAdminRole(me.role) || me.role === "subadmin";
-  const waMode = hasPermission(me, "send_whatsapp") ? await getWaMode(me.id).catch(() => null) : null;
+  const [waMode, settings] = await Promise.all([
+    hasPermission(me, "send_whatsapp") ? getWaMode(me.id).catch(() => null) : Promise.resolve(null),
+    getDocSettings().catch(() => null),
+  ]);
 
   return (
     <>
@@ -49,7 +52,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         </Link>
       </div>
 
-      <QuoteEditor quote={quote} canEdit={canWrite} />
+      <QuoteEditor quote={quote} defaults={settings?.settings ?? null} canEdit={canWrite} />
 
       <div className="doc-form__footcards">
         <div className="card">

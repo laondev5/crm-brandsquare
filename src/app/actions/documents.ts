@@ -42,6 +42,9 @@ export async function saveDocSettingsAction(
     payment_terms: text("payment_terms"),
     invoice_notes: text("invoice_notes"),
     invoice_next_step: text("invoice_next_step"),
+    quote_description: text("quote_description"),
+    quote_suitable_for: text("quote_suitable_for"),
+    quote_specs: text("quote_specs"),
     quote_notes: text("quote_notes"),
     quote_next_step: text("quote_next_step"),
     receipt_terms: text("receipt_terms"),
@@ -51,6 +54,7 @@ export async function saveDocSettingsAction(
     const res = await saveDocSettings(me, input);
     revalidatePath("/settings/documents");
     revalidatePath("/invoices/new");
+    revalidatePath("/quotes/new");
     revalidatePath("/receipts/new");
     return { ok: true, settings: res.settings };
   } catch (e) {

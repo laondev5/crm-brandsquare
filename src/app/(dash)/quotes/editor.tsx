@@ -4,9 +4,10 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { saveQuoteAction, type QuoteFormState } from "@/app/actions/quotes";
-import { money, readMoney, quoteTotals, type Quote } from "@/lib/types";
+import { money, readMoney, quoteTotals, type DocSettings, type Quote } from "@/lib/types";
 import { useCataloguePricing, type CatalogueBasis } from "@/lib/use-catalogue-pricing";
 import DocumentCataloguePicker from "@/components/document-catalogue-picker";
+import MachineDetailsFields from "@/components/machine-details-fields";
 import { DocumentForm, DocumentSection } from "@/components/document-form";
 import CurrencyPicker from "./currency-picker";
 
@@ -14,6 +15,8 @@ interface Line {
   key: string;
   description: string;
   note: string;
+  machine_description: string;
+  suitable_for: string;
   qty: string;
   unit_price: string;
   /** Set on lines copied from the catalogue, so a currency change can re-price
@@ -25,6 +28,8 @@ const blank = (): Line => ({
   key: Math.random().toString(36).slice(2),
   description: "",
   note: "",
+  machine_description: "",
+  suitable_for: "",
   qty: "1",
   unit_price: "",
   basis: null,
@@ -36,6 +41,8 @@ function linesFrom(quote: Quote | null): Line[] {
     key: `saved-${item.id ?? i}`,
     description: item.description,
     note: item.note ?? "",
+    machine_description: item.machine_description ?? "",
+    suitable_for: item.suitable_for ?? "",
     qty: String(item.qty),
     unit_price: String(item.unit_price),
   }));
@@ -45,6 +52,7 @@ const SECTIONS = [
   { id: "qt-customer", label: "Customer" },
   { id: "qt-details", label: "Details" },
   { id: "qt-lines", label: "Line items" },
+  { id: "qt-machines", label: "Machine details" },
   { id: "qt-content", label: "Content" },
 ];
 
@@ -55,10 +63,14 @@ const SECTIONS = [
 export default function QuoteEditor({
   quote = null,
   prefill,
+  defaults,
   canEdit,
   onSaved,
 }: {
   quote?: Quote | null;
+  /** The document settings, so a new quotation opens with the words the
+   *  business usually says. A saved quotation keeps its own. */
+  defaults?: DocSettings | null;
   /** Where the quotation was started from, so the customer is already on it. */
   prefill?: {
     lead_id?: number | null;
@@ -262,9 +274,11 @@ export default function QuoteEditor({
         <DocumentCataloguePicker
           currency={currencyCode}
           canEdit={canEdit && !pending}
-          onAdd={({ description, qty, price, basis }) => {
+          onAdd={({ description, machine_description, suitable_for, qty, price, basis }) => {
             if (!canEdit || pending) return;
-            const line: Line = { ...blank(), description, qty, unit_price: price, basis: basis ?? null };
+            const line: Line = {
+              ...blank(), description, machine_description, suitable_for, qty, unit_price: price, basis: basis ?? null,
+            };
             setLines((all) => {
               const first = all[0];
               return first && first.description === "" && first.note === "" && first.qty === "1" && first.unit_price === ""
@@ -360,17 +374,30 @@ export default function QuoteEditor({
         </table>
       </DocumentSection>
 
-      <DocumentSection id="qt-content" step={4} title="Document content">
+      <DocumentSection id="qt-machines" step={4} title="Machine details">
+        <MachineDetailsFields
+          rows={lines.map((line) => ({
+            key: line.key,
+            label: line.description,
+            machine_description: line.machine_description,
+            suitable_for: line.suitable_for,
+          }))}
+          canEdit={canEdit && !pending}
+          onChange={(i, patch) => set(i, patch)}
+        />
+      </DocumentSection>
+
+      <DocumentSection id="qt-content" step={5} title="Document content">
         <p className="doc-form__hint">
-          Optional content around the pricing table. Catalogue breakdowns are already in the line descriptions
-          above; add only the extra details this quotation needs.
+          Optional words around the machine details. Leave these empty unless this quotation needs
+          something beyond what came from the catalogue.
         </p>
         <label className="f">
           <span>Description</span>
           <textarea
             name="details"
             rows={3}
-            defaultValue={quote?.details ?? ""}
+            defaultValue={quote?.details ?? defaults?.quote_description ?? ""}
             placeholder="High-speed industrial flour mill designed for grinding rice, beans, plantain, corn and sorghum. Capacity 400–800 kg/hr, adjustable fineness 1.5–0.7 mm."
           />
         </label>
@@ -379,7 +406,7 @@ export default function QuoteEditor({
           <textarea
             name="suitable_for"
             rows={2}
-            defaultValue={quote?.suitable_for ?? ""}
+            defaultValue={quote?.suitable_for ?? defaults?.quote_suitable_for ?? ""}
             placeholder="Commercial flour production, bakery flour, rice flour, animal feed meal and multi-grain processing."
           />
         </label>
@@ -388,7 +415,7 @@ export default function QuoteEditor({
           <textarea
             name="specs"
             rows={5}
-            defaultValue={quote?.specs ?? ""}
+            defaultValue={quote?.specs ?? defaults?.quote_specs ?? ""}
             placeholder={"Capacity: 400–800 kg/hr\nGrinding motor: 22 kW\nTotal power: 34.1 kW\nFineness: 0.7–1.5 mm"}
           />
         </label>
@@ -397,7 +424,7 @@ export default function QuoteEditor({
           <textarea
             name="notes"
             rows={4}
-            defaultValue={quote?.notes ?? ""}
+            defaultValue={quote?.notes ?? defaults?.quote_notes ?? ""}
             placeholder={"Prices are in USD. Local currency equivalent is calculated on the day of order.\nShipping is NOT included.\nQuotation validity: 7 days."}
           />
         </label>
@@ -406,7 +433,7 @@ export default function QuoteEditor({
           <textarea
             name="next_step"
             rows={2}
-            defaultValue={quote?.next_step ?? ""}
+            defaultValue={quote?.next_step ?? defaults?.quote_next_step ?? ""}
             placeholder="Please reply to confirm your order and we will prepare the full proforma invoice."
           />
         </label>

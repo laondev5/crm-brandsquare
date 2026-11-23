@@ -7,12 +7,15 @@ import { saveReceiptAction, type ReceiptFormState } from "@/app/actions/receipts
 import { useCataloguePricing, type CatalogueBasis } from "@/lib/use-catalogue-pricing";
 import { money, readMoney, type DocSettings, type Receipt } from "@/lib/types";
 import DocumentCataloguePicker from "@/components/document-catalogue-picker";
+import MachineDetailsFields from "@/components/machine-details-fields";
 import { DocumentForm, DocumentSection } from "@/components/document-form";
 import CurrencyPicker from "../quotes/currency-picker";
 
 interface Line {
   key: string;
   description: string;
+  machine_description: string;
+  suitable_for: string;
   qty: string;
   line_total: string;
   /** Set on lines copied from the catalogue, so a currency change can re-price
@@ -23,6 +26,8 @@ interface Line {
 const blank = (): Line => ({
   key: Math.random().toString(36).slice(2),
   description: "",
+  machine_description: "",
+  suitable_for: "",
   qty: "1",
   line_total: "",
   basis: null,
@@ -33,6 +38,8 @@ function linesFrom(receipt: Receipt | null): Line[] {
   return receipt.items.map((item, i) => ({
     key: `saved-${item.id ?? i}`,
     description: item.description,
+    machine_description: item.machine_description ?? "",
+    suitable_for: item.suitable_for ?? "",
     qty: String(item.qty),
     line_total: String(item.line_total),
   }));
@@ -42,6 +49,7 @@ const SECTIONS = [
   { id: "rcpt-who", label: "Who paid" },
   { id: "rcpt-payment", label: "Payment" },
   { id: "rcpt-lines", label: "What it covers" },
+  { id: "rcpt-machines", label: "Machine details" },
   { id: "rcpt-words", label: "Words" },
 ];
 
@@ -71,7 +79,7 @@ export default function ReceiptEditor({
     amount_received?: number;
     order_total?: number;
     summary?: string;
-    items?: { description: string; qty: number; line_total: number }[];
+    items?: { description: string; qty: number; line_total: number; machine_description?: string; suitable_for?: string }[];
   };
   defaults?: DocSettings | null;
   canEdit: boolean;
@@ -83,6 +91,8 @@ export default function ReceiptEditor({
       ? prefill.items.map((item, i) => ({
           key: `pre-${i}`,
           description: item.description,
+          machine_description: item.machine_description ?? "",
+          suitable_for: item.suitable_for ?? "",
           qty: String(item.qty),
           line_total: String(item.line_total),
           basis: null,
@@ -333,9 +343,11 @@ export default function ReceiptEditor({
         <DocumentCataloguePicker
           currency={currencyCode}
           canEdit={canEdit && !pending}
-          onAdd={({ description, qty, price, basis }) => {
+          onAdd={({ description, machine_description, suitable_for, qty, price, basis }) => {
             if (!canEdit || pending) return;
-            const line: Line = { ...blank(), description, qty, line_total: price, basis: basis ?? null };
+            const line: Line = {
+              ...blank(), description, machine_description, suitable_for, qty, line_total: price, basis: basis ?? null,
+            };
             setLines((all) => {
               const first = all[0];
               return first && first.description === "" && first.qty === "1" && first.line_total === ""
@@ -416,7 +428,20 @@ export default function ReceiptEditor({
         </div>
       </DocumentSection>
 
-      <DocumentSection id="rcpt-words" step={4} title="Words on the receipt">
+      <DocumentSection id="rcpt-machines" step={4} title="Machine details">
+        <MachineDetailsFields
+          rows={lines.map((line) => ({
+            key: line.key,
+            label: line.description,
+            machine_description: line.machine_description,
+            suitable_for: line.suitable_for,
+          }))}
+          canEdit={canEdit && !pending}
+          onChange={(i, patch) => set(i, patch)}
+        />
+      </DocumentSection>
+
+      <DocumentSection id="rcpt-words" step={5} title="Words on the receipt">
         <label className="f">
           <span>Summary</span>
           <textarea

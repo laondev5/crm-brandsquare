@@ -1066,7 +1066,17 @@ export const QUOTE_STATUSES: { key: QuoteStatus; label: string; note: string }[]
   { key: "declined", label: "Declined", note: "They said no, or it lapsed." },
 ];
 
-export interface QuoteItem {
+/** The words that belong to one machine on a paper, kept with its line.
+ *  Copied from the catalogue when the line is added, then editable here: the
+ *  document keeps what it said on the day it was written. */
+export interface MachineDetail {
+  /** The catalogue's description, printed in its own section. */
+  machine_description?: string;
+  /** Who or what the machine is for, printed under the description. */
+  suitable_for?: string;
+}
+
+export interface QuoteItem extends MachineDetail {
   id?: number;
   description: string;
   qty: number;
@@ -1256,6 +1266,8 @@ export interface OrganizationDetail extends Organization {
   notes_list: OrgNote[];
   activity: OrgActivity[];
   documents: OrgDocument[];
+  /** Uploaded files — agreements, KYC packs, anything on paper. */
+  files: LeadFile[];
 }
 
 export interface OrganizationCounts {
@@ -1387,7 +1399,7 @@ export const INVOICE_STATUSES: { key: InvoiceStatus; label: string; note: string
   { key: "cancelled", label: "Cancelled", note: "Withdrawn; it no longer counts." },
 ];
 
-export interface InvoiceItem {
+export interface InvoiceItem extends MachineDetail {
   id?: number;
   description: string;
   qty: number;
@@ -1460,7 +1472,7 @@ export interface InvoiceCounts {
 
 /* ---------------- receipts ---------------- */
 
-export interface ReceiptItem {
+export interface ReceiptItem extends MachineDetail {
   id?: number;
   description: string;
   qty: number;
@@ -1514,6 +1526,8 @@ export interface CatalogueItem {
   model: string;
   category: string;
   description: string;
+  /** Who or what this machine is for, as written in the catalogue. */
+  suitable_for?: string;
   specs: string;
   price: number;
   currency: string;
@@ -1547,12 +1561,14 @@ export function catalogueDocumentLine(
       : "";
 
   return {
-    description: [
-      item.name,
-      item.model ? `Model: ${item.model}` : "",
-      item.description,
-      item.specs,
-    ].filter((part) => part.trim()).join("\n\n"),
+    // The pricing table carries only the machine and its model. The catalogue's
+    // description and suitable-for go into their own section further down the
+    // paper, so a line beside a figure never becomes a paragraph of prose.
+    description: [item.name, item.model ? `Model: ${item.model}` : ""]
+      .filter((part) => part.trim())
+      .join("\n"),
+    machine_description: (item.description || "").trim(),
+    suitable_for: (item.suitable_for || "").trim(),
     qty: "1",
     price,
     currencyMatches,
@@ -1598,6 +1614,9 @@ export interface DocSettings {
   payment_terms: string;
   invoice_notes: string;
   invoice_next_step: string;
+  quote_description: string;
+  quote_suitable_for: string;
+  quote_specs: string;
   quote_notes: string;
   quote_next_step: string;
   receipt_terms: string;

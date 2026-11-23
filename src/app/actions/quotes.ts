@@ -30,6 +30,8 @@ function readForm(form: FormData): QuoteInput {
   const quantities = form.getAll("item_qty").map(String);
   const prices = form.getAll("item_price").map(String);
   const notes = form.getAll("item_note").map(String);
+  const details = form.getAll("item_machine_description").map(String);
+  const suitable = form.getAll("item_suitable_for").map(String);
 
   const items = descriptions
     .map((description, i) => ({
@@ -37,6 +39,8 @@ function readForm(form: FormData): QuoteInput {
       qty: readMoney(quantities[i] ?? "1") || 1,
       unit_price: readMoney(prices[i] ?? "0"),
       note: (notes[i] ?? "").trim(),
+      machine_description: (details[i] ?? "").trim(),
+      suitable_for: (suitable[i] ?? "").trim(),
     }))
     // A line nobody filled in is not a line. The form offers spares; a
     // quotation should carry only what was written on it.

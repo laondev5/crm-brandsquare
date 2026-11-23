@@ -31,7 +31,7 @@ export default function OrganizationForm({
       <input type="hidden" name="id" value={organization?.id ?? ""} />
 
       {state?.error && <div className="msg err">{state.error}</div>}
-      {state?.ok && <div className="msg ok">Saved.</div>}
+      {state?.ok && <div className="msg ok">{state.warning ?? "Saved."}</div>}
 
       <h2>{organization ? "Company details" : "Create company"}</h2>
       <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 14px", lineHeight: 1.5 }}>
@@ -138,6 +138,17 @@ export default function OrganizationForm({
           placeholder="What they buy, volumes, who signs off, anything the next person should know."
         />
       </label>
+
+      {!organization && (
+        <label className="f" style={{ marginTop: 8 }}>
+          <span>Files</span>
+          <input type="file" name="files" multiple />
+          <small style={{ color: "var(--muted)", fontSize: 11.5 }}>
+            Optional: agreements, KYC documents, anything that belongs to the company. Up to 20 MB in all;
+            more can be added from the company page afterwards.
+          </small>
+        </label>
+      )}
 
       <div className="row" style={{ gap: 10, marginTop: 8 }}>
         <button className="btn" disabled={pending}>

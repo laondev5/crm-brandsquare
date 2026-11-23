@@ -26,6 +26,8 @@ function readForm(form: FormData): ReceiptInput {
   const descriptions = form.getAll("item_description").map(String);
   const quantities = form.getAll("item_qty").map(String);
   const amounts = form.getAll("item_amount").map(String);
+  const details = form.getAll("item_machine_description").map(String);
+  const suitable = form.getAll("item_suitable_for").map(String);
 
   // Receipts describe what arrived, so a line carries a total rather than a
   // unit price — the amount handed over for that item, as written.
@@ -34,6 +36,8 @@ function readForm(form: FormData): ReceiptInput {
       description: description.trim(),
       qty: readMoney(quantities[i] ?? "1") || 1,
       line_total: readMoney(amounts[i] ?? "0"),
+      machine_description: (details[i] ?? "").trim(),
+      suitable_for: (suitable[i] ?? "").trim(),
     }))
     .filter((item) => item.description !== "" || item.line_total > 0);
 

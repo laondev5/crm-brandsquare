@@ -1478,6 +1478,15 @@
   background: #fff1e6; color: var(--p); font-size: 11.5px; font-weight: 700;
 }
 .doc-form__hint { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 4px 0 10px; }
+/* One clean block per machine on a paper, kept apart from the price table. */
+.machine-details { display: grid; gap: 12px; padding-bottom: 8px; }
+.machine-details__card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fbfbfd; display: grid; gap: 10px; }
+.machine-details__title { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); }
+.machine-details__no {
+  width: 20px; height: 20px; border-radius: 6px; flex: none; display: grid; place-items: center;
+  background: #fff1e6; color: var(--p); font-size: 11px; font-weight: 700;
+}
+.machine-details__blank { font-size: 12px; color: var(--muted); padding: 6px 2px; }
 /* A conversion happened: say so once, on whichever document was open. */
 .doc-converted {
   font-size: 12.5px; line-height: 1.5; margin: 0 0 10px; padding: 8px 11px;

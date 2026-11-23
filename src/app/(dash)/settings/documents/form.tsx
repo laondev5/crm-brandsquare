@@ -123,6 +123,18 @@ export default function DocumentSettingsForm({ settings }: { settings: DocSettin
         <textarea name="invoice_next_step" rows={2} defaultValue={settings.invoice_next_step} />
       </label>
       <label className="f">
+        <span>Quotation — description</span>
+        <textarea name="quote_description" rows={3} defaultValue={settings.quote_description} />
+      </label>
+      <label className="f">
+        <span>Quotation — suitable for</span>
+        <textarea name="quote_suitable_for" rows={2} defaultValue={settings.quote_suitable_for} />
+      </label>
+      <label className="f">
+        <span>Quotation — key specifications, one per line</span>
+        <textarea name="quote_specs" rows={5} defaultValue={settings.quote_specs} />
+      </label>
+      <label className="f">
         <span>Quotation — notes, one per line</span>
         <textarea name="quote_notes" rows={4} defaultValue={settings.quote_notes} />
       </label>
