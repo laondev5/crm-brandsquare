@@ -1175,13 +1175,14 @@ export function quoteTotals(items: { qty: number; unit_price: number }[], taxPer
  * organisation can send several people, buy in bulk and be invoiced under one
  * name for years. Its documents hang off this record.
  */
-export type OrgType = "partner" | "bulk" | "both";
+export type OrgType = "partner" | "bulk" | "both" | "other";
 export type OrgStatus = "prospect" | "contacted" | "negotiating" | "partner" | "customer" | "dormant";
 
 export const ORG_TYPES: { key: OrgType; label: string }[] = [
   { key: "partner", label: "Partner" },
   { key: "bulk", label: "Bulk buyer" },
   { key: "both", label: "Partner and bulk buyer" },
+  { key: "other", label: "Other" },
 ];
 
 export const ORG_STATUSES: { key: OrgStatus; label: string }[] = [
@@ -1198,6 +1199,8 @@ export interface Organization {
   ref: string;
   name: string;
   org_type: OrgType;
+  /** The words typed for kind "other"; empty for the listed kinds. */
+  org_type_other: string;
   org_type_label: string;
   sector: string;
   website: string;

@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveOrganizationAction, type OrganizationFormState } from "@/app/actions/organizations";
-import { ORG_STATUSES, ORG_TYPES, type DashUser, type Organization } from "@/lib/types";
+import { ORG_STATUSES, ORG_TYPES, type DashUser, type Organization, type OrgType } from "@/lib/types";
 
 export default function OrganizationForm({
   organization = null,
@@ -16,6 +16,9 @@ export default function OrganizationForm({
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState<OrganizationFormState, FormData>(saveOrganizationAction, null);
+  // "Other" is the only kind that needs words of its own, so the box that asks
+  // for them only exists while it is chosen.
+  const [kind, setKind] = useState<OrgType>(organization?.org_type ?? "partner");
 
   useEffect(() => {
     if (!state?.ok || !state.organization) return;
@@ -44,7 +47,7 @@ export default function OrganizationForm({
         </label>
         <label className="f">
           <span>Kind</span>
-          <select name="org_type" defaultValue={organization?.org_type ?? "partner"}>
+          <select name="org_type" value={kind} onChange={(e) => setKind(e.target.value as OrgType)}>
             {ORG_TYPES.map((t) => (
               <option key={t.key} value={t.key}>
                 {t.label}
@@ -52,6 +55,19 @@ export default function OrganizationForm({
             ))}
           </select>
         </label>
+        {kind === "other" && (
+          <label className="f">
+            <span>Kind of partnership</span>
+            <input
+              type="text"
+              name="org_type_other"
+              required
+              maxLength={60}
+              defaultValue={organization?.org_type_other ?? ""}
+              placeholder="Logistics partner, franchisee, distributor…"
+            />
+          </label>
+        )}
         <label className="f">
           <span>Status</span>
           <select name="status" defaultValue={organization?.status ?? "prospect"}>

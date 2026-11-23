@@ -1801,6 +1801,7 @@ export async function deleteMachineRequest(actor: DashUser, id: number) {
 export interface OrganizationInput {
   name?: string;
   org_type?: string;
+  org_type_other?: string;
   sector?: string;
   website?: string;
   country?: string;

@@ -41,6 +41,8 @@ function readForm(form: FormData): OrganizationInput {
   return {
     name: String(form.get("name") ?? "").trim(),
     org_type: ORG_TYPES.some((t) => t.key === type) ? type : "partner",
+    org_type_other:
+      type === "other" ? String(form.get("org_type_other") ?? "").trim().slice(0, 60) : "",
     status: ORG_STATUSES.some((s) => s.key === status) ? status : "prospect",
     sector: String(form.get("sector") ?? "").trim(),
     website: String(form.get("website") ?? "").trim(),
