@@ -6,6 +6,7 @@ import {
   isAdminRole,
   ORG_STATUSES,
   ORG_TYPES,
+  type DashUser,
   type OrganizationDetail,
   type OrgNote,
   type Role,
@@ -75,7 +76,20 @@ export async function saveOrganizationAction(
   _prev: OrganizationFormState,
   form: FormData
 ): Promise<OrganizationFormState> {
+  // Keep the auth redirect outside the catch: a redirect is thrown on purpose
+  // and must never be turned into a form message.
   const me = await requireUser();
+  try {
+    return await saveOrganization(me, form);
+  } catch (e) {
+    // Nothing here should be able to escape to the full-page error boundary —
+    // the person filling the form needs to see what stopped the save.
+    console.error("[organizations] save failed", e);
+    return fail(e, "Something went wrong while saving the company. Nothing was saved; please try again.");
+  }
+}
+
+async function saveOrganization(me: DashUser, form: FormData): Promise<OrganizationFormState> {
   const id = Number(form.get("id"));
   if (!mayAdd(me.role, me.permissions)) {
     return {
@@ -98,33 +112,29 @@ export async function saveOrganizationAction(
     };
   }
 
-  try {
-    const res = id > 0 ? await updateOrganization(me, id, input) : await createOrganization(me, input);
+  const res = id > 0 ? await updateOrganization(me, id, input) : await createOrganization(me, input);
 
-    // The company exists now, so its files have somewhere to go. A file that
-    // fails does not undo the record — it is named, and can be attached again.
-    const failed: string[] = [];
-    for (const file of files) {
-      try {
-        await uploadOrgFile(res.organization.id, me, file);
-      } catch {
-        failed.push(file.name);
-      }
+  // The company exists now, so its files have somewhere to go. A file that
+  // fails does not undo the record — it is named, and can be attached again.
+  const failed: string[] = [];
+  for (const file of files) {
+    try {
+      await uploadOrgFile(res.organization.id, me, file);
+    } catch {
+      failed.push(file.name);
     }
-
-    revalidatePath("/organizations");
-    revalidatePath(`/organizations/${res.organization.id}`);
-    if (!id) revalidatePath("/");
-    return {
-      ok: true,
-      organization: res.organization,
-      warning: failed.length
-        ? `The company was created, but these files did not attach: ${failed.join(", ")}. Add them from the company page.`
-        : undefined,
-    };
-  } catch (e) {
-    return fail(e, "Could not save the organisation.");
   }
+
+  revalidatePath("/organizations");
+  revalidatePath(`/organizations/${res.organization.id}`);
+  if (!id) revalidatePath("/");
+  return {
+    ok: true,
+    organization: res.organization,
+    warning: failed.length
+      ? `The company was created, but these files did not attach: ${failed.join(", ")}. Add them from the company page.`
+      : undefined,
+  };
 }
 
 export async function addOrgNoteAction(id: number, body: string): Promise<{ note: OrgNote } | Fail> {

@@ -77,6 +77,16 @@ function url(path: string, params?: Params) {
   return u.toString();
 }
 
+/**
+ * The host blocks any URL containing "users" at the edge — before WordPress or
+ * the plugin sees it — so team calls travel under /team (plugin 1.40.6+).
+ * Everything else keeps its original path. An older plugin answers /team with
+ * rest_no_route, and the caller retries the original path in that one case.
+ */
+function teamPath(path: string) {
+  return path === "/users" || path.startsWith("/users/") ? `/team${path.slice(6)}` : path;
+}
+
 async function request<T>(path: string, init: RequestInit & { params?: Params } = {}): Promise<T> {
   if (!BASE || !KEY) {
     throw new ApiError("WP_API_URL or WP_API_KEY is not set. Copy .env.example to .env.local.", 500);
@@ -84,34 +94,49 @@ async function request<T>(path: string, init: RequestInit & { params?: Params } 
 
   const { params, ...rest } = init;
 
-  let res: Response;
-  try {
-    res = await fetch(url(path, params), {
-      ...rest,
-      headers: {
-        "Content-Type": "application/json",
-        "X-BSQ-Key": KEY,
-        ...(rest.headers || {}),
-      },
-      // Lead data changes constantly; a cached response would show stale rows.
-      cache: "no-store",
-    });
-  } catch (e: any) {
-    throw new ApiError(`Could not reach WordPress at ${BASE}. ${e?.message ?? ""}`.trim(), 503);
-  }
+  const send = async (p: string) => {
+    let res: Response;
+    try {
+      res = await fetch(url(p, params), {
+        ...rest,
+        headers: {
+          "Content-Type": "application/json",
+          "X-BSQ-Key": KEY,
+          ...(rest.headers || {}),
+        },
+        // Lead data changes constantly; a cached response would show stale rows.
+        cache: "no-store",
+      });
+    } catch (e: any) {
+      throw new ApiError(`Could not reach WordPress at ${BASE}. ${e?.message ?? ""}`.trim(), 503);
+    }
+    const text = await res.text();
+    let body: any = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      // A WAF block or a PHP fatal returns HTML, not JSON — say so plainly
+      // rather than surfacing "Unexpected token <".
+      if (p.startsWith("/team") && path.startsWith("/users")) {
+        throw new ApiError(
+          "The host is blocking team requests. Upload the latest Brandsquare plugin (1.40.6 or newer).",
+          res.status || 403
+        );
+      }
+      throw new ApiError(
+        `WordPress returned a non-JSON response (HTTP ${res.status}). Check that the plugin is active and the URL is right.`,
+        res.status || 502
+      );
+    }
+    return { res, body };
+  };
 
-  const text = await res.text();
-  let body: any = null;
-  try {
-    body = text ? JSON.parse(text) : null;
-  } catch {
-    // A WAF block or a PHP fatal returns HTML, not JSON — say so plainly
-    // rather than surfacing "Unexpected token <".
-    throw new ApiError(
-      `WordPress returned a non-JSON response (HTTP ${res.status}). Check that the plugin is active and the URL is right.`,
-      res.status || 502
-    );
+  const routed = teamPath(path);
+  let out = await send(routed);
+  if (routed !== path && out.res.status === 404 && out.body?.code === "rest_no_route") {
+    out = await send(path);
   }
+  const { res, body } = out;
 
   if (!res.ok) {
     throw new ApiError(body?.message || `Request failed (HTTP ${res.status})`, res.status, body?.code || "");

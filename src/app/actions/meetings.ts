@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { requireMember } from "@/lib/auth";
-import { cancelMeeting, createMeeting, markMeetingSeen, updateMeeting, type MeetingInput } from "@/lib/queries";
+import {
+  cancelMeeting,
+  createMeeting,
+  markMeetingSeen,
+  sendMeetingReminder,
+  updateMeeting,
+  type MeetingInput,
+} from "@/lib/queries";
 import { ApiError } from "@/lib/api";
 
 type Result = { ok: string } | { error: string };
@@ -64,6 +71,18 @@ export async function cancelMeetingAction(id: number): Promise<Result> {
   revalidatePath("/meetings");
   revalidatePath("/work");
   return { ok: "Meeting cancelled. Everyone in it has been told." };
+}
+
+/** Nudge everyone now, without waiting for the automatic ten-minute reminder. */
+export async function remindMeetingAction(id: number): Promise<Result> {
+  const me = await requireMember();
+  try {
+    const res = await sendMeetingReminder(me, id);
+    revalidatePath("/meetings");
+    return { ok: `Reminder sent to ${res.sent} ${res.sent === 1 ? "person" : "people"}.` };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not send the reminder." };
+  }
 }
 
 export async function seenMeetingAction(id: number): Promise<Result> {

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { cancelMeetingAction } from "@/app/actions/meetings";
+import { cancelMeetingAction, remindMeetingAction } from "@/app/actions/meetings";
 import { googleCalendarLink, type Meeting, type PersonName } from "@/lib/types";
 import MeetingForm from "./meeting-form";
 
@@ -28,6 +28,7 @@ export default function MeetingCard({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [err, setErr] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, start] = useTransition();
   const cancelled = m.status === "cancelled";
   const live = !past && !cancelled && m.starts_in_min <= 10;
@@ -45,10 +46,25 @@ export default function MeetingCard({
   const cancel = () => {
     if (!confirm(`Cancel "${m.title}"? Everyone in it will be emailed.`)) return;
     setErr("");
+    setNotice("");
     start(async () => {
       const res = await cancelMeetingAction(m.id);
       if ("error" in res) setErr(res.error);
       else router.refresh();
+    });
+  };
+
+  const remind = () => {
+    if (!confirm(`Send a reminder for "${m.title}" now? They also get the automatic one 10 minutes before.`)) return;
+    setErr("");
+    setNotice("");
+    start(async () => {
+      const res = await remindMeetingAction(m.id);
+      if ("error" in res) setErr(res.error);
+      else {
+        setNotice(res.ok);
+        router.refresh();
+      }
     });
   };
 
@@ -78,6 +94,7 @@ export default function MeetingCard({
           ))}
         </div>
         {err && <div className="msg err">{err}</div>}
+        {notice && <div className="msg ok">{notice}</div>}
       </div>
       {!cancelled && !past && (
         <div className="mtg-card__actions">
@@ -93,6 +110,9 @@ export default function MeetingCard({
           )}
           {m.can_edit && (
             <div className="row" style={{ gap: 6 }}>
+              <button type="button" className="btn ghost sm" disabled={busy} onClick={remind}>
+                {busy ? "Sending…" : "Send reminder now"}
+              </button>
               <button type="button" className="btn ghost sm" onClick={() => setEditing(true)}>
                 Edit
               </button>

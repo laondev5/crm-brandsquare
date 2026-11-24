@@ -1558,6 +1558,11 @@ export async function cancelMeeting(actor: DashUser, id: number) {
   return api.post<{ ok: true }>(`/meetings/${id}/cancel`, { actor_id: actor.id });
 }
 
+/** Send the reminder early, instead of waiting for the automatic ten minutes. */
+export async function sendMeetingReminder(actor: DashUser, id: number) {
+  return api.post<{ ok: true; sent: number }>(`/meetings/${id}/remind`, { actor_id: actor.id });
+}
+
 /** About to start or running, plus unseen invites. Also nudges the reminder sender. */
 export async function meetingsSoon(actor: DashUser) {
   return api.get<{ soon: Meeting[]; invites: Meeting[]; now: string }>("/meetings/soon", {

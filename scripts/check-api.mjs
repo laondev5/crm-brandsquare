@@ -78,7 +78,10 @@ if (missing.length) {
 }
 if (Object.keys(tables).length) console.log(`  OK  all ${Object.keys(tables).length} tables present`);
 
-const [leads, users] = await Promise.all([call("/leads", { per: "1" }), call("/users")]);
+// /team is the same endpoint under a name the host does not block. Older
+// plugins still only answer /users, so fall back once for those installs.
+const [leads, teamFirst] = await Promise.all([call("/leads", { per: "1" }), call("/team")]);
+const users = teamFirst.res.status === 404 ? await call("/users") : teamFirst;
 
 if (leads.body) console.log(`  OK  leads endpoint — ${leads.body.total} lead(s) stored`);
 else console.log(`  --  leads endpoint returned HTTP ${leads.res.status}`);
@@ -86,13 +89,13 @@ else console.log(`  --  leads endpoint returned HTTP ${leads.res.status}`);
 if (users.body) {
   const list = users.body.users || [];
   const admins = list.filter((u) => u.role === "admin").length;
-  console.log(`  OK  users endpoint — ${list.length} dashboard user(s), ${admins} admin(s)`);
+  console.log(`  OK  team endpoint — ${list.length} dashboard user(s), ${admins} admin(s)`);
   if (!admins) {
     console.log(`\n  No admin yet. In WordPress: Brandsquare -> Dashboard Access,`);
     console.log(`  then "Create or reset an admin".`);
   }
 } else {
-  console.log(`  --  users endpoint returned HTTP ${users.res.status}`);
+  console.log(`  --  team endpoint returned HTTP ${users.res.status}`);
 }
 
 console.log("");
